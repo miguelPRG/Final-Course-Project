@@ -10,6 +10,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Net;
 using Windows.UI.Xaml.Shapes;
+using System.IO;
+using Projeto.Classes;
+using System.Diagnostics;
 
 namespace ProjetoA
 {
@@ -30,6 +33,11 @@ namespace ProjetoA
 
             // Início do corpo HTML
             htmlBuilder.AppendLine("<body>");
+            // Título do relatório
+            htmlBuilder.AppendLine("<h1>Relatório de Análise de Código C#</h1>");
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
 
             // Verificar Sintaxe do código
             if (EncontrouErrosSintaxe(htmlBuilder, code))
@@ -37,9 +45,6 @@ namespace ProjetoA
                 htmlBuilder.Append("<h2>Não foi possivel efetuar uma análise do código, pois este apresenta erros de sintaxe!</h2></body>");
                 return htmlBuilder.ToString();
             }
-
-            // Título do relatório
-            htmlBuilder.AppendLine("<h1>Relatório de Análise de Código C#</h1>");
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
@@ -47,7 +52,8 @@ namespace ProjetoA
                 "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
                 "<li><a onclick=\"mostrarSecao('analise-excecoes')\">Análise de Exceções</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('repeticao-codigo')\">Análise de Repetição de Código</a></li>\r\n    " +
-                "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    ");
+                "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
+                "<l1><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</div>");
 
             // Adicione a chamada para o método AnalisarVulnerabilidade
@@ -62,16 +68,16 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>");
             htmlBuilder.AppendLine("</div>");
 
-            // Analise de Dependencias
+            //Analise de Dependencias
             htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
-            AnalizarDependencias(htmlBuilder,code);
+            //AnalizarDependencias(htmlBuilder,code);
             htmlBuilder.AppendLine("</div>");
 
             // Identificar práticas que afetam o desempenho
             htmlBuilder.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Identificação de Práticas de Mau Desempenho:</h2>");
-            IdentificarPraticasDesempenho(htmlBuilder, code);
+            //IdentificarPraticasDesempenho(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
 
             // Identificar Exceções no código:
@@ -91,7 +97,13 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2>Análise de Concorrência:</h2>");
             AnalisarConcorrencia(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
+            
 
+            stopwatch.Stop();
+
+            htmlBuilder.AppendLine("<div id=\"tempo\" style=\"display:none;\">");
+            htmlBuilder.AppendLine($"<h2>Tempo Total de Análise:{stopwatch.ElapsedMilliseconds} ms</h2>");
+            htmlBuilder.AppendLine("</div>");
 
             htmlBuilder.AppendLine($"<h2 id=\"codigo-analisado\">Código Analisado:</h2>");
             ExibirCodigo(code, htmlBuilder);
@@ -102,94 +114,41 @@ namespace ProjetoA
             return htmlBuilder.ToString();
         }
 
-        static string GetNodeContentWithoutComments(SyntaxNode node)
-        {
-            var nodeContent = node is SyntaxNode syntaxNode
-                ? (syntaxNode.ToFullString().Length > 100
-                    ? syntaxNode.ToFullString().Substring(0, 100) + "..."
-                    : syntaxNode.ToFullString())
-                : node.ToString();
-
-            // Remove apenas as partes comentadas do trecho de código
-            var withoutComments = RemoveCommentedCode(nodeContent);
-
-            return withoutComments;
-        }
-
-        static string RemoveCommentedCode(string code)
-        {
-            // Use uma expressão regular para remover as linhas começando com //
-            var uncommentedCode = Regex.Replace(code, @"^\s*\/\/.*(\r\n?|\n)", "", RegexOptions.Multiline);
-
-            return uncommentedCode;
-        }
-
         static void AnalisarVulnerabilidades(string code, StringBuilder htmlBuilder)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
-            var syntaxTree = CSharpSyntaxTree.ParseText(code);
 
+            // Analisar o código usando o visitor
+            var syntaxTree = CSharpSyntaxTree.ParseText(code);
             vulnerabilidadeVisitor.Visit(syntaxTree.GetRoot());
 
-            // Agrupa as vulnerabilidades por tipo
-            var vulnerabilidadesAgrupadas = vulnerabilidadeVisitor.GetVulnerabilidadesEncontradas()
-                .GroupBy(v => v.Tipo);
+            // Construir tabela HTML
+            htmlBuilder.AppendLine("<table>");
+            htmlBuilder.AppendLine("<tr><th>Tipo</th><th>Linha</th><th>Código</th><th>Nível de Risco</th></tr>");
 
-            if (!vulnerabilidadesAgrupadas.Any())
+            foreach (var vulnerabilidade in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
             {
-                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma vulnerabilidade.</h3>");
-            }
+                htmlBuilder.AppendLine("<tr>");
+                htmlBuilder.AppendLine($"<td>{vulnerabilidade.Tipo}</td>");
+                htmlBuilder.AppendLine($"<td>{vulnerabilidade.Codigo}</td>");
 
-            htmlBuilder.AppendLine("<div class=\"flex-container\">");
+                int linha = vulnerabilidade.Linha + 1;
 
-            foreach (var grupoVulnerabilidade in vulnerabilidadesAgrupadas)
-            {
-                var tipoVulnerabilidade = grupoVulnerabilidade.Key;
-
-                // Crie uma tabela para cada tipo de vulnerabilidade
-                htmlBuilder.AppendLine("<div class=\"vulnerabilidade-container\">");
-                htmlBuilder.AppendLine($"<h3>{tipoVulnerabilidade}</h3>");
-                htmlBuilder.AppendLine("<table>");
-                htmlBuilder.AppendLine("<tr><th>Node</th><th>Número da Linha</th><th>Nível de Risco</th></tr>");
-
-                // Adicione uma entrada na tabela para cada vulnerabilidade encontrada desse tipo
-                foreach (var vulnerabilidade in grupoVulnerabilidade)
-                {
-                    var node = vulnerabilidade.Node;
-                    var linha = vulnerabilidade.Linha;
-                    var risco = vulnerabilidade.NivelRisco;
-
-                    // Verifica se o node é uma SyntaxNode e aplica o limite de tamanho
-                    var nodeContent = GetNodeContentWithoutComments(node);
-
-                    string nivel = null;
-
-                    switch(risco)
-                    {
-                        case "Baixo": nivel = $"</td><td id=\"baixo\">{risco}</td></tr>";   break;
-                        case "Medio": nivel = $"</td><td id=\"medio\">{risco}</td></tr>";   break;                                                 break;
-                        case "Alto":  nivel = $"</td><td id=\"alto\">{risco}</td></tr>";   break;
-                    }
-
-
-                    // Adiciona um link de ancoragem no número da linha de código vinculado ao codigo-container
-                    htmlBuilder.Append($"<tr><td>{nodeContent}</td><td><a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a>{nivel}");
-                    
-                    /*switch(risco)
-                    {
-                        case "Baixo": htmlBuilder.Append($"</td><td id=\"#baixo\">{risco}</td></tr>");   break;
-                        case "Medio": htmlBuilder.Append($"</td><td id=\"#medio\">{risco}</td></tr>");   break;
-                        case "Alto": htmlBuilder.Append($"</td><td id=\"#alto\">{risco}</td></tr>");    break;
-
-                    }*/
+                htmlBuilder.AppendLine($"<td> <a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a></td>");
                 
+                switch(vulnerabilidade.NivelRisco)
+                {
+                    case NivelRisco.Baixo: htmlBuilder.AppendLine("<td id=\"baixo\">Baixo</td>"); break;
+                    case NivelRisco.Medio: htmlBuilder.AppendLine("<td id=\"medio\">Médio</td>"); break;
+                    case NivelRisco.Alto: htmlBuilder.AppendLine("<td id=\"alto\">Alto</td>"); break;
                 }
-
-                htmlBuilder.AppendLine("</table>");
-                htmlBuilder.AppendLine("</div>");
+ 
+                htmlBuilder.AppendLine("</tr>");
             }
 
-            htmlBuilder.AppendLine("</div>");
+            htmlBuilder.AppendLine("</table>");
+        
+            htmlBuilder.AppendLine($"<h3>Taxa de Precisão de Análise de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
         }
 
         static void ExibirCodigo(string code, StringBuilder htmlBuilder)
@@ -247,7 +206,7 @@ namespace ProjetoA
             
         }
 
-        static void AnalizarDependencias(StringBuilder htmlBuilder, string code)
+        /*static void AnalizarDependencias(StringBuilder htmlBuilder, string code)
         {
             // Obtém as dependências externas com seus excertos de código
             Dictionary<string, int> dependenciasExternas = ObterDependenciasExternasComExcertos(code);
@@ -262,33 +221,9 @@ namespace ProjetoA
             }
 
             htmlBuilder.AppendLine("</table>");
-        }
+        }*/
 
-        // Método para obter dependências externas com excertos de código
-        static Dictionary<string, int> ObterDependenciasExternasComExcertos(string code)
-        {
-            Dictionary<string, int> dependenciasExternas = new Dictionary<string, int>();
-
-            // Quebre o código em linhas para analisar os usings
-            string[] linhas = code.Split('\n', '\r');
-
-            for (int i = 0; i < linhas.Length; i++)
-            {
-                string linha = linhas[i];
-
-                // Verifique se a linha contém um using e extraia a dependência externa
-                if (linha.TrimStart().StartsWith("using "))
-                {
-                    // Adicione a dependência e o número da linha à lista
-                    dependenciasExternas[linha.Trim()] = i + 1;
-                }
-            }
-
-            return dependenciasExternas;
-        }
-
-
-        static void IdentificarPraticasDesempenho(StringBuilder htmlBuilder, string code)
+        /*static void IdentificarPraticasDesempenho(StringBuilder htmlBuilder, string code)
         {
             SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
             SyntaxNode root = tree.GetRoot();
@@ -330,9 +265,9 @@ namespace ProjetoA
                         ((MemberAccessExpressionSyntax)node).Name.Identifier.Text == "Cache");
 
             AdicionarRelatorio(htmlBuilder, "Uso incorreto de cache identificado", cacheUsageNodes, tree);
-        }
+        }*/
 
-        static void AdicionarRelatorio(StringBuilder relatorio, string mensagem, IEnumerable<SyntaxNode> nodes, SyntaxTree tree)
+        /*static void AdicionarRelatorio(StringBuilder relatorio, string mensagem, IEnumerable<SyntaxNode> nodes, SyntaxTree tree)
         {
             if (nodes != null && nodes.Any())
             {
@@ -374,8 +309,7 @@ namespace ProjetoA
                 relatorio.Append(tableContent.ToString());
                 relatorio.AppendLine("</table>");
             }
-        }
-
+        }*/
 
         static void AnalisarExcecoes(StringBuilder relatorio, string code)
         {
@@ -405,7 +339,7 @@ namespace ProjetoA
                 relatorio.Append("</td>");
 
                 // Linha do Código
-                relatorio.Append($"<td><a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})>{linha}</a></td>");
+                relatorio.Append($"<td><a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a></td>");
 
                 relatorio.Append("</tr>");
             }
@@ -472,7 +406,7 @@ namespace ProjetoA
                 var nome = entry.Key;
                 var linhas = entry.Value;
 
-                var linkLinhas = linhas.Select(linha => $"<a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})>{linha}</a>");
+                var linkLinhas = linhas.Select(linha => $"<a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a>");
 
                 htmlBuilder.AppendLine($"<tr><td>{nome}</td><td>{string.Join(", ", linkLinhas)}</td></tr>");
             }
@@ -521,7 +455,7 @@ namespace ProjetoA
                     htmlBuilder.AppendLine($"<td>{dependency.DependencyType}</td>");
 
                     // Coluna 2: Linha do Código
-                    htmlBuilder.AppendLine($"<td><a href=\"#linha-numero{dependency.LineNumber}\" onclick=\"destacarLinha({dependency.LineNumber})>{dependency.LineNumber}</a></td>");
+                    htmlBuilder.AppendLine($"<td><a href=\"#linha-numero{dependency.LineNumber}\" onclick=\"destacarLinha({dependency.LineNumber})\">{dependency.LineNumber}</a></td>");
 
                     // Fechar a linha na tabela
                     htmlBuilder.AppendLine("</tr>");

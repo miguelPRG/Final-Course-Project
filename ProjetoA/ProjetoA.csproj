@@ -123,7 +123,7 @@
     <Compile Include="Classes\ComplexidadeCiclomatica.cs" />
     <Compile Include="Classes\Concurrency.cs" />
     <Compile Include="Classes\Padroes.cs" />
-    <Compile Include="Classes\VulnerabilityVisitator.cs" />
+    <Compile Include="Classes\VulnerabilidadeVisitor.cs" />
     <Compile Include="MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
@@ -157,6 +157,9 @@
   <ItemGroup>
     <PackageReference Include="DinkToPdf">
       <Version>1.0.8</Version>
+    </PackageReference>
+    <PackageReference Include="FuzzySharp">
+      <Version>2.0.2</Version>
     </PackageReference>
     <PackageReference Include="HtmlToPdfConverter.Core">
       <Version>2.0.0</Version>
