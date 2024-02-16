@@ -22,6 +22,7 @@ namespace ProjetoA
         {
             var htmlBuilder = new StringBuilder();
 
+           
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
             htmlBuilder.AppendLine("<html lang=\"pt\">");
@@ -53,7 +54,7 @@ namespace ProjetoA
                 "<li><a onclick=\"mostrarSecao('analise-excecoes')\">Análise de Exceções</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('repeticao-codigo')\">Análise de Repetição de Código</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
-                "<l1><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
+                "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</div>");
 
             // Adicione a chamada para o método AnalisarVulnerabilidade
@@ -206,22 +207,27 @@ namespace ProjetoA
             
         }
 
-        /*static void AnalizarDependencias(StringBuilder htmlBuilder, string code)
+        static void AnalizarDependencias(StringBuilder htmlBuilder, string code)
         {
-            // Obtém as dependências externas com seus excertos de código
-            Dictionary<string, int> dependenciasExternas = ObterDependenciasExternasComExcertos(code);
+            // Expressão regular para encontrar os usings
+            Regex usingRegex = new Regex(@"\busing\s+([^\s;]+)\s*;");
 
-            // Criação da tabela no HTML
-            htmlBuilder.AppendLine("<table>");
-            htmlBuilder.AppendLine("<tr><th>Excerto de Código</th><th>Número da Linha</th></tr>");
+            // Dividir o código em linhas
+            string[] lines = code.Split('\n');
 
-            foreach (var dependencia in dependenciasExternas.Keys)
+            htmlBuilder.Append("<table><tr><th>Excerto do Código</th><th>Linha</th></tr>");
+
+            for (int i = 0; i < lines.Length; i++)
             {
-                htmlBuilder.AppendLine($"<tr><td>{dependencia}</td><td> <a href=\"#linha-numero{dependenciasExternas[dependencia]}\" onclick=\"destacarLinha({dependenciasExternas[dependencia]})\">{dependenciasExternas[dependencia]}</a></td></tr>");
+                Match match = usingRegex.Match(lines[i]);
+                if (match.Success)
+                {
+                    htmlBuilder.Append($"<tr><td>{lines[i].Trim()}</td><td> <a href=\"#linha-numero{i+1}\" onclick=\"destacarLinha({i+1})\">{i+1}</a></td></tr>");
+                }
             }
 
-            htmlBuilder.AppendLine("</table>");
-        }*/
+            htmlBuilder.Append("</table>");
+        }
 
         /*static void IdentificarPraticasDesempenho(StringBuilder htmlBuilder, string code)
         {
