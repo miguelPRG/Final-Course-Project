@@ -39,13 +39,13 @@ namespace Projeto.Classes
         Baixo
     }
 
-    public class VulnerabilidadeVisitor : CSharpSyntaxWalker
+    public class VulnerabilidadeVisitor
     {
         //Lista de vulnerabilidades encontradas
         private List<(string Tipo, int Linha, string Codigo, NivelRisco NivelRisco)> vulnerabilidadesEncontradas;
 
         //Diciónário utilizado para testar as vulnerabilidades encontradas
-        Dictionary<string, Regex[][]> dados_teste;
+        Dictionary<string, string[][]> dados_teste;
 
         //Lista que guarda palavras reservadas para cada tipo de vulnerabilidade
         Dictionary<string, Dictionary<string, int>> padroes;
@@ -56,7 +56,7 @@ namespace Projeto.Classes
         public VulnerabilidadeVisitor()
         {
             vulnerabilidadesEncontradas = new List<(string, int, string, NivelRisco)>();
-            dados_teste = new Dictionary<string, Regex[][]>();
+            dados_teste = new Dictionary<string, string[][]>();
             padroes = new Dictionary<string, Dictionary<string, int>>();
 
             //SQL
@@ -71,36 +71,36 @@ namespace Projeto.Classes
                 { "drop",6},
             };
 
-            dados_teste["Possível Injeção de SQL"] = new Regex[3][];
-            dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possível Injeção de SQL"] = new string[3][];
+            dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Alto] = new string[]
             {
-               new Regex(@"select\s+\*\s+from\s+tabela\s+where\s+coluna\s+=\s+'\{userinput\}'", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-               new Regex(@"insert\s+into\s+users\s+\(username\)\s+values\s+\('\s*\+\s+userinput\s+\+\s+'\)", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-               new Regex(@"update\s+users\s+set\s+password\s+=\s+'newpassword'\s+where\s+userid\s+=\s+\+\s+userinput", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-               new Regex(@"delete\s+from\s+tabela\s+where\s+id\s+=\s+\+\s+userInput", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-               new Regex(@"create\s+table\s+\+\s+userinput\s+\(id\s+int,\s+name\s+varchar\(255\),\s+email\s+varchar\(255\)\)", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-               new Regex(@"alter\s+table\s+\{userinput\}\s+drop\s+column\s+\{columname\}", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-               new Regex(@"drop\s+table\s+users;\s+select\s+\*\s+from\s+sensitive_information", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+               @"select\s+[\w\s,]+\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w\s']+",
+               @"insert\s+(ignore\s+)?into\s+[\w]+\s*(\(.*?\))?\s*values\s*(\(.*?\))?\s*(select|(\([^)]+\)))?\s*;",
+               @"update\s+[\w]+\s+set\s+([\w]+\s*=\s*[\w]+(,\s*)?)+\s*(where\s+[\w]+\s*(=|>|<|>=|<=)\s*([\w]+|\(.+\))\s*)*;",
+               @"delete\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w]+(\s+or\s+[\w]+\s*=\s*[\w]+)+",
+               @"create\s+(table|index|view|procedure|function)\s+[\w]+\s*\((.|\n)*\)\s*(with\s*(nocount|grant)|primary\s+key)",
+               @"alter\s+table\s+[\w]+\s+alter\s+column\s+[\w]+\s+set\s+(datatype|constraint)",
+               @"\bdrop\s+database\s+\w+\b",
             };
-            dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex(@"select\s+\*\s+from\s+tabela\s+where\s+coluna\s+=\s+'\s*\+\s+inputmediumrisk\s+\+\s*", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"insert\s+into\s+users\s+\(username,\s+password\)\s+values\s+\('\s*\+\s+username\s+\+\s+'", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"update\s+users\s+set\s+password\s+=\s+'newpassword'\s+where\s+username\s+=\s+'\s*\+\s+username\s+\+\s*", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"delete\s+from\s+tabela\s+where\s+id\s+=\s+\+\s+userinput\s+\;", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"create\s+table\s+\+\s+tablename\s+\(id\s+int,\s+name\s+varchar\(255\),\s+email\s+varchar\(255\)\)", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"alter\s+table\s+\+\s+tablename\s+\+column\s+\+\s+columnname\s+varchar\(100\)", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"drop\s+table\s+users;\s+\-\-", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"select\s+[\w\s,]+\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w]+",
+                @"insert\s+into\s+[\w]+\s*\(([\w\s,]+)\)\s*values\s*\(([\w\s,']+)\)\s*on\s+duplicate\s+key\s+update\s+[\w\s=,]+\s*;",
+                @"update\s+[\w]+\s+set\s+([\w]+\s*=\s*[\w]+(,\s*)?)+\s*where\s+[\w]+\s*=\s*[\w]+\s*;",
+                @"delete\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w]+",
+                @"create\s+(table|index|view|procedure|function)\s+[\w]+\s*\((.|\n)*\)",
+                @"alter\s+table\s+[\w]+\s+(add|drop)\s+column\s+[\w]+",
+                @"\bdrop\s+(?:procedure|function)\s+\w+\b",
             };
-            dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex(@"select\s+\*\s+from\s+tabela", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"insert\s+into\s+users\s+\(username,\s+password\)\s+values\s+\('johndoe',\s+'password123'\)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"update\s+table\s+set\s+column\s+=\s+@value\s+where\s+id\s+=\s+@id", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"delete\s+from\s+tabela\s+where\s+id\s+=\s+1;", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"create\s+table\s+users\s+\(id\s+int,\s+name\s+varchar\(255\),\s+email\s+varchar\(255\)\)", RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"alter\s+table\s+user\s+add\s+column\s+age\s+int",  RegexOptions.IgnoreCase| RegexOptions.Singleline),
-                new Regex(@"drop\s+table\s+users", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                @"select\s+[\w\s,]+\s+from\s+[\w]+",
+                @"insert\s+into\s+[\w]+\s*\(([\w\s,]+)\)\s*values\s*\(([\w\s,']+)\)\s*;",
+                @"update\s+[\w]+\s+set\s+[\w]+\s*=\s*[\w]+\s*;",
+                @"delete\s+from\s+[\w]+",
+                @"create\s+(table|index|view|procedure|function)\s+[\w]+",
+                @"alter\s+table\s+[\w]+\s+rename\s+to\s+[\w]+|alter\s+table\s+[\w]+\s+rename\s+column\s+[\w]+\s+to\s+[\w]+",
+                @"\bdrop\s+(?:table|index)\s+\w+\b", 
             };
 
             //Client XSS
@@ -113,30 +113,30 @@ namespace Projeto.Classes
                 // Adicione outras palavras reservadas conforme necessário
             };
 
-            dados_teste["Possível Cliente XSS"] = new Regex[3][];
-            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possível Cliente XSS"] = new string[3][];
+            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new string[]
         {
             // Alto risco: entrada de usuário inserida diretamente em contexto perigoso
-            new Regex(@"<\s*script.*?>.*?<\s*/\s*script\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"<img[^>]+?(?:(?:\s+on\w+\s*=\s*(?:\""[^\""]*?\""|'[^']*?'|[^>]+?))|(?:(?:\s*src\s*=)|(?:\s*data-[\w-]+\s*=)|(?:\s*action\s*=))).*?>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"\<iframe\>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"/<object\s+.*\s+data=[\""\'].*[\""\'].*>\s*<\/object>/", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            @"<\s*script.*?>.*?<\s*/\s*script\s*>",
+            @"<img[^>]+?(?:(?:\s+on\w+\s*=\s*(?:\""[^\""]*?\""|'[^']*?'|[^>]+?))|(?:(?:\s*src\s*=)|(?:\s*data-[\w-]+\s*=)|(?:\s*action\s*=))).*?>",
+            @"\<iframe\>",
+            @"/<object\s+.*\s+data=[\""\'].*[\""\'].*>\s*<\/object>/",
         };
-            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new string[]
         {
             // Médio risco: entrada de usuário com filtragem inadequada
-            new Regex(@"<\s*script[^>]*>(.*?)<\s*/\s*script\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"<img.*?(?:src=|on\w+\s*=|style\s*=|action=|data-[\w-]+\s*=).*?>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"\<!--.*\<iframe\>.*--\>|\b\<iframe\s*\>|\b\<iframe\>\s*.*\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"/<object[^>]*>.*<\/object>/", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            @"<\s*script[^>]*>(.*?)<\s*/\s*script\s*>",
+            @"<img.*?(?:src=|on\w+\s*=|style\s*=|action=|data-[\w-]+\s*=).*?>",
+            @"\<!--.*\<iframe\>.*--\>|\b\<iframe\s*\>|\b\<iframe\>\s*.*\b",
+            @"/<object[^>]*>.*<\/object>/",
         };
-            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
         {
             // Baixo risco: entrada direta de usuário no código
-            new Regex(@"\b(?:<\s*script\s*>)\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"\b(?:<\s*img\s*>)\b",RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex(@"/<iframe[^>]*>.*<\/iframe>/", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-            new Regex("/<object[^>]*>.*<\\/object>/", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            @"\b(?:<\s*script\s*>)\b",
+            @"\b(?:<\s*img\s*>)\b",
+            @"/<iframe[^>]*>.*<\/iframe>/",
+            "/<object[^>]*>.*<\\/object>/",
         };
 
             //Hardcoded Password
@@ -167,18 +167,18 @@ namespace Projeto.Classes
             // Adicione outras palavras reservadas conforme necessário
             };
 
-            dados_teste["Possível Target Blank"] = new Regex[3][];
-            dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possível Target Blank"] = new string[3][];
+            dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex("<a\\s+(?=\\s)(?=(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:target\\s*=\\s*[\"']_blank[\"']))(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:rel\\s*=\\s*[\"'](?:noopener|noreferrer)[\"'])?(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:href\\s*=\\s*[\"'](?!javascript:|data:)[^\"']*[\"'])(?:[^>\"']|\"[^\"]*\"|'[^']*')*?>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                "<a\\s+(?=\\s)(?=(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:target\\s*=\\s*[\"']_blank[\"']))(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:rel\\s*=\\s*[\"'](?:noopener|noreferrer)[\"'])?(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:href\\s*=\\s*[\"'](?!javascript:|data:)[^\"']*[\"'])(?:[^>\"']|\"[^\"]*\"|'[^']*')*?>",
             };
-            dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex(@"target\s*=\s*[""']_blank[""'](?!.*\brel\s*=\s*[""'](?:noopener|noreferrer)[""'])", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"target\s*=\s*[""']_blank[""'](?!.*\brel\s*=\s*[""'](?:noopener|noreferrer)[""'])",
             };
-            dados_teste["Possível Target Blank"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possível Target Blank"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex(@"target\s*=\s*[""']_blank[""']", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"target\s*=\s*[""']_blank[""']",
             };
 
             //Cookies
@@ -195,36 +195,36 @@ namespace Projeto.Classes
             // Adicione outras palavras reservadas conforme necessário
         };
 
-            dados_teste["Possiveis Cookies não Protegidos"] = new Regex[3][];
-            dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possiveis Cookies não Protegidos"] = new string[3][];
+            dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex("\\bexpires\\s*=\\s*(?:\\'[^\\']*\\'|\\\"[^\\\"]*\\\"|\\d+)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("\\bmax-age\\s*=\\s*\\d+\\s*;\\s*httponly\\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(?i)\bhttp[s]?\b.*\b(domain)\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bcookies?\b\s*(?=.*\bpath\b).*;(?:(?!\bsecure\b).)*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"Set-Cookie: (?!.*;\s*Secure).*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bnew\s+HttpCookie\s*\(.+\)\s*\{\s*HttpOnly\s*=\s*false\s*(,\s*Secure\s*=\s*false)?", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bHttpContext\s*\.\s*Current\s*\.\s*Request\s*\.\s*Cookies\s*\.\s*", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                "\\bexpires\\s*=\\s*(?:\\'[^\\']*\\'|\\\"[^\\\"]*\\\"|\\d+)",
+                "\\bmax-age\\s*=\\s*\\d+\\s*;\\s*httponly\\b",
+                @"(?i)\bhttp[s]?\b.*\b(domain)\b",
+                @"\bcookies?\b\s*(?=.*\bpath\b).*;(?:(?!\bsecure\b).)*$",
+                @"Set-Cookie: (?!.*;\s*Secure).*$",
+                @"\bnew\s+HttpCookie\s*\(.+\)\s*\{\s*HttpOnly\s*=\s*false\s*(,\s*Secure\s*=\s*false)?",
+                @"\bHttpContext\s*\.\s*Current\s*\.\s*Request\s*\.\s*Cookies\s*\.\s*", 
             };
-            dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex("\\bexpires\\s*=\\s*(?:\\'[^\\']*\\'|\\\"[^\\\"]*\\\")", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("\\bmax-age\\s*=\\s*\\d+\\s*;\\s*secure\\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(?i)\bcookie\s*=\s*[^;]*(domain)[^;]*", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("\\bcookies?\\b\\s*(?=.*\\bpath\\b).*(?!;secure).*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"Set-Cookie: (?=.*;\s*Secure)(?!.*;\s*HttpOnly).*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bnew\s+HttpCookie\s*\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bHttpContext\s*\.\s*Current\s*\.\s*Response\s*\.\s*Cookies\s*\.\s*", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                "\\bexpires\\s*=\\s*(?:\\'[^\\']*\\'|\\\"[^\\\"]*\\\")",
+                "\\bmax-age\\s*=\\s*\\d+\\s*;\\s*secure\\b",
+                @"(?i)\bcookie\s*=\s*[^;]*(domain)[^;]*",
+                "\\bcookies?\\b\\s*(?=.*\\bpath\\b).*(?!;secure).*$",
+                @"Set-Cookie: (?=.*;\s*Secure)(?!.*;\s*HttpOnly).*$",
+                @"\bnew\s+HttpCookie\s*\(",
+                @"\bHttpContext\s*\.\s*Current\s*\.\s*Response\s*\.\s*Cookies\s*\.\s*", 
             };
-            dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex("\\bexpires\\s*=\\s*", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("\\bmax-age\\s*=\\s*\\d+\\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(?i)\bdomain\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bcookies?\b\s*(?:(?!\bpath\b).)*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"Set-Cookie: (?!.*;\\s*Secure)(?!.*;\\s*HttpOnly).*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bhttpcookie\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bHttpContext\s*\[\s*[""']Response[""']\s*\]\s*\.\s*Cookies\s*\[\s*", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                "\\bexpires\\s*=\\s*",
+                "\\bmax-age\\s*=\\s*\\d+\\b",
+                @"(?i)\bdomain\b",
+                @"\bcookies?\b\s*(?:(?!\bpath\b).)*$",
+                @"Set-Cookie: (?!.*;\\s*Secure)(?!.*;\\s*HttpOnly).*$",
+                @"\bhttpcookie\b",
+                @"\bHttpContext\s*\[\s*[""']Response[""']\s*\]\s*\.\s*Cookies\s*\[\s*", 
             };
 
             //CSP Header
@@ -241,39 +241,39 @@ namespace Projeto.Classes
             // Adicione outras palavras reservadas conforme necessário
         };
 
-            dados_teste["Possivel CSP Header"] = new Regex[3][];
-            dados_teste["Possivel CSP Header"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possivel CSP Header"] = new string[3][];
+            dados_teste["Possivel CSP Header"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex(@"Content-Security-Policy:\s*script-src\s*'none'\s*;", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"base-uri\s*:\s*[""'][^""'\s;]+['""]\s*\+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"form-action:\s*['""]?(?!'self')(?!https?:\/\/example\.com)['""]?.*", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(frame-ancestors\s*:\s*)http://|https://|'unsafe-inline'", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bplugin-types\s*=\s*""[^""]*(javascript:|data:|blob:)[^""]*""", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"Content-Security-Policy:\s*(?:.|[])*\breport-uri\s*:", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"Content-Security-Policy\s*:\s*(?:[^;""'`\\]|\\.)*\s*upgrade-insecure-requests\s*(?:[^;""'`\\]|\\.)*", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(?i)(Response\s*\.Write\(.*block-all-mixed-content.*\))", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                @"Content-Security-Policy:\s*script-src\s*'none'\s*;",
+                @"base-uri\s*:\s*[""'][^""'\s;]+['""]\s*\+",
+                @"form-action:\s*['""]?(?!'self')(?!https?:\/\/example\.com)['""]?.*",
+                @"(frame-ancestors\s*:\s*)http://|https://|'unsafe-inline'",
+                @"\bplugin-types\s*=\s*""[^""]*(javascript:|data:|blob:)[^""]*""",
+                //@"Content-Security-Policy:\s*(?:.|[])*\breport-uri\s*:",
+                @"Content-Security-Policy\s*:\s*(?:[^;""'`\\]|\\.)*\s*upgrade-insecure-requests\s*(?:[^;""'`\\]|\\.)*",
+                @"(?i)(Response\s*\.Write\(.*block-all-mixed-content.*\))", 
             };
-            dados_teste["Possivel CSP Header"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possivel CSP Header"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex(@"Content-Security-Policy:\s*script-src\s*'self'\s*'unsafe-inline'\s*;", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"base-uri\s*:\s*[^""'\s;]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"form-action:\s*['""]?https?:\/\/[^'""]+['""]?", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"frame-ancestors\s*:\s*'self'\s*https://subdominio\.exemplo\.com", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bplugin-types\s*=\s*""[^""]*""", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"^Content-Security-Policy:\s*(?:.|[])*report-uri\s*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"Content-Security-Policy\s*:\s*[^;]*\s*upgrade-insecure-requests[^;]*", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(?i)(Response\s*\.Headers\s*\[""Content-Security-Policy""\]\s*=\s*\"".*block-all-mixed-content.*\""\s*;)", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                @"Content-Security-Policy:\s*script-src\s*'self'\s*'unsafe-inline'\s*;",
+                @"base-uri\s*:\s*[^""'\s;]+",
+                @"form-action:\s*['""]?https?:\/\/[^'""]+['""]?",
+                @"frame-ancestors\s*:\s*'self'\s*https://subdominio\.exemplo\.com",
+                @"\bplugin-types\s*=\s*""[^""]*""",
+                //@"^Content-Security-Policy:\s*(?:.|[])*report-uri\s*$",
+                @"Content-Security-Policy\s*:\s*[^;]*\s*upgrade-insecure-requests[^;]*",
+                @"(?i)(Response\s*\.Headers\s*\[""Content-Security-Policy""\]\s*=\s*\"".*block-all-mixed-content.*\""\s*;)", 
             };
-            dados_teste["Possivel CSP Header"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possivel CSP Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex(@"Content-Security-Policy:\s*script-src\s*'self'\s*;", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"base-uri\s*=\s*[""']?\s*[^""'\s;]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"form-action:\s*'self'", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(?i)frame-ancestors\s*:\s*'[^']*'", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\bplugin-types\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"^Content-Security-Policy:\s*report-uri\s*$", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"Content-Security-Policy\s*:\s*upgrade-insecure-requests", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@".*CSP.*block-all-mixed-content.*", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                @"Content-Security-Policy:\s*script-src\s*'self'\s*;",
+                @"base-uri\s*=\s*[""']?\s*[^""'\s;]+",
+                @"form-action:\s*'self'",
+                @"(?i)frame-ancestors\s*:\s*'[^']*'",
+                @"\bplugin-types\b",
+                //@"^Content-Security-Policy:\s*report-uri\s*$",
+                @"Content-Security-Policy\s*:\s*upgrade-insecure-requests",
+                @".*CSP.*block-all-mixed-content.*", 
             };
 
             // Iframe 
@@ -284,18 +284,18 @@ namespace Projeto.Classes
              // Adicione outras palavras reservadas conforme necessário
          };
 
-            dados_teste["Possivel Uso de Iframe sem SandBox"] = new Regex[3][];
-            dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possivel Uso de Iframe sem SandBox"] = new string[3][];
+            dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex(@"\<iframe(?![^>]*\ssandbox\s)(?![^>]*\sallow-scripts\s)(?![^>]*\sallow-same-origin\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"\<iframe(?![^>]*\ssandbox\s)(?![^>]*\sallow-scripts\s)(?![^>]*\sallow-same-origin\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>",
             };
-            dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex(@"\<iframe(?![^>]*\ssandbox\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"\<iframe(?![^>]*\ssandbox\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>",
             };
-            dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex(@"\<iframe(\s+.*?)*\>(.|\s)*?\<\/iframe\>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"\<iframe(\s+.*?)*\>(.|\s)*?\<\/iframe\>",
             };
 
             // JQuery
@@ -308,27 +308,27 @@ namespace Projeto.Classes
                  // Adicione outras palavras reservadas conforme necessário
              };
 
-            dados_teste["Possivel JQuery"] = new Regex[3][];
-            dados_teste["Possivel JQuery"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possivel JQuery"] = new string[3][];
+            dados_teste["Possivel JQuery"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex(@"\bdocument\s*\.\s*(write|writeln|innerHTML|outerHTML|eval)\s*\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\$\(.+\)\.(click|change|mouseover|keydown)\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()\s*\([^']*['""].*['""]\s*\+\s*[^']*['""].*['""]\s*\+\s*[^']*['""].*['""]\)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\.post\s*\(\s*['""][^'""]*['""]\s*,\s*{\s*['""][^'""]*['""]\s*:\s*['""][^'""]*['""]\s*}\s*\)", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                @"\bdocument\s*\.\s*(write|writeln|innerHTML|outerHTML|eval)\s*\(",
+                @"\$\(.+\)\.(click|change|mouseover|keydown)\(",
+                @"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()\s*\([^']*['""].*['""]\s*\+\s*[^']*['""].*['""]\s*\+\s*[^']*['""].*['""]\)",
+                @"\.post\s*\(\s*['""][^'""]*['""]\s*,\s*{\s*['""][^'""]*['""]\s*:\s*['""][^'""]*['""]\s*}\s*\)", 
             };
-            dados_teste["Possivel JQuery"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possivel JQuery"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex(@"\bdocument\s*\.\s*\w+\s*\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\$\(.+\)\.(append|prepend|before|after)\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()\s*\([^']*'[^']*'\s*,\s*[^']*'[^']*'\s*,\s*[^']*'[^']*'\)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\.post\s*\(\s*['""][^'""]*['""]\s*,\s*['""][^'""]*['""]\s*\)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"\bdocument\s*\.\s*\w+\s*\(",
+                @"\$\(.+\)\.(append|prepend|before|after)\(",
+                @"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()\s*\([^']*'[^']*'\s*,\s*[^']*'[^']*'\s*,\s*[^']*'[^']*'\)",
+                @"\.post\s*\(\s*['""][^'""]*['""]\s*,\s*['""][^'""]*['""]\s*\)",
             };
-            dados_teste["Possivel JQuery"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possivel JQuery"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex(@"\bdocument\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\$\(\s*'[^']*'\s*\)\.function\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\.post\s*\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"\bdocument\b",
+                @"\$\(\s*'[^']*'\s*\)\.function\(",
+                @"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()",
+                @"\.post\s*\(",
             };
 
             // Domain
@@ -359,34 +359,34 @@ namespace Projeto.Classes
                  // Adicione outras palavras reservadas conforme necessário
             };
 
-            dados_teste["Possivel Redirecionamento de Domínio"] = new Regex[3][];
-            dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possivel Redirecionamento de Domínio"] = new string[3][];
+            dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex(@"window\.location\s*=\s*['""][^'""]+['""];", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"document\.location\s*=\s*(Request\.UrlReferrer|Request\.Url|Request\.UserAgent|Request\.ServerVariables\[""HTTP_REFERER""\]|Request\.ServerVariables\[""HTTP_HOST""\]|Request\.ServerVariables\[""HTTP_USER_AGENT""\]|[^;]+);"
-                , RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(document\.url\s*\(\s*[""']\s*(http|https):\/\/)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\blocation\.href\s*=\s*Request\.QueryString\b",RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"(if|while|for)\s*\([^)]*\)\s*\{(?:[^{}]|(?R))*\blocation\.replace\s*\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"\blocation\.assign\s*\(\s*[""'][^""']*?(?:(?:https?:\/\/)?(?:www\.)?(?:[^\/]+\.)+(?:com|org|net|gov|mil|biz|info|io|edu|tv|co|uk|ca|de|fr|au|jp|ru|nl|es|it|se|no|ch|dk)\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"window\.location\s*=\s*['""][^'""]+['""];",
+                @"document\.location\s*=\s*(Request\.UrlReferrer|Request\.Url|Request\.UserAgent|Request\.ServerVariables\[""HTTP_REFERER""\]|Request\.ServerVariables\[""HTTP_HOST""\]|Request\.ServerVariables\[""HTTP_USER_AGENT""\]|[^;]+);"
+                ,
+                @"(document\.url\s*\(\s*[""']\s*(http|https):\/\/)",
+                @"\blocation\.href\s*=\s*Request\.QueryString\b",
+                //@"(if|while|for)\s*\([^)]*\)\s*\{(?:[^{}]|(?R))*\blocation\.replace\s*\(",
+                //@"\blocation\.assign\s*\(\s*[""'][^""']*?(?:(?:https?:\/\/)?(?:www\.)?(?:[^\/]+\.)+(?:com|org|net|gov|mil|biz|info|io|edu|tv|co|uk|ca|de|fr|au|jp|ru|nl|es|it|se|no|ch|dk)\b",
             };
-            dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex(@"window\.location\s*=\s*\([^)]*\)\s*;", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"document\.location\s*=\s*(Request\[""[^""]+""\]|Request\.Query[String|Url]|Request\.Params\[""[^""]+""\]|Server\.UrlDecode\(""[^""]+""\)|Server\.HtmlDecode\(""[^""]+""\)|[^;]+);", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"(document\.url\s*\(\s*[""'])", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\blocation\.href\s*=\s*"".*""\s*;", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"function\s+\w+\s*\(\s*\)\s*\{(?:[^{}]|(?R))*\blocation\.replace\s*\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"\blocation\.assign\s*\(\s*[""'][^""']*?\.com\b", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                @"window\.location\s*=\s*\([^)]*\)\s*;",
+                @"document\.location\s*=\s*(Request\[""[^""]+""\]|Request\.Query[String|Url]|Request\.Params\[""[^""]+""\]|Server\.UrlDecode\(""[^""]+""\)|Server\.HtmlDecode\(""[^""]+""\)|[^;]+);",
+                @"(document\.url\s*\(\s*[""'])",
+                @"\blocation\.href\s*=\s*"".*""\s*;",
+                //@"function\s+\w+\s*\(\s*\)\s*\{(?:[^{}]|(?R))*\blocation\.replace\s*\(",
+                //@"\blocation\.assign\s*\(\s*[""'][^""']*?\.com\b", 
             };
-            dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex(@"window\.location\s*=\s*(document|window)\.location;", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"document\.location\s*=\s*(""[^""]+""|'[^']+'|[^;]+);", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"document\.url", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"\blocation\.href\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"\blocation\.replace\s*\(", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                //new Regex(@"\blocation\.assign\s*\(\s*[""'](?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                @"window\.location\s*=\s*(document|window)\.location;",
+                @"document\.location\s*=\s*(""[^""]+""|'[^']+'|[^;]+);",
+                @"document\.url",
+                @"\blocation\.href\b",
+                //@"\blocation\.replace\s*\(",
+                //@"\blocation\.assign\s*\(\s*[""'](?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b",
             };
 
             //Chaves de Criptografia
@@ -440,24 +440,24 @@ namespace Projeto.Classes
              // Adicione outros caminhos e diretórios conforme necessário
          };
 
-            dados_teste["Possivel Caminho Transversal"] = new Regex[3][];
-            dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possivel Caminho Transversal"] = new string[3][];
+            dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex("c:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("d:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("e:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                "c:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)",
+                "d:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)",
+                "e:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)",
             };
-            dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex("c:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("d:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("e:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                "c:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+",
+                "d:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+",
+                "e:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+",
             };
-            dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex("c:\\\\[^\\\\]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("d:\\\\[^\\\\]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("e:\\\\[^\\\\]+", RegexOptions.IgnoreCase | RegexOptions.Singleline),
+                "c:\\\\[^\\\\]+",
+                "d:\\\\[^\\\\]+",
+                "e:\\\\[^\\\\]+",
             };
 
             // HSTS Header
@@ -469,24 +469,24 @@ namespace Projeto.Classes
                  // Adicione outras palavras reservadas conforme necessário
             };
 
-            dados_teste["Possivel HSTS Header"] = new Regex[3][];
-            dados_teste["Possivel HSTS Header"][(int)NivelRisco.Alto] = new Regex[]
+            dados_teste["Possivel HSTS Header"] = new string[3][];
+            dados_teste["Possivel HSTS Header"][(int)NivelRisco.Alto] = new string[]
             {
-                new Regex("(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')(max-age\\s*=\\s*\\d{1,3}(|s)\\s*(,|$))*(?!\\s*preload)\\s*(\"|')\\);", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"max-age\s*=\s*\d{1,5}\s*;\s*includeSubDomains", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("\\bHSTS\\b\\s*\\(\\s*\".*preload.*\"\\s*\\)", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                "(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')(max-age\\s*=\\s*\\d{1,3}(|s)\\s*(,|$))*(?!\\s*preload)\\s*(\"|')\\);",
+                @"max-age\s*=\s*\d{1,5}\s*;\s*includeSubDomains",
+                "\\bHSTS\\b\\s*\\(\\s*\".*preload.*\"\\s*\\)", 
             };
-            dados_teste["Possivel HSTS Header"][(int)NivelRisco.Medio] = new Regex[]
+            dados_teste["Possivel HSTS Header"][(int)NivelRisco.Medio] = new string[]
             {
-                new Regex("(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')max-age=.*(\"|')(?!\\s*,\\s*\"includeSubDomains)(\"|')\\);", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"max-age\s*=\s*\d{1,5}", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("\\bHSTS\\b\\s*=\\s*\".*preload.*\"", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                "(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')max-age=.*(\"|')(?!\\s*,\\s*\"includeSubDomains)(\"|')\\);",
+                @"max-age\s*=\s*\d{1,5}",
+                "\\bHSTS\\b\\s*=\\s*\".*preload.*\"", 
             };
-            dados_teste["Possivel HSTS Header"][(int)NivelRisco.Baixo] = new Regex[]
+            dados_teste["Possivel HSTS Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                new Regex("(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')max-age=.*(\"|')\\);", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex(@"max-age\s*=\s*\d", RegexOptions.IgnoreCase | RegexOptions.Singleline),
-                new Regex("\\bHSTS\\b.*preload\\b", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+                "(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')max-age=.*(\"|')\\);",
+                @"max-age\s*=\s*\d",
+                "\\bHSTS\\b.*preload\\b", 
             };
 
             //CSRF
@@ -557,21 +557,16 @@ namespace Projeto.Classes
 
 
 
-        public override void VisitLiteralExpression(LiteralExpressionSyntax node) /*Tempo de Compexidade: O(30n) <=> O(n) 
-                                                                                   *onde n é o número de nós e 30= 10 *3 
-                                                                                    */
+        public void Visit(LinkedList<string> code) /*Tempo de Compexidade: O(30n) <=> O(n) 
+                                                                                   *onde n é o número de nós e 30= 10 *3                                                                           */
         {
-            string code_part = node.ToString();
 
-            // Dictionary<string,Dictionary<string, int>>padroes
-            // Dictionary<string, string[]> dados_teste;
-            foreach (var nome in padroes.Keys)
+            
+            /*foreach (var nome in padroes.Keys)
             {
                 AnalisarVulnerabilidade(code_part, node, padroes[nome], nome);
-            }
+            }*/
 
-
-            base.VisitLiteralExpression(node);
         }
 
 
@@ -581,9 +576,9 @@ namespace Projeto.Classes
             {
                 //Este array guarda a precisão dos dados de teste correspondentes à vulnerabilidade encontrada para diferentes niveis de risco
                 double[] precisao = {
-                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Alto][value]),
-                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Medio][value]),
-                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Baixo][value])
+    //                CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Alto][value]),
+  //                  CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Medio][value]),
+//                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Baixo][value])
                 };
 
                 //Qual o nivel de risco mais provavel da vulnerabilidade encontrada

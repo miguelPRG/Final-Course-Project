@@ -13,6 +13,7 @@ using Windows.UI.Xaml.Shapes;
 using System.IO;
 using Projeto.Classes;
 using System.Diagnostics;
+using Windows.UI.Xaml.Documents;
 
 namespace ProjetoA
 {
@@ -21,7 +22,7 @@ namespace ProjetoA
         public static string GerarRelatorioHTML(string code)
         {
             var htmlBuilder = new StringBuilder();
-
+            code = code.Trim();
 
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -46,6 +47,9 @@ namespace ProjetoA
                 htmlBuilder.Append("<h2>Não foi possivel efetuar uma análise do código, pois este apresenta erros de sintaxe!</h2></body>");
                 return htmlBuilder.ToString();
             }
+
+            var lista = DividirEmLinhas(code);
+
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
@@ -62,7 +66,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
             AnalisarVulnerabilidades(code, htmlBuilder);
             htmlBuilder.AppendLine("</div>");
-
+    /*
             // Realiza a análise de complexidade ciclomática
             int complexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
             htmlBuilder.AppendLine("<div id=\"complexidade-ciclomatica\" style=\"display: none;\">");
@@ -99,7 +103,7 @@ namespace ProjetoA
             AnalisarConcorrencia(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
 
-
+    */
             stopwatch.Stop();
 
             htmlBuilder.AppendLine("<div id=\"tempo\" style=\"display:none;\">");
@@ -115,13 +119,59 @@ namespace ProjetoA
             return htmlBuilder.ToString();
         }
 
+        static List<string> DividirEmLinhas(string code)
+        {
+            List<string> lista = new List<string>();
+
+            string[] linhas = code.Split('\r','\n');
+
+            bool multiLineComment = false;
+
+            foreach (string l in linhas)
+            {
+                l.Trim();
+
+                if(multiLineComment)
+                {
+                    if(l.Contains("*/"))
+                    {
+                        multiLineComment = false;
+                        continue;
+                    }
+                }
+
+                else
+                {
+                    if (string.IsNullOrEmpty(l))
+                    {
+                        continue;
+                    }
+
+                    else if (l.StartsWith("//"))
+                    {
+                        continue;
+                    }
+
+                    else if (l.StartsWith("/*"))
+                    {
+                        multiLineComment = true;
+                        continue;
+                    }
+
+                    lista.Add(l);
+                }
+            }
+
+            return lista;
+        }
+
         static void AnalisarVulnerabilidades(string code, StringBuilder htmlBuilder)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
 
             // Analisar o código usando o visitor
             var syntaxTree = CSharpSyntaxTree.ParseText(code);
-            vulnerabilidadeVisitor.Visit(syntaxTree.GetRoot());
+//            vulnerabilidadeVisitor.Visit(syntaxTree.GetRoot());
 
             // Construir tabela HTML
             htmlBuilder.AppendLine("<table>");
