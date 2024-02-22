@@ -287,7 +287,7 @@ namespace Projeto.Classes
             dados_teste["Possivel Uso de Iframe sem SandBox"] = new Regex[3][];
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Alto] = new Regex[]
             {
-                new Regex(@"\<iframe(?![^>]*\ssandbox\s)(?![^>]*\sallow-scripts\s)(?![^>]*\sallow-same-origin\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>", RegexOptions.IgnoreCase | RegexOptions.Singleline), 
+                new Regex(@"\<iframe(?![^>]*\ssandbox\s)(?![^>]*\sallow-scripts\s)(?![^>]*\sallow-same-origin\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>", RegexOptions.IgnoreCase | RegexOptions.Singleline),
             };
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Medio] = new Regex[]
             {

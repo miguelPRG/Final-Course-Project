@@ -22,7 +22,7 @@ namespace ProjetoA
         {
             var htmlBuilder = new StringBuilder();
 
-           
+
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
             htmlBuilder.AppendLine("<html lang=\"pt\">");
@@ -98,7 +98,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2>Análise de Concorrência:</h2>");
             AnalisarConcorrencia(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
-            
+
 
             stopwatch.Stop();
 
@@ -136,19 +136,19 @@ namespace ProjetoA
                 int linha = vulnerabilidade.Linha + 1;
 
                 htmlBuilder.AppendLine($"<td> <a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a></td>");
-                
-                switch(vulnerabilidade.NivelRisco)
+
+                switch (vulnerabilidade.NivelRisco)
                 {
                     case NivelRisco.Baixo: htmlBuilder.AppendLine("<td id=\"baixo\">Baixo</td>"); break;
                     case NivelRisco.Medio: htmlBuilder.AppendLine("<td id=\"medio\">Médio</td>"); break;
                     case NivelRisco.Alto: htmlBuilder.AppendLine("<td id=\"alto\">Alto</td>"); break;
                 }
- 
+
                 htmlBuilder.AppendLine("</tr>");
             }
 
             htmlBuilder.AppendLine("</table>");
-        
+
             htmlBuilder.AppendLine($"<h3>Taxa de Precisão de Análise de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
         }
 
@@ -204,7 +204,7 @@ namespace ProjetoA
                 return false;
             }
 
-            
+
         }
 
         static void AnalizarDependencias(StringBuilder htmlBuilder, string code)
@@ -222,7 +222,7 @@ namespace ProjetoA
                 Match match = usingRegex.Match(lines[i]);
                 if (match.Success)
                 {
-                    htmlBuilder.Append($"<tr><td>{lines[i].Trim()}</td><td> <a href=\"#linha-numero{i+1}\" onclick=\"destacarLinha({i+1})\">{i+1}</a></td></tr>");
+                    htmlBuilder.Append($"<tr><td>{lines[i].Trim()}</td><td> <a href=\"#linha-numero{i + 1}\" onclick=\"destacarLinha({i + 1})\">{i + 1}</a></td></tr>");
                 }
             }
 
@@ -364,14 +364,14 @@ namespace ProjetoA
             var classesRepetidas = VerificarRepeticao(root.DescendantNodes().OfType<ClassDeclarationSyntax>());
 
             // Generar tablas HTML
-            
-            if(!GerarTabelaHTML(htmlBuilder, "Métodos Repetidos", metodosRepetidos) &&
+
+            if (!GerarTabelaHTML(htmlBuilder, "Métodos Repetidos", metodosRepetidos) &&
                !GerarTabelaHTML(htmlBuilder, "Variáveis Repetidas", variaveisRepetidas) &&
                !GerarTabelaHTML(htmlBuilder, "Classes Repetidas", classesRepetidas))
             {
                 htmlBuilder.Append("<h3>Não foi encontrado nenhum código repetido!</h3>");
             }
-           
+
         }
 
         static Dictionary<string, List<int>> VerificarRepeticao(IEnumerable<SyntaxNode> nodes)
@@ -475,6 +475,6 @@ namespace ProjetoA
                 htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma concorrência.</h3>");
             }
         }
-    
+
     }
 }

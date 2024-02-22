@@ -95,7 +95,7 @@ namespace ProjetoA
             string codigo = Input.Text.Trim();
 
             // Agora você pode fazer algo com o código
-            if(string.IsNullOrEmpty(codigo))
+            if (string.IsNullOrEmpty(codigo))
             {
                 Console.WriteLine("O TextBox está vazio. Insira código antes de analisar.");
                 return;
