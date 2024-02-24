@@ -66,78 +66,71 @@ namespace Projeto.Classes
                 { "insert",1},
                 { "update",2},
                 { "delete",3},
-                { "create",4},
-                { "alter",5},
-                { "drop",6},
+                //{ "create",4},
+                //{ "alter",5},
+                //{ "drop",6},
             };
-
             dados_teste["Possível Injeção de SQL"] = new string[3][];
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Alto] = new string[]
             {
-               @"select\s+[\w\s,]+\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w\s']+",
-               @"insert\s+(ignore\s+)?into\s+[\w]+\s*(\(.*?\))?\s*values\s*(\(.*?\))?\s*(select|(\([^)]+\)))?\s*;",
-               @"update\s+[\w]+\s+set\s+([\w]+\s*=\s*[\w]+(,\s*)?)+\s*(where\s+[\w]+\s*(=|>|<|>=|<=)\s*([\w]+|\(.+\))\s*)*;",
-               @"delete\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w]+(\s+or\s+[\w]+\s*=\s*[\w]+)+",
-               @"create\s+(table|index|view|procedure|function)\s+[\w]+\s*\((.|\n)*\)\s*(with\s*(nocount|grant)|primary\s+key)",
-               @"alter\s+table\s+[\w]+\s+alter\s+column\s+[\w]+\s+set\s+(datatype|constraint)",
-               @"\bdrop\s+database\s+\w+\b",
+                // Expressões Regulares para alto risco
+               "string query = \"select * from users where coluna = @valor\";",
+               "string query = \"insert into tabel (colunas) values ('\" + userinput + \"')\";",
+               "string query = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\"",
+               "string query = \"delete from tabela where coluna= '\" + userinput + \"'\"",
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Medio] = new string[]
             {
-                @"select\s+[\w\s,]+\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w]+",
-                @"insert\s+into\s+[\w]+\s*\(([\w\s,]+)\)\s*values\s*\(([\w\s,']+)\)\s*on\s+duplicate\s+key\s+update\s+[\w\s=,]+\s*;",
-                @"update\s+[\w]+\s+set\s+([\w]+\s*=\s*[\w]+(,\s*)?)+\s*where\s+[\w]+\s*=\s*[\w]+\s*;",
-                @"delete\s+from\s+[\w]+\s+where\s+[\w]+\s*=\s*[\w]+",
-                @"create\s+(table|index|view|procedure|function)\s+[\w]+\s*\((.|\n)*\)",
-                @"alter\s+table\s+[\w]+\s+(add|drop)\s+column\s+[\w]+",
-                @"\bdrop\s+(?:procedure|function)\s+\w+\b",
+                // Expressões Regulares para médio risco
+                 "string query = \"select * table tabela where colunaid = 1;\"",
+                 "string query = \"insert into tabela (colunas) values (@parametro)\";",
+                 "string query = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
+                 "string query = \"delete from tabela where coluna = @valor\"",
+
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Baixo] = new string[]
             {
-                @"select\s+[\w\s,]+\s+from\s+[\w]+",
-                @"insert\s+into\s+[\w]+\s*\(([\w\s,]+)\)\s*values\s*\(([\w\s,']+)\)\s*;",
-                @"update\s+[\w]+\s+set\s+[\w]+\s*=\s*[\w]+\s*;",
-                @"delete\s+from\s+[\w]+",
-                @"create\s+(table|index|view|procedure|function)\s+[\w]+",
-                @"alter\s+table\s+[\w]+\s+rename\s+to\s+[\w]+|alter\s+table\s+[\w]+\s+rename\s+column\s+[\w]+\s+to\s+[\w]+",
-                @"\bdrop\s+(?:table|index)\s+\w+\b", 
+                // Expressões Regulares para baixo risco
+                "\"string query = \"select * table tabela;\"",
+                "string query =\"insert into tabela (colunas) values ('');\"",
+                "string query = \"update tabela set coluna1 = 'valor1' where coluna2 = 'valor2';\"",
+                "string query = \"delete from tabela where coluna= 'valor'\"",
             };
 
             //Client XSS
             padroes["Possível Cliente XSS"] = new Dictionary<string, int>
             {
-                { "<script>",0 },
+                { "<script>", 0 },
                 { "<img>", 1 },
                 { "<iframe>", 2 },
                 { "<object>", 3 },
                 // Adicione outras palavras reservadas conforme necessário
             };
-
-            dados_teste["Possível Cliente XSS"] = new string[3][];
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new string[]
-        {
-            // Alto risco: entrada de usuário inserida diretamente em contexto perigoso
-            @"<\s*script.*?>.*?<\s*/\s*script\s*>",
-            @"<img[^>]+?(?:(?:\s+on\w+\s*=\s*(?:\""[^\""]*?\""|'[^']*?'|[^>]+?))|(?:(?:\s*src\s*=)|(?:\s*data-[\w-]+\s*=)|(?:\s*action\s*=))).*?>",
-            @"\<iframe\>",
-            @"/<object\s+.*\s+data=[\""\'].*[\""\'].*>\s*<\/object>/",
-        };
+            {
+                // Expressões Regulares para alto risco
+                "",
+                "string userinput = \"<img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' />\";",
+                "string userInput = $\"<iframe src='{httpcontext.current.request.form[\"payload\"]}'>\";\r\n",
+                "string userInput = \"<object><param name=\\\"xss\\\" value=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"> </object>\";"
+            };
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new string[]
-        {
-            // Médio risco: entrada de usuário com filtragem inadequada
-            @"<\s*script[^>]*>(.*?)<\s*/\s*script\s*>",
-            @"<img.*?(?:src=|on\w+\s*=|style\s*=|action=|data-[\w-]+\s*=).*?>",
-            @"\<!--.*\<iframe\>.*--\>|\b\<iframe\s*\>|\b\<iframe\>\s*.*\b",
-            @"/<object[^>]*>.*<\/object>/",
-        };
+            {
+                // Expressões Regulares para médio risco
+                "string userinput = $\"<div><script>alert('xss ataque!');</script>\"</div>\";",
+                "string userinput = \"<img src=\\\"\" + userinputfromuser + \"\\\" />\";",
+                "string userInput = $\"<iframe src='{httpcontext.current.request.querystring[\"url\"]}'>\";\r\n",
+                "string userInput = \"<object><param name=\\\"xss\\\" value=\\\"javascript:alert('XSS')\\\"></object>\";",
+
+            };
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
-        {
-            // Baixo risco: entrada direta de usuário no código
-            @"\b(?:<\s*script\s*>)\b",
-            @"\b(?:<\s*img\s*>)\b",
-            @"/<iframe[^>]*>.*<\/iframe>/",
-            "/<object[^>]*>.*<\\/object>/",
-        };
+            {
+                // Expressões Regulares para baixo risco
+               "string userinput = \"<script>alert('xss ataque!');</script>\";",
+               "string userInput = \"<img src='http://site-malicioso.com/malware' />\";",
+               "string userInput = \"<iframe src='https://www.example.com'></iframe>\";\r\n",
+               "string userInput = \"<object></object>\";"
+            };
 
             //Hardcoded Password
             /*palavrasReservadas["Possível Password Fraca"] =new string[]
@@ -164,116 +157,121 @@ namespace Projeto.Classes
             padroes["Possível Target Blank"] = new Dictionary<string, int>
             {
                 { "_blank",0 },
-            // Adicione outras palavras reservadas conforme necessário
             };
 
             dados_teste["Possível Target Blank"] = new string[3][];
             dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new string[]
             {
-                "<a\\s+(?=\\s)(?=(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:target\\s*=\\s*[\"']_blank[\"']))(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:rel\\s*=\\s*[\"'](?:noopener|noreferrer)[\"'])?(?:[^>\"']|\"[^\"]*\"|'[^']*')*?\\s(?:href\\s*=\\s*[\"'](?!javascript:|data:)[^\"']*[\"'])(?:[^>\"']|\"[^\"]*\"|'[^']*')*?>",
+                // Expressões Regulares para alto risco
+                @"\b_blank\b\s*=\s*"".*""",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new string[]
             {
-                @"target\s*=\s*[""']_blank[""'](?!.*\brel\s*=\s*[""'](?:noopener|noreferrer)[""'])",
+                // Expressões Regulares para médio risco
+                @"\b_blank\b\s*=\s*\w+",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Baixo] = new string[]
             {
-                @"target\s*=\s*[""']_blank[""']",
+                // Expressões Regulares para baixo risco
+                @"\b_blank\b",
             };
 
             //Cookies
             padroes["Possiveis Cookies não Protegidos"] = new Dictionary<string, int>
-        {
-            { "expires",0 },
-            { "max-age",1 },
-            { "domain",2 },
-            { "path",3 },
-            { "set-cookie",4 },
-            { "httpcookie",5 },
-            { "httpcontext",6 },
+            {
+                { "expires",0 },
+                { "max-age",1 },
+                { "domain",2 },
+                { "path",3 },
+                { "set-cookie",4 },
+                { "httpcookie",5 },
+                { "httpcontext",6 },
 
             // Adicione outras palavras reservadas conforme necessário
-        };
-
+            };
             dados_teste["Possiveis Cookies não Protegidos"] = new string[3][];
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Alto] = new string[]
             {
-                "\\bexpires\\s*=\\s*(?:\\'[^\\']*\\'|\\\"[^\\\"]*\\\"|\\d+)",
-                "\\bmax-age\\s*=\\s*\\d+\\s*;\\s*httponly\\b",
-                @"(?i)\bhttp[s]?\b.*\b(domain)\b",
-                @"\bcookies?\b\s*(?=.*\bpath\b).*;(?:(?!\bsecure\b).)*$",
-                @"Set-Cookie: (?!.*;\s*Secure).*$",
-                @"\bnew\s+HttpCookie\s*\(.+\)\s*\{\s*HttpOnly\s*=\s*false\s*(,\s*Secure\s*=\s*false)?",
-                @"\bHttpContext\s*\.\s*Current\s*\.\s*Request\s*\.\s*Cookies\s*\.\s*", 
+                // Expressões Regulares para alto risco
+                @"response\.cookies\[""expires""\]\s*=",
+                @"response\.cookies\[""max-age""\]\s*=",
+                @"response\.cookies\[""domain""\]\s*=",
+                @"response\.cookies\[""path""\]\s*=",
+                @"response\.cookies\[""set-cookie""\]\s*=",
+                @"httpcontext\.current\.response\.cookies\[""expires""\]\s*=",
+                @"httpcontext\.current\.response\.cookies\[""max-age""\]\s*=",
+                @"httpcontext\.current\.response\.cookies\[""domain""\]\s*=",
+                @"httpcontext\.current\.response\.cookies\[""path""\]\s*=",
+                @"httpcontext\.current\.response\.cookies\[""set-cookie""\]\s*="
             };
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Medio] = new string[]
             {
-                "\\bexpires\\s*=\\s*(?:\\'[^\\']*\\'|\\\"[^\\\"]*\\\")",
-                "\\bmax-age\\s*=\\s*\\d+\\s*;\\s*secure\\b",
-                @"(?i)\bcookie\s*=\s*[^;]*(domain)[^;]*",
-                "\\bcookies?\\b\\s*(?=.*\\bpath\\b).*(?!;secure).*$",
-                @"Set-Cookie: (?=.*;\s*Secure)(?!.*;\s*HttpOnly).*$",
-                @"\bnew\s+HttpCookie\s*\(",
-                @"\bHttpContext\s*\.\s*Current\s*\.\s*Response\s*\.\s*Cookies\s*\.\s*", 
+                // Expressões Regulares para médio risco
+                @"\bexpires\b\s*=",
+                @"\bmax-age\b\s*=",
+                @"\bdomain\b\s*=",
+                @"\bpath\b\s*=",
+                @"\bset-cookie\b\s*=",
+                @"\bhttpcookie\b",
+                @"\bhttpcontext\b"
             };
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Baixo] = new string[]
             {
-                "\\bexpires\\s*=\\s*",
-                "\\bmax-age\\s*=\\s*\\d+\\b",
-                @"(?i)\bdomain\b",
-                @"\bcookies?\b\s*(?:(?!\bpath\b).)*$",
-                @"Set-Cookie: (?!.*;\\s*Secure)(?!.*;\\s*HttpOnly).*$",
+                // Expressões Regulares para baixo risco
+                @"\bexpires\b",
+                @"\bmax-age\b",
+                @"\bdomain\b",
+                @"\bpath\b",
+                @"\bset-cookie\b",
                 @"\bhttpcookie\b",
-                @"\bHttpContext\s*\[\s*[""']Response[""']\s*\]\s*\.\s*Cookies\s*\[\s*", 
+                @"\bhttpcontext\b"
             };
 
             //CSP Header
             padroes["Possivel CSP Header"] = new Dictionary<string, int>
-        {
-            {"script-src",0 },
-            {"base-uri",1},
-            {"form-action",2},
-            {"frame-ancestors",3},
-            {"plugin-types",4},
-            //{"report-uri",5},
-            {"upgrade-insecure-requests",5},
-            {"block-all-mixed-content",6},
-            // Adicione outras palavras reservadas conforme necessário
-        };
+            {
+                {"script-src",0 },
+                {"base-uri",1},
+                {"form-action",2},
+                {"frame-ancestors",3},
+                {"plugin-types",4},
+                {"upgrade-insecure-requests",5},
+                {"block-all-mixed-content",6},
+            };
 
             dados_teste["Possivel CSP Header"] = new string[3][];
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Alto] = new string[]
             {
-                @"Content-Security-Policy:\s*script-src\s*'none'\s*;",
-                @"base-uri\s*:\s*[""'][^""'\s;]+['""]\s*\+",
-                @"form-action:\s*['""]?(?!'self')(?!https?:\/\/example\.com)['""]?.*",
-                @"(frame-ancestors\s*:\s*)http://|https://|'unsafe-inline'",
-                @"\bplugin-types\s*=\s*""[^""]*(javascript:|data:|blob:)[^""]*""",
-                //@"Content-Security-Policy:\s*(?:.|[])*\breport-uri\s*:",
-                @"Content-Security-Policy\s*:\s*(?:[^;""'`\\]|\\.)*\s*upgrade-insecure-requests\s*(?:[^;""'`\\]|\\.)*",
-                @"(?i)(Response\s*\.Write\(.*block-all-mixed-content.*\))", 
+                // Expressões Regulares para alto risco
+                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*script-src.*""\)",
+                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*base-uri.*""\)",
+                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*form-action.*""\)",
+                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*frame-ancestors.*""\)",
+                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*plugin-types.*""\)",
+                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*upgrade-insecure-requests.*""\)",
+                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*block-all-mixed-content.*""\)"
             };
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Medio] = new string[]
             {
-                @"Content-Security-Policy:\s*script-src\s*'self'\s*'unsafe-inline'\s*;",
-                @"base-uri\s*:\s*[^""'\s;]+",
-                @"form-action:\s*['""]?https?:\/\/[^'""]+['""]?",
-                @"frame-ancestors\s*:\s*'self'\s*https://subdominio\.exemplo\.com",
-                @"\bplugin-types\s*=\s*""[^""]*""",
-                //@"^Content-Security-Policy:\s*(?:.|[])*report-uri\s*$",
-                @"Content-Security-Policy\s*:\s*[^;]*\s*upgrade-insecure-requests[^;]*",
-                @"(?i)(Response\s*\.Headers\s*\[""Content-Security-Policy""\]\s*=\s*\"".*block-all-mixed-content.*\""\s*;)", 
+                // Expressões Regulares para médio risco
+                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*script-src.*""\)",
+                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*base-uri.*""\)",
+                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*form-action.*""\)",
+                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*frame-ancestors.*""\)",
+                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*plugin-types.*""\)",
+                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*upgrade-insecure-requests.*""\)",
+                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*block-all-mixed-content.*""\)"
             };
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                @"Content-Security-Policy:\s*script-src\s*'self'\s*;",
-                @"base-uri\s*=\s*[""']?\s*[^""'\s;]+",
-                @"form-action:\s*'self'",
-                @"(?i)frame-ancestors\s*:\s*'[^']*'",
+                // Expressões Regulares para baixo risco
+                @"\bscript-src\b",
+                @"\bbase-uri\b",
+                @"\bform-action\b",
+                @"\bframe-ancestors\b",
                 @"\bplugin-types\b",
-                //@"^Content-Security-Policy:\s*report-uri\s*$",
-                @"Content-Security-Policy\s*:\s*upgrade-insecure-requests",
-                @".*CSP.*block-all-mixed-content.*", 
+                @"\bupgrade-insecure-requests\b",
+                @"\bblock-all-mixed-content\b"
             };
 
             // Iframe 
@@ -287,19 +285,25 @@ namespace Projeto.Classes
             dados_teste["Possivel Uso de Iframe sem SandBox"] = new string[3][];
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Alto] = new string[]
             {
-                @"\<iframe(?![^>]*\ssandbox\s)(?![^>]*\sallow-scripts\s)(?![^>]*\sallow-same-origin\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>",
+                // Expressões Regulares para alto risco
+                @"<iframe\s+src\s*=\s*"".*""\s*>",
+                @"<sandbox\s+src\s*=\s*"".*""\s*"
             };
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Medio] = new string[]
             {
-                @"\<iframe(?![^>]*\ssandbox\s)(\s+.*?)*\>(.|\s)*?\<\/iframe\>",
+                // Expressões Regulares para médio risco
+                @"<iframe\b[^>]*>",
+                @"<sandbox\b[^>]*>",
             };
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Baixo] = new string[]
             {
-                @"\<iframe(\s+.*?)*\>(.|\s)*?\<\/iframe\>",
+                // Expressões Regulares para baixo risco
+                @"\biframe\b",
+                @"\bsandbox\b"
             };
 
             // JQuery
-            padroes["Possivel JQuery"] = new Dictionary<string, int>
+            /*padroes["Possivel JQuery"] = new Dictionary<string, int>
             {
                 {"document",0},
                 {"function",1},
@@ -311,25 +315,20 @@ namespace Projeto.Classes
             dados_teste["Possivel JQuery"] = new string[3][];
             dados_teste["Possivel JQuery"][(int)NivelRisco.Alto] = new string[]
             {
-                @"\bdocument\s*\.\s*(write|writeln|innerHTML|outerHTML|eval)\s*\(",
-                @"\$\(.+\)\.(click|change|mouseover|keydown)\(",
-                @"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()\s*\([^']*['""].*['""]\s*\+\s*[^']*['""].*['""]\s*\+\s*[^']*['""].*['""]\)",
-                @"\.post\s*\(\s*['""][^'""]*['""]\s*,\s*{\s*['""][^'""]*['""]\s*:\s*['""][^'""]*['""]\s*}\s*\)", 
+              
             };
             dados_teste["Possivel JQuery"][(int)NivelRisco.Medio] = new string[]
             {
-                @"\bdocument\s*\.\s*\w+\s*\(",
-                @"\$\(.+\)\.(append|prepend|before|after)\(",
-                @"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()\s*\([^']*'[^']*'\s*,\s*[^']*'[^']*'\s*,\s*[^']*'[^']*'\)",
-                @"\.post\s*\(\s*['""][^'""]*['""]\s*,\s*['""][^'""]*['""]\s*\)",
+                
             };
             dados_teste["Possivel JQuery"][(int)NivelRisco.Baixo] = new string[]
             {
+               // Expressões Regulares para baixo risco
                 @"\bdocument\b",
-                @"\$\(\s*'[^']*'\s*\)\.function\(",
-                @"(\.ajax\(|\.get\(|\.post\(|\.getJSON\()",
-                @"\.post\s*\(",
-            };
+                @"\bfunction\b",
+                @"\bajax\b",
+                @"\bpost\b",
+            };*/
 
             // Domain
             /*palavrasReservadas["Possivel Domínio Fraco"] = new string[]
@@ -348,46 +347,30 @@ namespace Projeto.Classes
             };*/
 
             //DOM Open Redirect
-            padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
+            /*padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
             {
                 {"window.location",0},
                 {"document.location",1},
                 {"document.url",2},
                 {"location.href",3},
-                //{"location.replace",},
-                //{"location.assign",4},
+                {"location.replace",4},
+                {"location.assign",5},
                  // Adicione outras palavras reservadas conforme necessário
             };
 
             dados_teste["Possivel Redirecionamento de Domínio"] = new string[3][];
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Alto] = new string[]
             {
-                @"window\.location\s*=\s*['""][^'""]+['""];",
-                @"document\.location\s*=\s*(Request\.UrlReferrer|Request\.Url|Request\.UserAgent|Request\.ServerVariables\[""HTTP_REFERER""\]|Request\.ServerVariables\[""HTTP_HOST""\]|Request\.ServerVariables\[""HTTP_USER_AGENT""\]|[^;]+);"
-                ,
-                @"(document\.url\s*\(\s*[""']\s*(http|https):\/\/)",
-                @"\blocation\.href\s*=\s*Request\.QueryString\b",
-                //@"(if|while|for)\s*\([^)]*\)\s*\{(?:[^{}]|(?R))*\blocation\.replace\s*\(",
-                //@"\blocation\.assign\s*\(\s*[""'][^""']*?(?:(?:https?:\/\/)?(?:www\.)?(?:[^\/]+\.)+(?:com|org|net|gov|mil|biz|info|io|edu|tv|co|uk|ca|de|fr|au|jp|ru|nl|es|it|se|no|ch|dk)\b",
+                
             };
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Medio] = new string[]
             {
-                @"window\.location\s*=\s*\([^)]*\)\s*;",
-                @"document\.location\s*=\s*(Request\[""[^""]+""\]|Request\.Query[String|Url]|Request\.Params\[""[^""]+""\]|Server\.UrlDecode\(""[^""]+""\)|Server\.HtmlDecode\(""[^""]+""\)|[^;]+);",
-                @"(document\.url\s*\(\s*[""'])",
-                @"\blocation\.href\s*=\s*"".*""\s*;",
-                //@"function\s+\w+\s*\(\s*\)\s*\{(?:[^{}]|(?R))*\blocation\.replace\s*\(",
-                //@"\blocation\.assign\s*\(\s*[""'][^""']*?\.com\b", 
+               
             };
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Baixo] = new string[]
             {
-                @"window\.location\s*=\s*(document|window)\.location;",
-                @"document\.location\s*=\s*(""[^""]+""|'[^']+'|[^;]+);",
-                @"document\.url",
-                @"\blocation\.href\b",
-                //@"\blocation\.replace\s*\(",
-                //@"\blocation\.assign\s*\(\s*[""'](?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b",
-            };
+               
+            };*/
 
             //Chaves de Criptografia
             /*palavrasReservadas["Possivel Fragilidade de Chave de Criptografia"] = new string[]
@@ -461,33 +444,35 @@ namespace Projeto.Classes
             };
 
             // HSTS Header
-            padroes["Possivel HSTS Header"] = new Dictionary<string, int>
+            /*padroes["Possivel HSTS Header"] = new Dictionary<string, int>
             {
-                { "strict-transport-security",0},
-                { "max-age",1},
-                { "preload",2},
+                { "strict-transport-security", 0},
+                { "max-age", 1},
+                { "preload", 2},
                  // Adicione outras palavras reservadas conforme necessário
             };
 
-            dados_teste["Possivel HSTS Header"] = new string[3][];
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Alto] = new string[]
             {
-                "(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')(max-age\\s*=\\s*\\d{1,3}(|s)\\s*(,|$))*(?!\\s*preload)\\s*(\"|')\\);",
-                @"max-age\s*=\s*\d{1,5}\s*;\s*includeSubDomains",
-                "\\bHSTS\\b\\s*\\(\\s*\".*preload.*\"\\s*\\)", 
+                // Expressões Regulares para alto risco
+                @"response.addheader\(""strict-transport-security"",\s*"".*""\)",
+                @"response.headers\.add\(""strict-transport-security"",\s*"".*""\)",
+                @"httpcontext.current.response.addheader\(""strict-transport-security"",\s*"".*""\)"
             };
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Medio] = new string[]
             {
-                "(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')max-age=.*(\"|')(?!\\s*,\\s*\"includeSubDomains)(\"|')\\);",
-                @"max-age\s*=\s*\d{1,5}",
-                "\\bHSTS\\b\\s*=\\s*\".*preload.*\"", 
+                // Expressões Regulares para médio risco
+                @"response.addheader\(""max-age"",\s*\d+\)",
+                @"response.headers\.Add\(""max-age"",\s*\d+\)",
+                @"httpcontext.current.response.addheader\(""max-age"",\s*\d+\)"
             };
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                "(?i)Response\\.Headers\\.Add\\((\"|')strict-transport-security(\"|')\\s*,\\s*(\"|')max-age=.*(\"|')\\);",
-                @"max-age\s*=\s*\d",
-                "\\bHSTS\\b.*preload\\b", 
-            };
+                // Expressões Regulares para baixo risco
+                @"response.addheader\(""preload"",\s*"".*""\)",
+                @"response.headers\.add\(""preload"",\s*"".*""\)",
+                @"httpcontext.current.response.addheader\(""preload"",\s*"".*""\)"
+            };*/
 
             //CSRF
             /*padroes["Possivel Vulnerabilidade CSRF"] = new string[]
@@ -557,27 +542,32 @@ namespace Projeto.Classes
 
 
 
-        public void Visit(LinkedList<string> code) /*Tempo de Compexidade: O(30n) <=> O(n) 
+        public void Visit(List<string> code) /*Tempo de Compexidade: O(30n) <=> O(n) 
                                                                                    *onde n é o número de nós e 30= 10 *3                                                                           */
         {
+            int i = 1;
 
-            
-            /*foreach (var nome in padroes.Keys)
+            foreach(var linha in code)
             {
-                AnalisarVulnerabilidade(code_part, node, padroes[nome], nome);
-            }*/
+                foreach (var nome in padroes.Keys)
+                {
+                    AnalisarVulnerabilidade(linha, i ,padroes[nome], nome);
+                }
+
+                i++;
+            }
 
         }
 
 
-        private void AnalisarVulnerabilidade(string code, LiteralExpressionSyntax node, Dictionary<string, int> palavras, string nomeVulnerabilidade)
+        private void AnalisarVulnerabilidade(string code, int linha ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
         {
             if (ContemUmaPalavra(code, palavras, out int value))
             {
                 //Este array guarda a precisão dos dados de teste correspondentes à vulnerabilidade encontrada para diferentes niveis de risco
                 double[] precisao = {
-    //                CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Alto][value]),
-  //                  CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Medio][value]),
+//                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Alto][value]),
+//                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Medio][value]),
 //                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Baixo][value])
                 };
 
@@ -586,7 +576,7 @@ namespace Projeto.Classes
 
                 if (Math.Round(precisao[index]) >= 50)
                 {
-                    AdicionarVulnerabilidade(nomeVulnerabilidade, node, (NivelRisco)index);
+                    AdicionarVulnerabilidade(nomeVulnerabilidade, linha,code, (NivelRisco)index);
                     verdadeiros_positivos++;
                 }
 
@@ -595,94 +585,57 @@ namespace Projeto.Classes
             }
         }
 
-        private void AdicionarVulnerabilidade(string nomeVulnerabilidade, LiteralExpressionSyntax node, NivelRisco nivelRisco)
+        private void AdicionarVulnerabilidade(string nomeVulnerabilidade, int linha ,string code, NivelRisco nivelRisco)
         {
-            vulnerabilidadesEncontradas.Add((nomeVulnerabilidade, node.GetLocation().GetLineSpan().StartLinePosition.Line, node.ToString(), nivelRisco));
+            vulnerabilidadesEncontradas.Add((nomeVulnerabilidade,linha, code, nivelRisco));
         }
         //PREFERENCIALMENTE. Tenta utilizar estes métodos para determinar precisão:
 
-        static double CompareWithRegex(string consultaSql, Regex expressaoRegular)
+        static double CalculateSimilarity(string str1, string str2)
         {
-            int distancia = LevenshteinDistance(consultaSql.ToLower(), expressaoRegular.ToString().ToLower());
-            int maiorComprimento = Math.Max(consultaSql.Length, expressaoRegular.ToString().Length);
-            double taxaPrecisao = (1 - (double)distancia / maiorComprimento) * 100;
-            return taxaPrecisao;
-        }
+            int maxLength = Math.Max(str1.Length, str2.Length);
+            if (maxLength == 0)
+            {
+                return 1.0; // Strings vazias são consideradas 100% semelhantes
+            }
 
-        static int LevenshteinDistance(string s, string t)
+            int distance = ComputeLevenshteinDistance(str1, str2);
+            return (1.0 - (double)distance / maxLength);
+        }
+        static int ComputeLevenshteinDistance(string s, string t)
         {
             int n = s.Length;
             int m = t.Length;
             int[,] d = new int[n + 1, m + 1];
 
             if (n == 0)
+            {
                 return m;
-            if (m == 0)
-                return n;
+            }
 
-            for (int i = 0; i <= n; d[i, 0] = i++) ;
-            for (int j = 0; j <= m; d[0, j] = j++) ;
+            if (m == 0)
+            {
+                return n;
+            }
+
+            for (int i = 0; i <= n; i++)  // Corrected semicolon placement
+            {
+                d[i, 0] = i;
+            }
+            for (int j = 0; j <= m; j++)
+            {
+                d[0, j] = j;
+            }
 
             for (int i = 1; i <= n; i++)
             {
                 for (int j = 1; j <= m; j++)
                 {
                     int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
-
-                    d[i, j] = Math.Min(
-                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                        d[i - 1, j - 1] + cost);
+                    d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + cost);
                 }
             }
             return d[n, m];
         }
-
-        /*public static double Similarity(string s, string t)
-        {
-            int maxLength = Math.Max(s.Length, t.Length);
-            if (maxLength == 0)
-                return 1.0; // As duas strings estão vazias, então são idênticas
-            int distance = LevenshteinDistance(s, t);
-            return 1.0 - (double)distance / maxLength;
-        }*/
-
-        /*
-        
-        static double CalculateSimilarity(string query1, string query2)
-        {
-            int maxLength = Math.Max(query1.Length, query2.Length);
-            if (maxLength == 0)
-                return 100.0;
-
-            int distance = LevenshteinDistance(query1, query2);
-            return ((double)(maxLength - distance) / maxLength) * 100;
-        }
-        static int LevenshteinDistance(string s, string t)
-        {
-            int[,] d = new int[s.Length + 1, t.Length + 1];
-
-            for (int i = 0; i <= s.Length; i++)
-                d[i, 0] = i;
-
-            for (int j = 0; j <= t.Length; j++)
-                d[0, j] = j;
-
-            for (int j = 1; j <= t.Length; j++)
-            {
-                for (int i = 1; i <= s.Length; i++)
-                {
-                    int cost = (s[i - 1] == t[j - 1]) ? 0 : 1;
-                    d[i, j] = Math.Min(
-                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                        d[i - 1, j - 1] + cost);
-                }
-            }
-
-            return d[s.Length, t.Length];
-        }*/
     }
 }
-
-/*Analisar o tempo total de execução de scan do código inserido
- 
- */

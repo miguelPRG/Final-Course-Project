@@ -48,6 +48,7 @@ namespace ProjetoA
                 return htmlBuilder.ToString();
             }
 
+            //Vamos pegar em todo o código e dividi-lo em linhas, ignorando qualquer comentário que seja encontrado
             var lista = DividirEmLinhas(code);
 
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
@@ -64,7 +65,7 @@ namespace ProjetoA
             // Adicione a chamada para o método AnalisarVulnerabilidade
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
-            AnalisarVulnerabilidades(code, htmlBuilder);
+            AnalisarVulnerabilidades(lista, htmlBuilder);
             htmlBuilder.AppendLine("</div>");
     /*
             // Realiza a análise de complexidade ciclomática
@@ -165,13 +166,12 @@ namespace ProjetoA
             return lista;
         }
 
-        static void AnalisarVulnerabilidades(string code, StringBuilder htmlBuilder)
+        static void AnalisarVulnerabilidades(List<string> code, StringBuilder htmlBuilder)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
 
             // Analisar o código usando o visitor
-            var syntaxTree = CSharpSyntaxTree.ParseText(code);
-//            vulnerabilidadeVisitor.Visit(syntaxTree.GetRoot());
+            vulnerabilidadeVisitor.Visit(code);
 
             // Construir tabela HTML
             htmlBuilder.AppendLine("<table>");
