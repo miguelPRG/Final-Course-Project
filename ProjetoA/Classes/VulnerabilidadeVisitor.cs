@@ -111,25 +111,25 @@ namespace Projeto.Classes
                 // Expressões Regulares para alto risco
                 "",
                 "string userinput = \"<img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' />\";",
-                "string userInput = $\"<iframe src='{httpcontext.current.request.form[\"payload\"]}'>\";\r\n",
-                "string userInput = \"<object><param name=\\\"xss\\\" value=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"> </object>\";"
+                "string userInput = \"<img src=\\\"x\\\" onerror=\\\"alert('XSS')\\\" />\";",
+                "string userInput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnZG9jdW1lbnQucGhwJyk8L3NjcmlwdD4=\\\"></object>\";"
             };
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
                 "string userinput = $\"<div><script>alert('xss ataque!');</script>\"</div>\";",
-                "string userinput = \"<img src=\\\"\" + userinputfromuser + \"\\\" />\";",
-                "string userInput = $\"<iframe src='{httpcontext.current.request.querystring[\"url\"]}'>\";\r\n",
-                "string userInput = \"<object><param name=\\\"xss\\\" value=\\\"javascript:alert('XSS')\\\"></object>\";",
+                "string userinput = \"<img src=\\\"javascript:alert('xss')\\\" />\";",
+                "string usercontent = \"<script>document.write(\\\"<iframe src='http://www.example.com'></iframe>\\\");</script>\";",
+                "string userInput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"></object>\";",
 
             };
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
                "string userinput = \"<script>alert('xss ataque!');</script>\";",
-               "string userInput = \"<img src='http://site-malicioso.com/malware' />\";",
-               "string userInput = \"<iframe src='https://www.example.com'></iframe>\";\r\n",
-               "string userInput = \"<object></object>\";"
+               "string userinput = \"<img src=\\\"http://example.com\\\" />\";",
+               "string usercontent = \"<iframe src='http://www.example.com'></iframe>\";",
+               "string userinput = \"<object data=\\\"javascript:alert('xss')\\\"></object>\";"
             };
 
             //Hardcoded Password
@@ -163,68 +163,59 @@ namespace Projeto.Classes
             dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-                @"\b_blank\b\s*=\s*"".*""",
+                "string link = \"<a href='\" + userInput + \"' target='_blank'>link</a>\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                @"\b_blank\b\s*=\s*\w+",
+                "string link = \"<a href='\" + userInput + \"' target='_blank'>link</a>\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-                @"\b_blank\b",
+                "string link = \"<a href='http://exemplo.com' target='_blank'>link</a>\";"
             };
 
             //Cookies
             padroes["Possiveis Cookies não Protegidos"] = new Dictionary<string, int>
             {
-                { "expires",0 },
-                { "max-age",1 },
-                { "domain",2 },
-                { "path",3 },
-                { "set-cookie",4 },
-                { "httpcookie",5 },
-                { "httpcontext",6 },
+                //{ "expires",0 },
+                { "max-age",0 },
+                { "domain",1 },
+                { "path",2 },
+                { "set-cookie",3 },
+                //{ "httpcookie",4 },
+                { "httpcontext",4 },
 
             // Adicione outras palavras reservadas conforme necessário
             };
             dados_teste["Possiveis Cookies não Protegidos"] = new string[3][];
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Alto] = new string[]
             {
-                // Expressões Regulares para alto risco
-                @"response\.cookies\[""expires""\]\s*=",
-                @"response\.cookies\[""max-age""\]\s*=",
-                @"response\.cookies\[""domain""\]\s*=",
-                @"response\.cookies\[""path""\]\s*=",
-                @"response\.cookies\[""set-cookie""\]\s*=",
-                @"httpcontext\.current\.response\.cookies\[""expires""\]\s*=",
-                @"httpcontext\.current\.response\.cookies\[""max-age""\]\s*=",
-                @"httpcontext\.current\.response\.cookies\[""domain""\]\s*=",
-                @"httpcontext\.current\.response\.cookies\[""path""\]\s*=",
-                @"httpcontext\.current\.response\.cookies\[""set-cookie""\]\s*="
+                // Expressões Regulares para alto risco               
+                "response.cookies.append(\"password\", \"secretpassword\", new cookieoptions { maxage = timespan.fromdays(365) });\r\n",
+                "response.cookies[\"session\"].value = \"1234\"; response.cookies[\"session\"].domain = Request.headers[\"host\"];\r\n",
+                "response.cookies.add(new httpcookie(\"nome\", \"valor\") { path = request.url.absolutepath });\r\n",
+                "response.headers.add(\"set-cookie\", $\"user_token={usertoken}; samesite=none; secure; httponly\");\r\n",
+                "httpcontext.current.request.cookies[\"nomecookie\"].value;\r\n"
             };
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Medio] = new string[]
             {
-                // Expressões Regulares para médio risco
-                @"\bexpires\b\s*=",
-                @"\bmax-age\b\s*=",
-                @"\bdomain\b\s*=",
-                @"\bpath\b\s*=",
-                @"\bset-cookie\b\s*=",
-                @"\bhttpcookie\b",
-                @"\bhttpcontext\b"
+                // Expressões Regulares para médio risco              
+                "response.cookies.append(\"userid\", \"9876\", new cookieoptions { maxage = timespan.fromdays(1) });\r\n",
+                "response.cookies[\"session\"].value = \"1234\"; response.cookies[\"session\"].domain = request.url.host;\r\n",
+                "response.cookies.add(new httpcookie(\"nome\", \"valor\") { path = \"/restrito\" });\r\n",
+                "response.headers.add(\"set-cookie\", $\"session_id={usersessionId}; secure\");\r\n",
+                "httpcontext.current.response.cookies.add(new httpcookie(\"nomecookie\", \"valor\"));\r\n"
             };
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-                @"\bexpires\b",
-                @"\bmax-age\b",
-                @"\bdomain\b",
-                @"\bpath\b",
-                @"\bset-cookie\b",
-                @"\bhttpcookie\b",
-                @"\bhttpcontext\b"
+                "response.cookies.append(\"sessionid\", \"12345\", new cookieoptions { maxage = timeSpan.fromminutes(30) });\r\n",
+                "response.cookies[\"session\"].value = \"1234\"; response.cookies[\"session\"].domain = \".example.com\";\r\n",
+                "response.cookies.add(new httpcookie(\"nome\", \"valor\") { path = \"/\" });\r\n",
+                "response.headers.add(\"set-cookie\", \"user_id=123\");\r\n",
+                "httpcontext.current.response.cookies[\"nomecookie\"].value = \"valor\";\r\n"
             };
 
             //CSP Header
@@ -242,36 +233,33 @@ namespace Projeto.Classes
             dados_teste["Possivel CSP Header"] = new string[3][];
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Alto] = new string[]
             {
-                // Expressões Regulares para alto risco
-                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*script-src.*""\)",
-                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*base-uri.*""\)",
-                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*form-action.*""\)",
-                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*frame-ancestors.*""\)",
-                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*plugin-types.*""\)",
-                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*upgrade-insecure-requests.*""\)",
-                @"response.addheader\s*\(\s*""content-security-policy""\s*,\s*"".*block-all-mixed-content.*""\)"
+                "response.headers.add(\"content-security-policy\", \"script-src 'none' 'unsafe-inline' 'unsafe-eval'\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"base-uri 'none';\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"form-action 'none'\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"frame-ancestors 'none'\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"plugin-types application/pdf\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"default-src 'none'; upgrade-insecure-requests\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"default-src 'none' https:; block-all-mixed-content\");\r\n"
             };
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Medio] = new string[]
             {
-                // Expressões Regulares para médio risco
-                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*script-src.*""\)",
-                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*base-uri.*""\)",
-                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*form-action.*""\)",
-                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*frame-ancestors.*""\)",
-                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*plugin-types.*""\)",
-                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*upgrade-insecure-requests.*""\)",
-                @"httpcookie\s*\w+\s*=\s*new\s*httpcookie\s*\(\s*"".*block-all-mixed-content.*""\)"
+                "response.headers.add(\"content-security-policy\", \"script-src 'self' https://cdn.example.com\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"base-uri 'self' https://dominio-permitido.com\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"form-action 'self' https://trusted-domain.com\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"frame-ancestors 'self' https://trusted-domain.com\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"plugin-types application/pdf application/zip\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"default-src 'self'; upgrade-insecure-requests\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"default-src 'self' https:; block-all-mixed-content\");\r\n"
             };
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                // Expressões Regulares para baixo risco
-                @"\bscript-src\b",
-                @"\bbase-uri\b",
-                @"\bform-action\b",
-                @"\bframe-ancestors\b",
-                @"\bplugin-types\b",
-                @"\bupgrade-insecure-requests\b",
-                @"\bblock-all-mixed-content\b"
+                "response.headers.add(\"content-security-policy\", \"script-src 'self'\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"base-uri 'self'\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"form-action 'self'\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"frame-ancestors 'self'\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"plugin-types *\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"upgrade-insecure-requests\");\r\n",
+                "response.headers.add(\"content-security-policy\", \"block-all-mixed-content\");\r\n"
             };
 
             // Iframe 
