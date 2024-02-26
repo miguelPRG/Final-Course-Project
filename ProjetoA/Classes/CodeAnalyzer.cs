@@ -14,6 +14,7 @@ using System.IO;
 using Projeto.Classes;
 using System.Diagnostics;
 using Windows.UI.Xaml.Documents;
+using Windows.Globalization.DateTimeFormatting;
 
 namespace ProjetoA
 {
@@ -23,6 +24,8 @@ namespace ProjetoA
         {
             var htmlBuilder = new StringBuilder();
             code = code.Trim();
+
+            string[] codigo = code.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -44,12 +47,24 @@ namespace ProjetoA
             // Verificar Sintaxe do código
             if (EncontrouErrosSintaxe(htmlBuilder, code))
             {
-                htmlBuilder.Append("<h2>Não foi possivel efetuar uma análise do código, pois este apresenta erros de sintaxe!</h2></body>");
+                stopwatch.Stop();
+
+                htmlBuilder.Append("<h2>Não foi possivel efetuar uma análise profunda do código, pois este apresenta erros de sintaxe!</h2>");
+                htmlBuilder.Append($"<p>Tempo Total de Análise: {stopwatch.ElapsedMilliseconds}ms</p>");
+                htmlBuilder.Append("</body>");
                 return htmlBuilder.ToString();
             }
 
             //Vamos pegar em todo o código e dividi-lo em linhas, ignorando qualquer comentário que seja encontrado
-            var lista = DividirEmLinhas(code);
+            List<string> list = new List<string>();
+
+            using (var enumerator = DividirEmLinhas(code).GetEnumerator())
+            {
+                while (enumerator.MoveNext())
+                {
+                    list.Add(enumerator.Current);
+                }
+            }
 
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
@@ -65,7 +80,7 @@ namespace ProjetoA
             // Adicione a chamada para o método AnalisarVulnerabilidade
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
-            AnalisarVulnerabilidades(lista, htmlBuilder);
+            AnalisarVulnerabilidades(list, htmlBuilder);
             htmlBuilder.AppendLine("</div>");
     /*
             // Realiza a análise de complexidade ciclomática
@@ -112,7 +127,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("</div>");
 
             htmlBuilder.AppendLine($"<h2 id=\"codigo-analisado\">Código Analisado:</h2>");
-            ExibirCodigo(code, htmlBuilder);
+            ExibirCodigo(codigo, htmlBuilder);
 
             // Feche as tags HTML
             htmlBuilder.AppendLine("</body></html>");
@@ -120,50 +135,61 @@ namespace ProjetoA
             return htmlBuilder.ToString();
         }
 
-        static List<string> DividirEmLinhas(string code)
+        static IEnumerable<string> DividirEmLinhas(string code)
         {
-            List<string> lista = new List<string>();
-
-            string[] linhas = code.Split('\r','\n');
-
+            string[] linhas = code.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             bool multiLineComment = false;
+            string linha;
 
             foreach (string l in linhas)
             {
-                l.Trim();
+                linha = l.Trim();
 
-                if(multiLineComment)
+                if (multiLineComment)
                 {
-                    if(l.Contains("*/"))
+                    if (linha.Contains("*/"))
                     {
                         multiLineComment = false;
-                        continue;
+                        int index = linha.IndexOf("*/") + 2;
+                        if (index < linha.Length)
+                        {
+                            yield return linha.Substring(index);
+                        }
                     }
                 }
-
                 else
                 {
-                    if (string.IsNullOrEmpty(l))
+                    /*if (string.IsNullOrEmpty(linha))
+                    {
+                        continue;
+                    }*/
+                    if (linha.StartsWith("//"))
                     {
                         continue;
                     }
-
-                    else if (l.StartsWith("//"))
-                    {
-                        continue;
-                    }
-
-                    else if (l.StartsWith("/*"))
+                    else if (linha.Contains("/*"))
                     {
                         multiLineComment = true;
+                        int index = linha.IndexOf("/*");
+                        if (index > 0)
+                        {
+                            yield return linha.Substring(0, index);
+                        }
+                        if (linha.Contains("*/"))
+                        {
+                            multiLineComment = false;
+                            index = linha.IndexOf("*/") + 2;
+                            if (index < linha.Length)
+                            {
+                                yield return linha.Substring(index);
+                            }
+                        }
                         continue;
                     }
 
-                    lista.Add(l);
+                    yield return linha;
                 }
             }
-
-            return lista;
         }
 
         static void AnalisarVulnerabilidades(List<string> code, StringBuilder htmlBuilder)
@@ -183,7 +209,7 @@ namespace ProjetoA
                 htmlBuilder.AppendLine($"<td>{vulnerabilidade.Tipo}</td>");
                 htmlBuilder.AppendLine($"<td>{vulnerabilidade.Codigo}</td>");
 
-                int linha = vulnerabilidade.Linha + 1;
+                int linha = vulnerabilidade.Linha;
 
                 htmlBuilder.AppendLine($"<td> <a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a></td>");
 
@@ -202,14 +228,12 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h3>Taxa de Precisão de Análise de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
         }
 
-        static void ExibirCodigo(string code, StringBuilder htmlBuilder)
+        static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
             htmlBuilder.AppendLine("<div class=\"codigo-container\">"); // Adiciona uma div de contêiner
 
             htmlBuilder.AppendLine("<pre><code class=\"csharp\">");
 
-            // Dividir o código em linhas
-            string[] linhasDeCodigo = code.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
             // Descobrir quantos dígitos tem o número da última linha para ajustar a formatação
             int numeroLinhas = linhasDeCodigo.Length;

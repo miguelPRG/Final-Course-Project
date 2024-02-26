@@ -74,27 +74,27 @@ namespace Projeto.Classes
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-               "string query = \"select * from users where coluna = @valor\";",
-               "string query = \"insert into tabel (colunas) values ('\" + userinput + \"')\";",
-               "string query = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\"",
-               "string query = \"delete from tabela where coluna= '\" + userinput + \"'\"",
+               "string comandoSQL = \"select * from tabela where coluna = @valor\";",
+               "string comandoSQL = \"insert into tabela (colunas) values ('\" + userinput + \"')\";",
+               "string comandoSQL = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\"",
+               "string comandoSQL = \"delete from tabela where coluna= '\" + userinput + \"'\"",
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                 "string query = \"select * table tabela where colunaid = 1;\"",
-                 "string query = \"insert into tabela (colunas) values (@parametro)\";",
-                 "string query = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
-                 "string query = \"delete from tabela where coluna = @valor\"",
+                 "string comandoSQL = \"select * table tabela where colunaid = 1;\"",
+                 "string comandoSQL = \"insert into tabela (colunas) values (@parametro)\";",
+                 "string comandoSQL = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
+                 "string comandoSQL = \"delete from tabela where coluna = @valor\"",
 
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-                "\"string query = \"select * table tabela;\"",
-                "string query =\"insert into tabela (colunas) values ('');\"",
-                "string query = \"update tabela set coluna1 = 'valor1' where coluna2 = 'valor2';\"",
-                "string query = \"delete from tabela where coluna= 'valor'\"",
+                "\"string comandoSQL = \"select * table tabela;\"",
+                "string comandoSQL =\"insert into tabela (colunas) values ('');\"",
+                "string comandoSQL = \"update tabela set coluna1 = 'valor1' where coluna2 = 'valor2';\"",
+                "string comandoSQL = \"delete from tabela where coluna= 'valor'\"",
             };
 
             //Client XSS
@@ -106,24 +106,26 @@ namespace Projeto.Classes
                 { "<object>", 3 },
                 // Adicione outras palavras reservadas conforme necessário
             };
-            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new string[]
+
+            dados_teste["Possivel Cliente XSS"] = new string[3][];
+            dados_teste["Possivel Cliente XSS"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
                 "",
                 "string userinput = \"<img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' />\";",
-                "string userInput = \"<img src=\\\"x\\\" onerror=\\\"alert('XSS')\\\" />\";",
-                "string userInput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnZG9jdW1lbnQucGhwJyk8L3NjcmlwdD4=\\\"></object>\";"
+                "string userinput = \"<img src=\\\"x\\\" onerror=\\\"alert('XSS')\\\" />\";",
+                "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnZG9jdW1lbnQucGhwJyk8L3NjcmlwdD4=\\\"></object>\";"
             };
-            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new string[]
+            dados_teste["Possivel Cliente XSS"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
                 "string userinput = $\"<div><script>alert('xss ataque!');</script>\"</div>\";",
                 "string userinput = \"<img src=\\\"javascript:alert('xss')\\\" />\";",
                 "string usercontent = \"<script>document.write(\\\"<iframe src='http://www.example.com'></iframe>\\\");</script>\";",
-                "string userInput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"></object>\";",
+                "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"></object>\";",
 
             };
-            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
+            dados_teste["Possivel Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
                "string userinput = \"<script>alert('xss ataque!');</script>\";",
@@ -533,16 +535,15 @@ namespace Projeto.Classes
         public void Visit(List<string> code) /*Tempo de Compexidade: O(30n) <=> O(n) 
                                                                                    *onde n é o número de nós e 30= 10 *3                                                                           */
         {
-            int i = 1;
+           
 
-            foreach(var linha in code)
+            for(int i = 0; i<code.Count(); i++)
             {
                 foreach (var nome in padroes.Keys)
                 {
-                    AnalisarVulnerabilidade(linha, i ,padroes[nome], nome);
+                    AnalisarVulnerabilidade(code[i], i ,padroes[nome], nome);
                 }
-
-                i++;
+                
             }
 
         }
@@ -552,11 +553,13 @@ namespace Projeto.Classes
         {
             if (ContemUmaPalavra(code, palavras, out int value))
             {
+                string min = code.ToLower();
+
                 //Este array guarda a precisão dos dados de teste correspondentes à vulnerabilidade encontrada para diferentes niveis de risco
                 double[] precisao = {
-//                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Alto][value]),
-//                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Medio][value]),
-//                    CompareWithRegex(code,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Baixo][value])
+                    CalculateSimilarity(min,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Alto][value])* 100,
+                    CalculateSimilarity(min,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Medio][value])* 100,
+                    CalculateSimilarity(min,dados_teste[nomeVulnerabilidade][(int)NivelRisco.Baixo][value])*100
                 };
 
                 //Qual o nivel de risco mais provavel da vulnerabilidade encontrada
