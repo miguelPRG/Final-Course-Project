@@ -74,27 +74,27 @@ namespace Projeto.Classes
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-               "string comandoSQL = \"select * from tabela where coluna = @valor\";",
-               "string comandoSQL = \"insert into tabela (colunas) values ('\" + userinput + \"')\";",
-               "string comandoSQL = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\"",
-               "string comandoSQL = \"delete from tabela where coluna= '\" + userinput + \"'\"",
+               "string query = \"select * from users where username = '{userinput}'\";",
+               "string query = \"insert into tabela (colunas) values ('\" + userinput + \"')\";",
+               "string query = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\"",
+               "string query = \"delete from tabela where coluna= '\" + userinput + \"'\"",
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                 "string comandoSQL = \"select * table tabela where colunaid = 1;\"",
-                 "string comandoSQL = \"insert into tabela (colunas) values (@parametro)\";",
-                 "string comandoSQL = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
-                 "string comandoSQL = \"delete from tabela where coluna = @valor\"",
+                 "string query = \"select * from users where username = @username\";",
+                 "string query = \"insert into tabela (colunas) values (@parametro)\";",
+                 "string query = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
+                 "string query = \"delete from tabela where coluna = @valor\"",
 
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-                "\"string comandoSQL = \"select * table tabela;\"",
-                "string comandoSQL =\"insert into tabela (colunas) values ('');\"",
-                "string comandoSQL = \"update tabela set coluna1 = 'valor1' where coluna2 = 'valor2';\"",
-                "string comandoSQL = \"delete from tabela where coluna= 'valor'\"",
+                "string query = \"select * table tabela;\"",
+                "string query = \"insert into tabela (colunas) values ('');\"",
+                "string query = \"update tabela set coluna1 = 'valor1' where coluna2 = 'valor2';\"",
+                "string query = \"delete from tabela where coluna= 'valor'\"",
             };
 
             //Client XSS
@@ -532,22 +532,18 @@ namespace Projeto.Classes
 
 
 
-        public void Visit(List<string> code) /*Tempo de Compexidade: O(30n) <=> O(n) 
-                                                                                   *onde n é o número de nós e 30= 10 *3                                                                           */
+        public void Visit(string[] code,int linhasComentadas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
         {
-           
-
             for(int i = 0; i<code.Count(); i++)
             {
                 foreach (var nome in padroes.Keys)
                 {
-                    AnalisarVulnerabilidade(code[i], i ,padroes[nome], nome);
+                    AnalisarVulnerabilidade(code[i], i+linhasComentadas/2 ,padroes[nome], nome);
                 }
                 
             }
 
         }
-
 
         private void AnalisarVulnerabilidade(string code, int linha ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
         {

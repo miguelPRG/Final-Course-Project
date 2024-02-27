@@ -15,17 +15,19 @@ using Projeto.Classes;
 using System.Diagnostics;
 using Windows.UI.Xaml.Documents;
 using Windows.Globalization.DateTimeFormatting;
+using Windows.UI.Xaml;
 
 namespace ProjetoA
 {
     public class CodeAnalyzer
     {
+        static int linhasIgnoradas;
+
         public static string GerarRelatorioHTML(string code)
         {
+            linhasIgnoradas = 0;
             var htmlBuilder = new StringBuilder();
             code = code.Trim();
-
-            string[] codigo = code.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -55,16 +57,9 @@ namespace ProjetoA
                 return htmlBuilder.ToString();
             }
 
-            //Vamos pegar em todo o código e dividi-lo em linhas, ignorando qualquer comentário que seja encontrado
-            List<string> list = new List<string>();
+            string[] codigo = code.Split(new[] { '\r','\n' });
 
-            using (var enumerator = DividirEmLinhas(code).GetEnumerator())
-            {
-                while (enumerator.MoveNext())
-                {
-                    list.Add(enumerator.Current);
-                }
-            }
+            var codigoDividido = DividirEmLinhas(codigo).ToArray();
 
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
@@ -80,7 +75,7 @@ namespace ProjetoA
             // Adicione a chamada para o método AnalisarVulnerabilidade
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
-            AnalisarVulnerabilidades(list, htmlBuilder);
+            AnalisarVulnerabilidades(codigoDividido, htmlBuilder);
             htmlBuilder.AppendLine("</div>");
     /*
             // Realiza a análise de complexidade ciclomática
@@ -135,69 +130,114 @@ namespace ProjetoA
             return htmlBuilder.ToString();
         }
 
-        static IEnumerable<string> DividirEmLinhas(string code)
+        static IEnumerable<string> DividirEmLinhas(string[] linhas)
         {
-            string[] linhas = code.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            bool multiLineComment = false;
-            string linha;
+            bool dentroDeComentarioMultiLinha = false;
 
-            foreach (string l in linhas)
+            for (int i = 0; i < linhas.Length; i++)
             {
-                linha = l.Trim();
+                var linha = linhas[i].Trim();
 
-                if (multiLineComment)
+                // Verifica se está dentro de um comentário multilinha
+                if (dentroDeComentarioMultiLinha)
                 {
+                    // Verifica se a linha contém o fechamento do comentário multilinha
                     if (linha.Contains("*/"))
                     {
-                        multiLineComment = false;
+                        dentroDeComentarioMultiLinha = false;
+                        // Retorna a parte após o fechamento do comentário multilinha
                         int index = linha.IndexOf("*/") + 2;
                         if (index < linha.Length)
                         {
                             yield return linha.Substring(index);
                         }
+
+                        else linhasIgnoradas++;
                     }
+
+                    else
+                    {
+                        linhasIgnoradas++;
+                    }
+                    // Se ainda estiver dentro de um comentário multilinha, a linha inteira é ignorada
+                    continue;
                 }
                 else
                 {
-                    /*if (string.IsNullOrEmpty(linha))
+                    // Verifica se a linha está vazia
+                    if (string.IsNullOrEmpty(linha))
                     {
-                        continue;
-                    }*/
-                    if (linha.StartsWith("//"))
-                    {
-                        continue;
-                    }
-                    else if (linha.Contains("/*"))
-                    {
-                        multiLineComment = true;
-                        int index = linha.IndexOf("/*");
-                        if (index > 0)
-                        {
-                            yield return linha.Substring(0, index);
-                        }
-                        if (linha.Contains("*/"))
-                        {
-                            multiLineComment = false;
-                            index = linha.IndexOf("*/") + 2;
-                            if (index < linha.Length)
-                            {
-                                yield return linha.Substring(index);
-                            }
-                        }
+                        // Ignora linhas vazias
+                        linhasIgnoradas++;
                         continue;
                     }
 
+                    // Verifica se a linha contém um comentário de linha única
+                    if (linha.Contains("//"))
+                    {
+                        // Remove o comentário de linha única e retorna a parte antes dele
+
+                        int index = linha.IndexOf("//");
+
+                        if(index==0)
+                        {
+                            linhasIgnoradas++;
+                        }
+
+                        yield return linha.Substring(0, index).Trim();
+                        // Continua para a próxima linha
+                        
+                        continue;
+                    }
+
+                    // Verifica se a linha contém o início de um comentário multilinha
+                    if (linha.Contains("/*"))
+                    {
+                        // Marca que está dentro de um comentário multilinha
+                        dentroDeComentarioMultiLinha = true;
+                        // Verifica se também contém o fechamento do comentário multilinha na mesma linha
+                        if (linha.Contains("*/"))
+                        {
+                            // Encontra a parte antes do início do comentário multilinha
+                            int indexInicio = linha.IndexOf("/*");
+                            // Encontra a parte após o fechamento do comentário multilinha
+                            int indexFim = linha.IndexOf("*/", indexInicio) + 2;
+                            // Retorna a parte antes do início e após o fim do comentário multilinha
+                            yield return linha.Substring(0, indexInicio).Trim();
+                            yield return linha.Substring(indexFim).Trim();
+                            // Continua para a próxima linha
+                            continue;
+                        }
+                        else
+                        {
+                            int index = linha.IndexOf("/*");
+
+                            if (index==0)
+                            {
+                                linhasIgnoradas++;
+                            }
+
+                            // Retorna a parte antes do início do comentário multilinha
+                            yield return linha.Substring(0, index).Trim();
+                            // Continua para a próxima linha
+                            continue;
+                        }
+                    }
+
+                    // Se não estiver em um comentário multilinha e não contiver comentário de linha única,
+                    // apenas retorna a linha
                     yield return linha;
                 }
             }
         }
 
-        static void AnalisarVulnerabilidades(List<string> code, StringBuilder htmlBuilder)
+
+        static void AnalisarVulnerabilidades(string[] code, StringBuilder htmlBuilder)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
 
             // Analisar o código usando o visitor
-            vulnerabilidadeVisitor.Visit(code);
+            vulnerabilidadeVisitor.Visit(code,linhasIgnoradas);
 
             // Construir tabela HTML
             htmlBuilder.AppendLine("<table>");
