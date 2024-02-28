@@ -134,101 +134,70 @@ namespace ProjetoA
         {
             bool dentroDeComentarioMultiLinha = false;
 
-            for (int i = 0; i < linhas.Length; i++)
+            foreach (var linha in linhas)
             {
-                var linha = linhas[i].Trim();
+                var linhaSemComentarios = RemoverComentarios(linha, ref dentroDeComentarioMultiLinha);
+                if (!string.IsNullOrWhiteSpace(linhaSemComentarios))
+                {
+                    yield return linhaSemComentarios;
+                }
+            }
+        }
 
-                // Verifica se está dentro de um comentário multilinha
+        static string RemoverComentarios(string linha, ref bool dentroDeComentarioMultiLinha)
+        {
+            var partes = new List<string>();
+
+            while (true)
+            {
+                if (string.IsNullOrEmpty(linha))
+                {
+                    break;
+                }
+
                 if (dentroDeComentarioMultiLinha)
                 {
-                    // Verifica se a linha contém o fechamento do comentário multilinha
-                    if (linha.Contains("*/"))
+                    var indexFimComentarioMultiLinha = linha.IndexOf("*/");
+                    if (indexFimComentarioMultiLinha >= 0)
                     {
                         dentroDeComentarioMultiLinha = false;
-                        // Retorna a parte após o fechamento do comentário multilinha
-                        int index = linha.IndexOf("*/") + 2;
-                        if (index < linha.Length)
-                        {
-                            yield return linha.Substring(index);
-                        }
-
-                        else linhasIgnoradas++;
+                        linha = linha.Substring(indexFimComentarioMultiLinha + 2).Trim();
                     }
-
                     else
                     {
-                        linhasIgnoradas++;
+                        linha = string.Empty;
                     }
-                    // Se ainda estiver dentro de um comentário multilinha, a linha inteira é ignorada
-                    continue;
                 }
                 else
                 {
-                    // Verifica se a linha está vazia
-                    if (string.IsNullOrEmpty(linha))
+                    var indexInicioComentarioMultiLinha = linha.IndexOf("/*");
+                    var indexInicioComentarioLinhaUnica = linha.IndexOf("//");
+
+                    if (indexInicioComentarioMultiLinha >= 0 && (indexInicioComentarioLinhaUnica == -1 || indexInicioComentarioMultiLinha < indexInicioComentarioLinhaUnica))
                     {
-                        // Ignora linhas vazias
-                        linhasIgnoradas++;
-                        continue;
-                    }
-
-                    // Verifica se a linha contém um comentário de linha única
-                    if (linha.Contains("//"))
-                    {
-                        // Remove o comentário de linha única e retorna a parte antes dele
-
-                        int index = linha.IndexOf("//");
-
-                        if(index==0)
+                        var indexFimComentarioMultiLinha = linha.IndexOf("*/", indexInicioComentarioMultiLinha);
+                        if (indexFimComentarioMultiLinha >= 0)
                         {
-                            linhasIgnoradas++;
-                        }
-
-                        yield return linha.Substring(0, index).Trim();
-                        // Continua para a próxima linha
-                        
-                        continue;
-                    }
-
-                    // Verifica se a linha contém o início de um comentário multilinha
-                    if (linha.Contains("/*"))
-                    {
-                        // Marca que está dentro de um comentário multilinha
-                        dentroDeComentarioMultiLinha = true;
-                        // Verifica se também contém o fechamento do comentário multilinha na mesma linha
-                        if (linha.Contains("*/"))
-                        {
-                            // Encontra a parte antes do início do comentário multilinha
-                            int indexInicio = linha.IndexOf("/*");
-                            // Encontra a parte após o fechamento do comentário multilinha
-                            int indexFim = linha.IndexOf("*/", indexInicio) + 2;
-                            // Retorna a parte antes do início e após o fim do comentário multilinha
-                            yield return linha.Substring(0, indexInicio).Trim();
-                            yield return linha.Substring(indexFim).Trim();
-                            // Continua para a próxima linha
-                            continue;
+                            linha = linha.Remove(indexInicioComentarioMultiLinha, indexFimComentarioMultiLinha - indexInicioComentarioMultiLinha + 2);
                         }
                         else
                         {
-                            int index = linha.IndexOf("/*");
-
-                            if (index==0)
-                            {
-                                linhasIgnoradas++;
-                            }
-
-                            // Retorna a parte antes do início do comentário multilinha
-                            yield return linha.Substring(0, index).Trim();
-                            // Continua para a próxima linha
-                            continue;
+                            dentroDeComentarioMultiLinha = true;
+                            linha = linha.Substring(0, indexInicioComentarioMultiLinha).Trim();
                         }
                     }
-
-                    // Se não estiver em um comentário multilinha e não contiver comentário de linha única,
-                    // apenas retorna a linha
-                    yield return linha;
+                    else if (indexInicioComentarioLinhaUnica >= 0)
+                    {
+                        linha = linha.Substring(0, indexInicioComentarioLinhaUnica).Trim();
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
+
+            return linha;
         }
 
 
