@@ -532,13 +532,20 @@ namespace Projeto.Classes
 
 
 
-        public void Visit(string[] code,int linhasComentadas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
+        public void Visit(string[] code,int linhasIgnoradas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
         {
             for(int i = 0; i<code.Count(); i++)
             {
                 foreach (var nome in padroes.Keys)
                 {
-                    AnalisarVulnerabilidade(code[i], i+linhasComentadas/2 ,padroes[nome], nome);
+                    int linha = i+1;
+
+                    if(linhasIgnoradas>0)
+                    {
+                        linha += linhasIgnoradas -2;
+                    }
+
+                    AnalisarVulnerabilidade(code[i], linha ,padroes[nome], nome);
                 }
                 
             }

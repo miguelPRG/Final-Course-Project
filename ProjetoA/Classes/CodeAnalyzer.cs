@@ -146,12 +146,11 @@ namespace ProjetoA
 
         static string RemoverComentarios(string linha, ref bool dentroDeComentarioMultiLinha)
         {
-            var partes = new List<string>();
-
             while (true)
             {
                 if (string.IsNullOrEmpty(linha))
                 {
+                    linhasIgnoradas++;   
                     break;
                 }
 
@@ -191,7 +190,7 @@ namespace ProjetoA
                         linha = linha.Substring(0, indexInicioComentarioLinhaUnica).Trim();
                     }
                     else
-                    {
+                    { 
                         break;
                     }
                 }
