@@ -21,13 +21,15 @@ namespace ProjetoA
 {
     public class CodeAnalyzer
     {
-        static int linhasIgnoradas;
+        /*A FAZER:
+         A parte da tabela de vulnerabilidades tem um problema.
+        Quando o código contem um exemplo de script javascript na tabela este é executado.
+         */
 
         public static string GerarRelatorioHTML(string code)
         {
-            linhasIgnoradas = 0;
             var htmlBuilder = new StringBuilder();
-            code = code.Trim();
+            code = code.Trim();  
 
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -51,15 +53,15 @@ namespace ProjetoA
             {
                 stopwatch.Stop();
 
-                htmlBuilder.Append("<h2>Não foi possivel efetuar uma análise profunda do código, pois este apresenta erros de sintaxe!</h2>");
-                htmlBuilder.Append($"<p>Tempo Total de Análise: {stopwatch.ElapsedMilliseconds}ms</p>");
-                htmlBuilder.Append("</body>");
+                htmlBuilder.AppendLine("<h2>Não foi possivel efetuar uma análise profunda do código, pois este apresenta erros de sintaxe!</h2>");
+                htmlBuilder.AppendLine($"<p>Tempo Total de Análise: {stopwatch.ElapsedMilliseconds}ms</p>");
+                htmlBuilder.Append("</body></html>");
                 return htmlBuilder.ToString();
             }
 
-            string[] codigo = code.Split(new[] { '\r','\n' });
+            string[] linhasSeparadas = code.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
-            var codigoDividido = DividirEmLinhas(codigo).ToArray();
+            var linhas = GuardarEmDicionario(linhasSeparadas);
 
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
@@ -75,7 +77,7 @@ namespace ProjetoA
             // Adicione a chamada para o método AnalisarVulnerabilidade
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
-            AnalisarVulnerabilidades(codigoDividido, htmlBuilder);
+            AnalisarVulnerabilidades(linhas, htmlBuilder);
             htmlBuilder.AppendLine("</div>");
     /*
             // Realiza a análise de complexidade ciclomática
@@ -122,7 +124,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("</div>");
 
             htmlBuilder.AppendLine($"<h2 id=\"codigo-analisado\">Código Analisado:</h2>");
-            ExibirCodigo(codigo, htmlBuilder);
+            ExibirCodigo(linhasSeparadas, htmlBuilder);
 
             // Feche as tags HTML
             htmlBuilder.AppendLine("</body></html>");
@@ -130,27 +132,46 @@ namespace ProjetoA
             return htmlBuilder.ToString();
         }
 
-        static IEnumerable<string> DividirEmLinhas(string[] linhas)
+        static Dictionary<string, List<int>> GuardarEmDicionario(string[] linhasSeparadas)
         {
-            bool dentroDeComentarioMultiLinha = false;
+            Dictionary<string, List<int>> dicionario = new Dictionary<string, List<int>>();
 
-            foreach (var linha in linhas)
+            int numeroLinha = 1;
+
+            bool multiLineComment = false;
+
+            foreach (string l in linhasSeparadas)
             {
-                var linhaSemComentarios = RemoverComentarios(linha, ref dentroDeComentarioMultiLinha);
-                if (!string.IsNullOrWhiteSpace(linhaSemComentarios))
-                {
-                    yield return linhaSemComentarios;
-                }
-            }
-        }
+                string linha = l.Trim();
 
+                if (linha =="{" || linha=="}")
+                {
+                    continue;
+                }
+
+                string linhaSemComentario = RemoverComentarios(linha, ref multiLineComment);
+
+                if (!string.IsNullOrWhiteSpace(linhaSemComentario))
+                {
+                    if(dicionario.ContainsKey(linhaSemComentario))
+                    {
+                        dicionario[linhaSemComentario].Add(numeroLinha);
+                    }
+                    
+                    else dicionario[linhaSemComentario] = new List<int> { numeroLinha};
+                }
+
+                numeroLinha++;
+            }
+
+            return dicionario;
+        }
         static string RemoverComentarios(string linha, ref bool dentroDeComentarioMultiLinha)
         {
             while (true)
             {
                 if (string.IsNullOrEmpty(linha))
                 {
-                    linhasIgnoradas++;   
                     break;
                 }
 
@@ -165,6 +186,7 @@ namespace ProjetoA
                     else
                     {
                         linha = string.Empty;
+                        break;
                     }
                 }
                 else
@@ -183,14 +205,16 @@ namespace ProjetoA
                         {
                             dentroDeComentarioMultiLinha = true;
                             linha = linha.Substring(0, indexInicioComentarioMultiLinha).Trim();
+                            break;
                         }
                     }
                     else if (indexInicioComentarioLinhaUnica >= 0)
                     {
                         linha = linha.Substring(0, indexInicioComentarioLinhaUnica).Trim();
+                        break;
                     }
                     else
-                    { 
+                    {
                         break;
                     }
                 }
@@ -200,16 +224,16 @@ namespace ProjetoA
         }
 
 
-        static void AnalisarVulnerabilidades(string[] code, StringBuilder htmlBuilder)
+        static void AnalisarVulnerabilidades(Dictionary<string,List<int>> code, StringBuilder htmlBuilder)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
 
             // Analisar o código usando o visitor
-            vulnerabilidadeVisitor.Visit(code,linhasIgnoradas);
+            vulnerabilidadeVisitor.Visit(code);
 
             // Construir tabela HTML
             htmlBuilder.AppendLine("<table>");
-            htmlBuilder.AppendLine("<tr><th>Tipo</th><th>Linha</th><th>Código</th><th>Nível de Risco</th></tr>");
+            htmlBuilder.AppendLine("<tr><th>Tipo</th><th>Linhas</th><th>Código</th><th>Nível de Risco</th></tr>");
 
             foreach (var vulnerabilidade in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
             {
@@ -217,9 +241,18 @@ namespace ProjetoA
                 htmlBuilder.AppendLine($"<td>{vulnerabilidade.Tipo}</td>");
                 htmlBuilder.AppendLine($"<td>{vulnerabilidade.Codigo}</td>");
 
-                int linha = vulnerabilidade.Linha;
+                var linha = vulnerabilidade.Linha;
 
-                htmlBuilder.AppendLine($"<td> <a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a></td>");
+                for(int i = 0; i<linha.Count();i++)
+                {
+                    htmlBuilder.Append($"<td> <a href=\"#linha-numero{linha[i]}\" onclick=\"destacarLinha({linha[i]})\">{linha[i]}");
+                    if(i+1<linha.Count)
+                    {
+                        htmlBuilder.Append(',');
+                    }
+
+                    htmlBuilder.Append("</a></td>");
+                }
 
                 switch (vulnerabilidade.NivelRisco)
                 {
@@ -237,7 +270,7 @@ namespace ProjetoA
         }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
-        {
+        {   
             htmlBuilder.AppendLine("<div class=\"codigo-container\">"); // Adiciona uma div de contêiner
 
             htmlBuilder.AppendLine("<pre><code class=\"csharp\">");
@@ -285,7 +318,6 @@ namespace ProjetoA
             {
                 return false;
             }
-
 
         }
 

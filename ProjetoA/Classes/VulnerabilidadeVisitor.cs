@@ -42,7 +42,7 @@ namespace Projeto.Classes
     public class VulnerabilidadeVisitor
     {
         //Lista de vulnerabilidades encontradas
-        private List<(string Tipo, int Linha, string Codigo, NivelRisco NivelRisco)> vulnerabilidadesEncontradas;
+        private List<(string Tipo, List<int> Linha, string Codigo, NivelRisco NivelRisco)> vulnerabilidadesEncontradas;
 
         //Diciónário utilizado para testar as vulnerabilidades encontradas
         Dictionary<string, string[][]> dados_teste;
@@ -55,7 +55,7 @@ namespace Projeto.Classes
 
         public VulnerabilidadeVisitor()
         {
-            vulnerabilidadesEncontradas = new List<(string, int, string, NivelRisco)>();
+            vulnerabilidadesEncontradas = new List<(string, List<int>, string, NivelRisco)>();
             dados_teste = new Dictionary<string, string[][]>();
             padroes = new Dictionary<string, Dictionary<string, int>>();
 
@@ -107,8 +107,8 @@ namespace Projeto.Classes
                 // Adicione outras palavras reservadas conforme necessário
             };
 
-            dados_teste["Possivel Cliente XSS"] = new string[3][];
-            dados_teste["Possivel Cliente XSS"][(int)NivelRisco.Alto] = new string[]
+            dados_teste["Possível Cliente XSS"] = new string[3][];
+            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
                 "",
@@ -116,7 +116,7 @@ namespace Projeto.Classes
                 "string userinput = \"<img src=\\\"x\\\" onerror=\\\"alert('XSS')\\\" />\";",
                 "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnZG9jdW1lbnQucGhwJyk8L3NjcmlwdD4=\\\"></object>\";"
             };
-            dados_teste["Possivel Cliente XSS"][(int)NivelRisco.Medio] = new string[]
+            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
                 "string userinput = $\"<div><script>alert('xss ataque!');</script>\"</div>\";",
@@ -125,7 +125,7 @@ namespace Projeto.Classes
                 "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"></object>\";",
 
             };
-            dados_teste["Possivel Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
+            dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
                "string userinput = \"<script>alert('xss ataque!');</script>\";",
@@ -498,14 +498,14 @@ namespace Projeto.Classes
 
         }
 
-        public List<(string Tipo, int Linha, string Codigo, NivelRisco NivelRisco)> VulnerabilidadesEncontradas
+        public List<(string Tipo, List<int> Linha, string Codigo, NivelRisco NivelRisco)> VulnerabilidadesEncontradas
         {
             get { return vulnerabilidadesEncontradas; }
         }
 
         public int getPrecision()
         {
-            try
+            try 
             {
                 return (verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) * 100;
             }
@@ -530,29 +530,19 @@ namespace Projeto.Classes
             return false;
         }
 
-
-
-        public void Visit(string[] code,int linhasIgnoradas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
+        public void Visit(Dictionary<string,List<int>>linhas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
         {
-            for(int i = 0; i<code.Count(); i++)
+            foreach(var l in linhas.Keys)
             {
-                foreach (var nome in padroes.Keys)
+                foreach(var nome in padroes.Keys)
                 {
-                    int linha = i+1;
-
-                    if(linhasIgnoradas>0)
-                    {
-                        linha += linhasIgnoradas -2;
-                    }
-
-                    AnalisarVulnerabilidade(code[i], linha ,padroes[nome], nome);
+                    AnalisarVulnerabilidade(l, linhas[l], padroes[nome], nome);
                 }
-                
             }
 
         }
 
-        private void AnalisarVulnerabilidade(string code, int linha ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
+        private void AnalisarVulnerabilidade(string code, List<int> linha ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
         {
             if (ContemUmaPalavra(code, palavras, out int value))
             {
@@ -579,7 +569,7 @@ namespace Projeto.Classes
             }
         }
 
-        private void AdicionarVulnerabilidade(string nomeVulnerabilidade, int linha ,string code, NivelRisco nivelRisco)
+        private void AdicionarVulnerabilidade(string nomeVulnerabilidade, List<int> linha ,string code, NivelRisco nivelRisco)
         {
             vulnerabilidadesEncontradas.Add((nomeVulnerabilidade,linha, code, nivelRisco));
         }
