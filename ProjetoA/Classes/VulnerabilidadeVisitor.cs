@@ -23,6 +23,7 @@ using Windows.UI.Composition.Interactions;
 using Windows.Networking.Sockets;
 using System.Net;
 using Windows.Services.Maps;
+using Windows.ApplicationModel.Contacts;
 
 /*A FAZER: 
  
@@ -98,7 +99,7 @@ namespace Projeto.Classes
             };
 
             //Client XSS
-            padroes["Possível Cliente XSS"] = new Dictionary<string, int>
+            /*padroes["Possível Cliente XSS"] = new Dictionary<string, int>
             {
                 { "<script>", 0 },
                 { "<img>", 1 },
@@ -132,7 +133,7 @@ namespace Projeto.Classes
                "string userinput = \"<img src=\\\"http://example.com\\\" />\";",
                "string usercontent = \"<iframe src='http://www.example.com'></iframe>\";",
                "string userinput = \"<object data=\\\"javascript:alert('xss')\\\"></object>\";"
-            };
+            };*/
 
             //Hardcoded Password
             /*palavrasReservadas["Possível Password Fraca"] =new string[]
@@ -158,139 +159,122 @@ namespace Projeto.Classes
             //Target Blank
             padroes["Possível Target Blank"] = new Dictionary<string, int>
             {
-                { "_blank",0 },
+                { "target=\"_blank\"",0 },
             };
 
             dados_teste["Possível Target Blank"] = new string[3][];
             dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-                "string link = \"<a href='\" + userInput + \"' target='_blank'>link</a>\";",
+                "string link = $\"<a href='{userurl}' target='_blank' rel='noopener noreferrer'>link personalizado</a>\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                "string link = \"<a href='\" + userInput + \"' target='_blank'>link</a>\";",
+                "string linkhtml = $\"<a href='{userurl}' target='_blank'>link personalizado</a>\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-                "string link = \"<a href='http://exemplo.com' target='_blank'>link</a>\";"
+                "string link=\"<a href=\"https://www.example.com\" target=\"_blank\">link externo</a>\""
             };
 
             //Cookies
             padroes["Possiveis Cookies não Protegidos"] = new Dictionary<string, int>
             {
-                //{ "expires",0 },
-                { "max-age",0 },
-                { "domain",1 },
-                { "path",2 },
-                { "set-cookie",3 },
-                //{ "httpcookie",4 },
-                { "httpcontext",4 },
+                {"httpcookie",0 },
+                {"set-cookie",1 },
+                {"samesite",2 },
 
             // Adicione outras palavras reservadas conforme necessário
             };
             dados_teste["Possiveis Cookies não Protegidos"] = new string[3][];
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Alto] = new string[]
             {
-                // Expressões Regulares para alto risco               
-                "response.cookies.append(\"password\", \"secretpassword\", new cookieoptions { maxage = timespan.fromdays(365) });\r\n",
-                "response.cookies[\"session\"].value = \"1234\"; response.cookies[\"session\"].domain = Request.headers[\"host\"];\r\n",
-                "response.cookies.add(new httpcookie(\"nome\", \"valor\") { path = request.url.absolutepath });\r\n",
-                "response.headers.add(\"set-cookie\", $\"user_token={usertoken}; samesite=none; secure; httponly\");\r\n",
-                "httpcontext.current.request.cookies[\"nomecookie\"].value;\r\n"
+                "httpcookie cookie = new httpcookie(\"tokensutenticacao\", token);",
+                "response.setcookie(new httpcookie(\"meucookie\", valor) { secure = true, httponly = true });",
+                "cookie.sameSite = samesitemode.none;",
+
             };
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Medio] = new string[]
             {
-                // Expressões Regulares para médio risco              
-                "response.cookies.append(\"userid\", \"9876\", new cookieoptions { maxage = timespan.fromdays(1) });\r\n",
-                "response.cookies[\"session\"].value = \"1234\"; response.cookies[\"session\"].domain = request.url.host;\r\n",
-                "response.cookies.add(new httpcookie(\"nome\", \"valor\") { path = \"/restrito\" });\r\n",
-                "response.headers.add(\"set-cookie\", $\"session_id={usersessionId}; secure\");\r\n",
-                "httpcontext.current.response.cookies.add(new httpcookie(\"nomecookie\", \"valor\"));\r\n"
+               "httpcookie cookie = new httpcookie(\"usuarioid\", usuario.id.tostring());",
+               "response.setcookie(new sttpcookie(\"meucookie\", \"valor\") { secure = true });",
+               "cookie.samesite = samesitemode.lax;",
             };
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Baixo] = new string[]
             {
-                // Expressões Regulares para baixo risco
-                "response.cookies.append(\"sessionid\", \"12345\", new cookieoptions { maxage = timeSpan.fromminutes(30) });\r\n",
-                "response.cookies[\"session\"].value = \"1234\"; response.cookies[\"session\"].domain = \".example.com\";\r\n",
-                "response.cookies.add(new httpcookie(\"nome\", \"valor\") { path = \"/\" });\r\n",
-                "response.headers.add(\"set-cookie\", \"user_id=123\");\r\n",
-                "httpcontext.current.response.cookies[\"nomecookie\"].value = \"valor\";\r\n"
+               "httpcookie cookie = new httpcookie(\"meucookie\", \"valor\");",
+               "response.setcookie(new httpcookie(\"meucookie\", \"valor\") { httponly = true });",
+               "cookie.SameSite = samesitemode.strict;"
             };
 
             //CSP Header
             padroes["Possivel CSP Header"] = new Dictionary<string, int>
             {
-                {"script-src",0 },
-                {"base-uri",1},
-                {"form-action",2},
-                {"frame-ancestors",3},
-                {"plugin-types",4},
-                {"upgrade-insecure-requests",5},
-                {"block-all-mixed-content",6},
+                {"style-src",0 },
+                {"default-src",1 },
+                {"frame-src",2 },
+                {"object-src",3 },
+                {"child-src",4 },
+                {"form-action",5 },
+                {"plugin-types",6 },
             };
 
             dados_teste["Possivel CSP Header"] = new string[3][];
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Alto] = new string[]
             {
-                "response.headers.add(\"content-security-policy\", \"script-src 'none' 'unsafe-inline' 'unsafe-eval'\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"base-uri 'none';\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"form-action 'none'\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"frame-ancestors 'none'\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"plugin-types application/pdf\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"default-src 'none'; upgrade-insecure-requests\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"default-src 'none' https:; block-all-mixed-content\");\r\n"
+                "response.addheader(\"content-security-policy\", \"style-src *\");",
+                "response.addheader(\"content-security-policy\", \"default-src *\");",
+                "response.addheader(\"content-security-policy\", \"frame-src *\");\r\n",
+                "response.addheader(\"content-security-policy\", \"object-src *\");",
+                "response.addheader(\"content-security-policy\", \"child-src *\");",
+                "response.addheader(\"content-security-policy\", \"form-action 'none';\");",
+                "response.addheader(\"content-security-policy\", \"plugin-types *\");"
             };
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Medio] = new string[]
             {
-                "response.headers.add(\"content-security-policy\", \"script-src 'self' https://cdn.example.com\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"base-uri 'self' https://dominio-permitido.com\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"form-action 'self' https://trusted-domain.com\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"frame-ancestors 'self' https://trusted-domain.com\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"plugin-types application/pdf application/zip\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"default-src 'self'; upgrade-insecure-requests\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"default-src 'self' https:; block-all-mixed-content\");\r\n"
+                "response.addheader(\"content-security-policy\", \"style-src 'self' https://cdn.example.com\");",
+                "response.addheader(\"content-security-policy\", \"default-src 'self' https://cdn.example.com\");",
+                "response.addheader(\"content-security-policy\", \"frame-src 'self' https://cdn.example.com\");",
+                "response.addheader(\"content-security-policy\", \"object-src 'self' https://cdn.example.com\");",
+                "response.addheader(\"content-security-policy\", \"child-src 'self' https://cdn.example.com\");",
+                "response.addheader(\"content-security-policy\", \"form-action 'self' data:;\");",
+                "response.addheader(\"content-security-policy\", \"plugin-types application/pdf application/vnd.ms-excel\");\r\n"
+
             };
             dados_teste["Possivel CSP Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                "response.headers.add(\"content-security-policy\", \"script-src 'self'\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"base-uri 'self'\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"form-action 'self'\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"frame-ancestors 'self'\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"plugin-types *\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"upgrade-insecure-requests\");\r\n",
-                "response.headers.add(\"content-security-policy\", \"block-all-mixed-content\");\r\n"
+                "response.addheader(\"content-security-policy\", \"style-src 'self'\");",
+                "response.addheader(\"content-security-policy\", \"default-src 'self'\");",
+                "response.addheader(\"content-security-policy\", \"frame-src 'self'\");",
+                "response.addheader(\"content-security-policy\", \"object-src 'self'\");",
+                "response.addheader(\"content-security-policy\", \"child-src 'self'\");",
+                "response.addheader(\"content-security-policy\",\"form-action 'self'\");",
+                "response.addheader(\"content-security-policy\", \"plugin-types application/pdf\");"
             };
 
             // Iframe 
-            padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
-         {
-            {"iframe",0},
-            {"sandbox",0}
-             // Adicione outras palavras reservadas conforme necessário
-         };
+            /*padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
+            {
+                {"iframe",0},
+                {"sandbox",0}
+                // Adicione outras palavras reservadas conforme necessário
+            };
 
             dados_teste["Possivel Uso de Iframe sem SandBox"] = new string[3][];
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Alto] = new string[]
             {
-                // Expressões Regulares para alto risco
-                @"<iframe\s+src\s*=\s*"".*""\s*>",
-                @"<sandbox\s+src\s*=\s*"".*""\s*"
+                
             };
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Medio] = new string[]
             {
-                // Expressões Regulares para médio risco
-                @"<iframe\b[^>]*>",
-                @"<sandbox\b[^>]*>",
+               
             };
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Baixo] = new string[]
             {
-                // Expressões Regulares para baixo risco
-                @"\biframe\b",
-                @"\bsandbox\b"
-            };
+               
+            };*/
 
             // JQuery
             /*padroes["Possivel JQuery"] = new Dictionary<string, int>
@@ -337,30 +321,25 @@ namespace Projeto.Classes
             };*/
 
             //DOM Open Redirect
-            /*padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
+            padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
             {
-                {"window.location",0},
-                {"document.location",1},
-                {"document.url",2},
-                {"location.href",3},
-                {"location.replace",4},
-                {"location.assign",5},
+                {"httpwebrequest",0},
                  // Adicione outras palavras reservadas conforme necessário
             };
 
             dados_teste["Possivel Redirecionamento de Domínio"] = new string[3][];
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Alto] = new string[]
             {
-                
+                "request.AllowAutoRedirect = true;"
             };
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Medio] = new string[]
             {
-               
+               "request.AllowAutoRedirect = false;"
             };
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Baixo] = new string[]
             {
-               
-            };*/
+               ""
+            };
 
             //Chaves de Criptografia
             /*palavrasReservadas["Possivel Fragilidade de Chave de Criptografia"] = new string[]
