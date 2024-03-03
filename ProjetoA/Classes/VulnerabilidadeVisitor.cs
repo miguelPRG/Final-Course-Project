@@ -67,6 +67,7 @@ namespace Projeto.Classes
                 { "insert",1},
                 { "update",2},
                 { "delete",3},
+                { "drop",4},
                 //{ "create",4},
                 //{ "alter",5},
                 //{ "drop",6},
@@ -77,8 +78,9 @@ namespace Projeto.Classes
                 // Expressões Regulares para alto risco
                "string query = \"select * from users where username = '{userinput}'\";",
                "string query = \"insert into tabela (colunas) values ('\" + userinput + \"')\";",
-               "string query = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\"",
-               "string query = \"delete from tabela where coluna= '\" + userinput + \"'\"",
+               "string query = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\";",
+               "string query = \"delete from tabela where coluna= '\" + userinput + \"'\";",
+               "string query = \"drop table tabela\";",
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Medio] = new string[]
             {
@@ -87,7 +89,7 @@ namespace Projeto.Classes
                  "string query = \"insert into tabela (colunas) values (@parametro)\";",
                  "string query = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
                  "string query = \"delete from tabela where coluna = @valor\"",
-
+                 "",
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Baixo] = new string[]
             {
@@ -96,6 +98,7 @@ namespace Projeto.Classes
                 "string query = \"insert into tabela (colunas) values ('');\"",
                 "string query = \"update tabela set coluna1 = 'valor1' where coluna2 = 'valor2';\"",
                 "string query = \"delete from tabela where coluna= 'valor'\"",
+                "",
             };
 
             //Client XSS
@@ -342,55 +345,71 @@ namespace Projeto.Classes
             };
 
             //Chaves de Criptografia
-            /*palavrasReservadas["Possivel Fragilidade de Chave de Criptografia"] = new string[]
+            /*padroes["Possivel Fragilidade de Chave de Criptografia"] = new Dictionary<string, int>
             {
-            "aes",
-            "des",
-            "rsa",
-            "sha",
-            "md5",
-            "hmac",
-            "pbkdf2",
-            "blowfish",
-            "twofish",
-            // Adicione outras palavras reservadas conforme necessário
+                { "keysize",0 },
+                { "generatekey",1 },
+                { "symmetricalgorithm",2},
+                { "asymmetricalgorithm",3 },
+                { "aes",4 },
+                { "rsa",5 },
+                { "keyexchange",6},
+                { "iv",7 },
+                {"padding",8 }
             };
-            dados_teste["Possivel Fragilidade de Chave de Criptografia"] = new string[]
+            
+            dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Alto] = new string[]
+            {
+
+            };
+            dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Medio] = new string[]
+            {
+
+            };
+            dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Baixo] = new string[]
             {
 
             };*/
 
             //Privacy Violation
-            /*palavrasReservadas["Possivel Violação de Privacidade"] = new string[]
+            padroes["Possivel Violação de Privacidade"] = new Dictionary<string, int>
             {
-            "breach",
-            "leak",
-            "expose",
-            "hack",
-            "exploit",
-            "infiltrate",
-            "compromise",
-            "intrude",
-            "access",
-            "steal",
-            "phishing",
-            "identity theft",
+                { "breach",0 },
+                {"leak",1},
+                {"expose",2},
+                {"hack",3},
+                {"exploit",4},
+                {"infiltrate",5},
+                {"compromise",6},
+                {"intrude",7},
+                {"access",8},
+                {"steal",9},
+                {"phishing",10},
+                {"identity theft",11},
             // Adicione outras palavras reservadas conforme necessário
             };
-            dados_teste["Possivel Violação de Privacidade"] = new string[]
+            dados_teste["Possivel Violação de Privacidade"][(int)NivelRisco.Alto] = new string[]
             {
 
-            };*/
+            };
+            dados_teste["Possivel Violação de Privacidade"][(int)NivelRisco.Medio] = new string[]
+            {
+
+            };
+            dados_teste["Possivel Violação de Privacidade"][(int)NivelRisco.Baixo] = new string[]
+            {
+
+            };
 
 
             //Path
             padroes["Possivel Caminho Transversal"] = new Dictionary<string, int>
-         {
-            { "c:\\",0},
-            { "d:\\",1},
-            { "e:\\",2},
+            {
+                { "c:\\",0},
+                { "d:\\",1},
+                { "e:\\",2},
              // Adicione outros caminhos e diretórios conforme necessário
-         };
+            };
 
             dados_teste["Possivel Caminho Transversal"] = new string[3][];
             dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Alto] = new string[]
