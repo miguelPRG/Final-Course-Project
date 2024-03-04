@@ -372,7 +372,7 @@ namespace Projeto.Classes
             };*/
 
             //Privacy Violation
-            padroes["Possivel Violação de Privacidade"] = new Dictionary<string, int>
+            /*padroes["Possivel Violação de Privacidade"] = new Dictionary<string, int>
             {
                 { "breach",0 },
                 {"leak",1},
@@ -400,7 +400,7 @@ namespace Projeto.Classes
             {
 
             };
-
+            */
 
             //Path
             padroes["Possivel Caminho Transversal"] = new Dictionary<string, int>
@@ -414,21 +414,21 @@ namespace Projeto.Classes
             dados_teste["Possivel Caminho Transversal"] = new string[3][];
             dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Alto] = new string[]
             {
-                "c:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)",
-                "d:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)",
-                "e:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)",
+                "string path =\"c:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)\";",
+                "string path =\"d:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)\";",
+                "string path =\"e:\\\\(?:\\.\\.|[^\\\\]+)*(?:\\\\|$)\";",
             };
             dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Medio] = new string[]
             {
-                "c:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+",
-                "d:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+",
-                "e:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+",
+                "sttring path =\"c:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+\"",
+                "string path =\"d:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+\"",
+                "string path =\"e:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+\"",
             };
             dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Baixo] = new string[]
             {
-                "c:\\\\[^\\\\]+",
-                "d:\\\\[^\\\\]+",
-                "e:\\\\[^\\\\]+",
+                "string path =\"c:\\\\[^\\\\]+\"",
+                "string path =\"d:\\\\[^\\\\]+\"",
+                "string path =\"e:\\\\[^\\\\]+\"",
             };
 
             // HSTS Header
@@ -479,21 +479,36 @@ namespace Projeto.Classes
              }*/
 
             //Heap Inspection
-            /*palavrasReservadas["Possivel Heap Inspection"] = new string[]
+            padroes["Possivel Heap Inspection"] = new Dictionary<string, int>
             {
-                "malloc",
-                "calloc",
-                "realloc",
-                "free",
-                "new",
-                "delete"    ,
-            // Adicione outras palavras reservadas conforme necessário
+                {"new",0 },
+                {"weakreference",1},
+                {"unsafe",2 },
+                {"marshal",3 },
+                {"pinning",4 }
+            
             };
-            dados_teste["Possivel Heap Inspection"] = new string[]
+            
+            dados_teste["Possivel Heap Inspection"][(int)NivelRisco.Alto] = new string[]
             {
+                "var obj = new byte[1024*1024];",
+                "public unsafe class classe",
+                "intptr address = marshal.allochglobal(4096);"
+            };
+            
+            dados_teste["Possivel Heap Inspection"][(int)NivelRisco.Medio] = new string[]
+            {
+                "var obj = classe(var parA, var parB);",
+                "static unsafe void main(string[] args)",
+                "marshal.zerofreeglobalallocunicode(hwnd);"
+            };
 
-            }*/
-
+            dados_teste["Possivel Heap Inspection"][(int)NivelRisco.Baixo] = new string[]
+            {
+                "var obj = new object();",
+                "",
+                "intptr buffer = marshal.allochglobal(1024);"
+            };
         }
 
         public List<(string Tipo, List<int> Linha, string Codigo, NivelRisco NivelRisco)> VulnerabilidadesEncontradas
