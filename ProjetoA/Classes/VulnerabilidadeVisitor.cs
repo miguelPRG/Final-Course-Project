@@ -102,7 +102,7 @@ namespace Projeto.Classes
             };
 
             //Client XSS
-            /*padroes["Possível Cliente XSS"] = new Dictionary<string, int>
+            padroes["Possível Cliente XSS"] = new Dictionary<string, int>
             {
                 { "<script>", 0 },
                 { "<img>", 1 },
@@ -116,7 +116,7 @@ namespace Projeto.Classes
             {
                 // Expressões Regulares para alto risco
                 "",
-                "string userinput = \"<img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' />\";",
+                "string userinput = \"&lt;img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' /&gt;\";",
                 "string userinput = \"<img src=\\\"x\\\" onerror=\\\"alert('XSS')\\\" />\";",
                 "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnZG9jdW1lbnQucGhwJyk8L3NjcmlwdD4=\\\"></object>\";"
             };
@@ -132,11 +132,11 @@ namespace Projeto.Classes
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-               "string userinput = \"<script>alert('xss ataque!');</script>\";",
-               "string userinput = \"<img src=\\\"http://example.com\\\" />\";",
-               "string usercontent = \"<iframe src='http://www.example.com'></iframe>\";",
-               "string userinput = \"<object data=\\\"javascript:alert('xss')\\\"></object>\";"
-            };*/
+               "string userinput = \"&lt;script&gt;alert('xss ataque!');&lt;/script&gt;\";",
+               "string userinput = \"&lt;img src=\\\"http://example.com\\\" /&gt;\";",
+               "string usercontent = \"&lt;iframe src='http://www.example.com'&gt;&lt;/iframe&gt;\";",
+               "string userinput = \"&lt;object data=\\\"javascript:alert('xss')\\\"&gt;&lt;/object&gt;\";"
+            };
 
             //Hardcoded Password
             /*palavrasReservadas["Possível Password Fraca"] =new string[]
@@ -169,17 +169,17 @@ namespace Projeto.Classes
             dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-                "string link = $\"<a href='{userurl}' target='_blank' rel='noopener noreferrer'>link personalizado</a>\";",
+                "string link = $\"&lt;a href='{userurl}' target='_blank' rel='noopener noreferrer'&gt;link personalizado&lt;/a&gt;\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                "string linkhtml = $\"<a href='{userurl}' target='_blank'>link personalizado</a>\";",
+                "string linkhtml = $\"&lt;a href='{userurl}' target='_blank'&gt;link personalizado&lt;/a&gt;\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-                "string link=\"<a href=\"https://www.example.com\" target=\"_blank\">link externo</a>\""
+                "string link=\"&lt;a href=\"https://www.example.com\" target=\"_blank\"&gt;link externo&lt;/a&gt;\""
             };
 
             //Cookies
@@ -488,21 +488,20 @@ namespace Projeto.Classes
                 {"pinning",4 }
             
             };
-            
+
+            dados_teste["Possivel Heap Inspection"] = new string[3][];
             dados_teste["Possivel Heap Inspection"][(int)NivelRisco.Alto] = new string[]
             {
                 "var obj = new byte[1024*1024];",
                 "public unsafe class classe",
                 "intptr address = marshal.allochglobal(4096);"
-            };
-            
+            };          
             dados_teste["Possivel Heap Inspection"][(int)NivelRisco.Medio] = new string[]
             {
                 "var obj = classe(var parA, var parB);",
                 "static unsafe void main(string[] args)",
                 "marshal.zerofreeglobalallocunicode(hwnd);"
             };
-
             dados_teste["Possivel Heap Inspection"][(int)NivelRisco.Baixo] = new string[]
             {
                 "var obj = new object();",

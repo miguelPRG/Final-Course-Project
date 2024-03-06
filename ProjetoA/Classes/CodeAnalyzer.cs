@@ -137,28 +137,20 @@ namespace ProjetoA
             Dictionary<string, List<int>> dicionario = new Dictionary<string, List<int>>();
 
             int numeroLinha = 1;
+            bool isMultiLine = false;
 
-            bool multiLineComment = false;
-
-            foreach (string l in linhasSeparadas)
+            foreach (string linha in linhasSeparadas)
             {
-                string linha = l.Trim();
+                string linhaSemComentarios = RemoverComentarios(linha,ref isMultiLine);
 
-                if (linha =="{" || linha=="}")
+                if (!string.IsNullOrWhiteSpace(linhaSemComentarios))
                 {
-                    continue;
-                }
-
-                string linhaSemComentario = RemoverComentarios(linha, ref multiLineComment);
-
-                if (!string.IsNullOrWhiteSpace(linhaSemComentario))
-                {
-                    if(dicionario.ContainsKey(linhaSemComentario))
+                    if (!dicionario.ContainsKey(linhaSemComentarios))
                     {
-                        dicionario[linhaSemComentario].Add(numeroLinha);
+                        dicionario[linhaSemComentarios] = new List<int>();
                     }
-                    
-                    else dicionario[linhaSemComentario] = new List<int> { numeroLinha};
+
+                    dicionario[linhaSemComentarios].Add(numeroLinha);
                 }
 
                 numeroLinha++;
@@ -166,63 +158,76 @@ namespace ProjetoA
 
             return dicionario;
         }
-        static string RemoverComentarios(string linha, ref bool dentroDeComentarioMultiLinha)
+
+        static string SubstituirSimbolos(string texto)
         {
-            while (true)
+        // Expressão regular para encontrar trechos de texto dentro das aspas
+        string padrao = "\"(.*?)\"";
+
+        // Substituir < e > por &lt; e &gt; dentro dos trechos de texto encontrados
+        return Regex.Replace(texto, padrao, m => {
+            string trecho = m.Groups[1].Value; // Obtém o trecho de texto dentro das aspas
+            trecho = trecho.Replace("<", "&lt;").Replace(">", "&gt;"); // Substitui < e > por &lt; e &gt;
+            return "\"" + trecho + "\""; // Retorna o trecho de texto com as substituições dentro das aspas
+        });
+        }
+
+        static string RemoverComentarios(string linha, ref bool isMultiline)
+        {
+            if(string.IsNullOrEmpty(linha))
             {
-                if (string.IsNullOrEmpty(linha))
+                return null;
+            }
+            
+            linha  = linha.Trim();
+            int fimComentario;
+
+            if (isMultiline)
+            {
+                fimComentario = linha.IndexOf("*/");
+
+                if(fimComentario!= -1)
                 {
-                    break;
+                    isMultiline = false;
+                    linha = linha.Substring(0, fimComentario);
                 }
 
-                if (dentroDeComentarioMultiLinha)
-                {
-                    var indexFimComentarioMultiLinha = linha.IndexOf("*/");
-                    if (indexFimComentarioMultiLinha >= 0)
-                    {
-                        dentroDeComentarioMultiLinha = false;
-                        linha = linha.Substring(indexFimComentarioMultiLinha + 2).Trim();
-                    }
-                    else
-                    {
-                        linha = string.Empty;
-                        break;
-                    }
-                }
                 else
                 {
-                    var indexInicioComentarioMultiLinha = linha.IndexOf("/*");
-                    var indexInicioComentarioLinhaUnica = linha.IndexOf("//");
-
-                    if (indexInicioComentarioMultiLinha >= 0 && (indexInicioComentarioLinhaUnica == -1 || indexInicioComentarioMultiLinha < indexInicioComentarioLinhaUnica))
-                    {
-                        var indexFimComentarioMultiLinha = linha.IndexOf("*/", indexInicioComentarioMultiLinha);
-                        if (indexFimComentarioMultiLinha >= 0)
-                        {
-                            linha = linha.Remove(indexInicioComentarioMultiLinha, indexFimComentarioMultiLinha - indexInicioComentarioMultiLinha + 2);
-                        }
-                        else
-                        {
-                            dentroDeComentarioMultiLinha = true;
-                            linha = linha.Substring(0, indexInicioComentarioMultiLinha).Trim();
-                            break;
-                        }
-                    }
-                    else if (indexInicioComentarioLinhaUnica >= 0)
-                    {
-                        linha = linha.Substring(0, indexInicioComentarioLinhaUnica).Trim();
-                        break;
-                    }
-                    else
-                    {
-                        break;
-                    }
+                    return null;
                 }
             }
 
-            return linha;
-        }
+            // Verificar se a linha contém um comentário de uma única linha
+            int inicioComentario = linha.IndexOf("//");
+            if (inicioComentario != -1)
+            {
+                linha = linha.Substring(0, inicioComentario);
+            }
 
+            inicioComentario = linha.IndexOf("/*");
+
+            while (inicioComentario !=-1)
+            {
+                fimComentario = linha.IndexOf("*/", inicioComentario);
+
+                if (fimComentario != -1)
+                {
+                    linha = linha.Remove(inicioComentario, fimComentario - inicioComentario + 2);
+                    inicioComentario = linha.IndexOf("/*");
+                }
+
+                else
+                {
+                    isMultiline = true;
+                    linha = linha.Substring(0, inicioComentario);
+                    break;
+                }
+            }
+           
+            //Chamei esta função para garantir que os simbolos <> são convetidos para texto no documento html quando necessário
+            return SubstituirSimbolos(linha);
+        }
 
         static void AnalisarVulnerabilidades(Dictionary<string,List<int>> code, StringBuilder htmlBuilder)
         {
