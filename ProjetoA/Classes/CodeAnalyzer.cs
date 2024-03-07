@@ -226,7 +226,7 @@ namespace ProjetoA
             }
            
             //Chamei esta função para garantir que os simbolos <> são convetidos para texto no documento html quando necessário
-            return SubstituirSimbolos(linha);
+            return linha;
         }
 
         static void AnalisarVulnerabilidades(Dictionary<string,List<int>> code, StringBuilder htmlBuilder)

@@ -116,7 +116,7 @@ namespace Projeto.Classes
             {
                 // Expressões Regulares para alto risco
                 "",
-                "string userinput = \"&lt;img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' /&gt;\";",
+                "string userinput = \"<img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' />\";",
                 "string userinput = \"<img src=\\\"x\\\" onerror=\\\"alert('XSS')\\\" />\";",
                 "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnZG9jdW1lbnQucGhwJyk8L3NjcmlwdD4=\\\"></object>\";"
             };
@@ -132,10 +132,10 @@ namespace Projeto.Classes
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-               "string userinput = \"&lt;script&gt;alert('xss ataque!');&lt;/script&gt;\";",
-               "string userinput = \"&lt;img src=\\\"http://example.com\\\" /&gt;\";",
-               "string usercontent = \"&lt;iframe src='http://www.example.com'&gt;&lt;/iframe&gt;\";",
-               "string userinput = \"&lt;object data=\\\"javascript:alert('xss')\\\"&gt;&lt;/object&gt;\";"
+               "string userinput = \"<script>alert('xss ataque!');</script>\";",
+               "string userinput = \"<img src=\\\"http://example.com\\\" />\";",
+               "string usercontent = \"<iframe src='http://www.example.com'></iframe>\";",
+               "string userinput = \"<object data=\\\"javascript:alert('xss')\\\"></object>\";"
             };
 
             //Hardcoded Password
@@ -169,17 +169,17 @@ namespace Projeto.Classes
             dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-                "string link = $\"&lt;a href='{userurl}' target='_blank' rel='noopener noreferrer'&gt;link personalizado&lt;/a&gt;\";",
+                "string link = $\"<a href='{userurl}' target='_blank' rel='noopener noreferrer'>link personalizado</a>\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                "string linkhtml = $\"&lt;a href='{userurl}' target='_blank'&gt;link personalizado&lt;/a&gt;\";",
+                "string linkhtml = $\"<a href='{userurl}' target='_blank'>link personalizado</a>\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-                "string link=\"&lt;a href=\"https://www.example.com\" target=\"_blank\"&gt;link externo&lt;/a&gt;\""
+                "string link=\"<a href=\"https://www.example.com\" target=\"_blank\">link externo</a>\""
             };
 
             //Cookies
@@ -572,6 +572,8 @@ namespace Projeto.Classes
 
                 if (Math.Round(precisao[index]) >= 50)
                 {
+                    code = SubstituirSimbolos(code);
+                    
                     AdicionarVulnerabilidade(nomeVulnerabilidade, linha,code, (NivelRisco)index);
                     verdadeiros_positivos++;
                 }
@@ -580,6 +582,41 @@ namespace Projeto.Classes
 
             }
         }
+
+        static bool isEndOfSubString(string s,char a,char b, char c)
+        {
+            return s +a+b +c == "\";";
+        }
+
+        private static string SubstituirSimbolos(string texto)
+        {
+            int index = texto.IndexOf("\"");
+
+            try
+            {
+                for (int i = index + 1; i < texto.Length - 1  || !isEndOfSubString("", texto[i], texto[i + 1], texto[i+2]); i++)
+                {
+                    if (texto[i] == '<')
+                    {
+                        texto = texto.Remove(i, 1).Insert(i, "&lt;");
+                        
+                        i += 3;
+                    }
+                    else if (texto[i] == '>')
+                    {
+                        texto = texto.Remove(i, 1).Insert(i, "&gt;");
+                        i += 3;
+                    }
+                }
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return texto;
+            }
+
+            return texto;
+        }
+
 
         private void AdicionarVulnerabilidade(string nomeVulnerabilidade, List<int> linha ,string code, NivelRisco nivelRisco)
         {
