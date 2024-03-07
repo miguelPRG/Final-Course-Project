@@ -79,7 +79,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
             AnalisarVulnerabilidades(linhas, htmlBuilder);
             htmlBuilder.AppendLine("</div>");
-    /*
+    
             // Realiza a análise de complexidade ciclomática
             int complexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
             htmlBuilder.AppendLine("<div id=\"complexidade-ciclomatica\" style=\"display: none;\">");
@@ -89,7 +89,7 @@ namespace ProjetoA
             //Analise de Dependencias
             htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
-            //AnalizarDependencias(htmlBuilder,code);
+            AnalizarDependencias(htmlBuilder,linhas);
             htmlBuilder.AppendLine("</div>");
 
             // Identificar práticas que afetam o desempenho
@@ -116,7 +116,7 @@ namespace ProjetoA
             AnalisarConcorrencia(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
 
-    */
+    
             stopwatch.Stop();
 
             htmlBuilder.AppendLine("<div id=\"tempo\" style=\"display:none;\">");
@@ -326,22 +326,28 @@ namespace ProjetoA
 
         }
 
-        static void AnalizarDependencias(StringBuilder htmlBuilder, string code)
+        static void AnalizarDependencias(StringBuilder htmlBuilder, Dictionary<string,List<int>> lines)
         {
             // Expressão regular para encontrar os usings
             Regex usingRegex = new Regex(@"\busing\s+([^\s;]+)\s*;");
 
             // Dividir o código em linhas
-            string[] lines = code.Split('\n');
 
-            htmlBuilder.Append("<table><tr><th>Excerto do Código</th><th>Linha</th></tr>");
+            htmlBuilder.AppendLine("<table><tr><th>Excerto do Código</th><th>Linha</th></tr>");
 
-            for (int i = 0; i < lines.Length; i++)
+            foreach(var key in lines.Keys)
             {
-                Match match = usingRegex.Match(lines[i]);
+                Match match = usingRegex.Match(key);
                 if (match.Success)
                 {
-                    htmlBuilder.Append($"<tr><td>{lines[i].Trim()}</td><td> <a href=\"#linha-numero{i + 1}\" onclick=\"destacarLinha({i + 1})\">{i + 1}</a></td></tr>");
+                    htmlBuilder.Append($"<tr><td>{key}");
+
+                    foreach (var i in key)
+                    {
+                        htmlBuilder.Append($"<a href=\"#linha-numero{i + 1}\" onclick=\"destacarLinha({i + 1})\">{i + 1}</a>");
+                    }
+
+                    htmlBuilder.Append($"</td></tr>");
                 }
             }
 
