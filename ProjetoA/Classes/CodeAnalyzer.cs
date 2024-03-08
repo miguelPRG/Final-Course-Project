@@ -21,11 +21,6 @@ namespace ProjetoA
 {
     public class CodeAnalyzer
     {
-        /*A FAZER:
-         A parte da tabela de vulnerabilidades tem um problema.
-        Quando o código contem um exemplo de script javascript na tabela este é executado.
-         */
-
         public static string GerarRelatorioHTML(string code)
         {
             var htmlBuilder = new StringBuilder();
@@ -89,7 +84,7 @@ namespace ProjetoA
             //Analise de Dependencias
             htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
-            AnalizarDependencias(htmlBuilder,linhas);
+            //AnalizarDependencias(htmlBuilder,linhas);
             htmlBuilder.AppendLine("</div>");
 
             // Identificar práticas que afetam o desempenho
@@ -101,19 +96,19 @@ namespace ProjetoA
             // Identificar Exceções no código:
             htmlBuilder.AppendLine("<div id=\"analise-excecoes\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Exceções:</h2>");
-            AnalisarExcecoes(htmlBuilder, code);
+            //AnalisarExcecoes(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
 
             //Verificar Repetição de código
             htmlBuilder.AppendLine("<div id=\"repeticao-codigo\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Repetição de código</h2>");
-            VerificarRepeticao(htmlBuilder, code);
+            //VerificarRepeticao(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
 
             // Análise de Concorrência
             htmlBuilder.AppendLine("<div id=\"concorrencia\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Concorrência:</h2>");
-            AnalisarConcorrencia(htmlBuilder, code);
+            //AnalisarConcorrencia(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");
 
     
@@ -157,19 +152,6 @@ namespace ProjetoA
             }
 
             return dicionario;
-        }
-
-        static string SubstituirSimbolos(string texto)
-        {
-        // Expressão regular para encontrar trechos de texto dentro das aspas
-        string padrao = "\"(.*?)\"";
-
-        // Substituir < e > por &lt; e &gt; dentro dos trechos de texto encontrados
-        return Regex.Replace(texto, padrao, m => {
-            string trecho = m.Groups[1].Value; // Obtém o trecho de texto dentro das aspas
-            trecho = trecho.Replace("<", "&lt;").Replace(">", "&gt;"); // Substitui < e > por &lt; e &gt;
-            return "\"" + trecho + "\""; // Retorna o trecho de texto com as substituições dentro das aspas
-        });
         }
 
         static string RemoverComentarios(string linha, ref bool isMultiline)

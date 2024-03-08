@@ -162,7 +162,7 @@ namespace Projeto.Classes
             //Target Blank
             padroes["Possível Target Blank"] = new Dictionary<string, int>
             {
-                { "target=\"_blank\"",0 },
+                { "target=\\\"_blank\\\"",0 }
             };
 
             dados_teste["Possível Target Blank"] = new string[3][];
@@ -213,7 +213,7 @@ namespace Projeto.Classes
             };
 
             //CSP Header
-            padroes["Possivel CSP Header"] = new Dictionary<string, int>
+            /*padroes["Possivel CSP Header"] = new Dictionary<string, int>
             {
                 {"style-src",0 },
                 {"default-src",1 },
@@ -255,29 +255,29 @@ namespace Projeto.Classes
                 "response.addheader(\"content-security-policy\", \"child-src 'self'\");",
                 "response.addheader(\"content-security-policy\",\"form-action 'self'\");",
                 "response.addheader(\"content-security-policy\", \"plugin-types application/pdf\");"
-            };
+            };*/
 
             // Iframe 
-            /*padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
+            padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
             {
                 {"iframe",0},
-                {"sandbox",0}
-                // Adicione outras palavras reservadas conforme necessário
             };
 
             dados_teste["Possivel Uso de Iframe sem SandBox"] = new string[3][];
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Alto] = new string[]
             {
-                
-            };
+                "string userInput = \"<iframe src=\\\"https://www.example.com\\\" onload='stealCookies()'></iframe>\";"
+            };     
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Medio] = new string[]
             {
-               
+               "string userInput = \"<iframe src=\\\"https://www.example.com\\\" onload='alert(\\\"Você foi hackeado!\\\")></iframe>\";"
             };
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Baixo] = new string[]
             {
-               
-            };*/
+                "string userInput = \"<iframe src=\\\"https://www.example.com\\\"></iframe>\";"
+            };
+
+           
 
             // JQuery
             /*padroes["Possivel JQuery"] = new Dictionary<string, int>
@@ -551,6 +551,9 @@ namespace Projeto.Classes
                     AnalisarVulnerabilidade(l, linhas[l], padroes[nome], nome);
                 }
             }
+
+            
+
 
         }
 
