@@ -258,7 +258,7 @@ namespace Projeto.Classes
             };*/
 
             // Iframe 
-            padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
+            /*padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
             {
                 {"iframe",0},
             };
@@ -275,9 +275,7 @@ namespace Projeto.Classes
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Baixo] = new string[]
             {
                 "string userInput = \"<iframe src=\\\"https://www.example.com\\\"></iframe>\";"
-            };
-
-           
+            };*/    
 
             // JQuery
             /*padroes["Possivel JQuery"] = new Dictionary<string, int>
@@ -324,9 +322,10 @@ namespace Projeto.Classes
             };*/
 
             //DOM Open Redirect
-            padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
+            /*padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
             {
-                {"httpwebrequest",0},
+                {"http://example.com",0},
+                {"response.redirect(url);",0 }
                  // Adicione outras palavras reservadas conforme necessário
             };
 
@@ -342,34 +341,42 @@ namespace Projeto.Classes
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Baixo] = new string[]
             {
                ""
-            };
+            };*/
 
             //Chaves de Criptografia
-            /*padroes["Possivel Fragilidade de Chave de Criptografia"] = new Dictionary<string, int>
+            padroes["Possivel Fragilidade de Chave de Criptografia"] = new Dictionary<string, int>
             {
-                { "keysize",0 },
-                { "generatekey",1 },
-                { "symmetricalgorithm",2},
-                { "asymmetricalgorithm",3 },
-                { "aes",4 },
-                { "rsa",5 },
-                { "keyexchange",6},
-                { "iv",7 },
-                {"padding",8 }
+                { "aes",0 },
+                { "rsa",1 },
+                { "des",2 },
+                { "convert.frombase64string(chave);",3 },
+                {"{ 0x13, 0x24, 0x35, 0x46, 0x57, 0x68, 0x79, 0x8A }",4 }
             };
             
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Alto] = new string[]
             {
-
+                "aes.keysize = 128;",
+                "rsa.keysize= 128",
+                "des.keysize= 128;",
+                "",
+                "byte[] chave = new byte[] { 0x13, 0x24, 0x35, 0x46, 0x57, 0x68, 0x79, 0x8A };"
             };
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Medio] = new string[]
             {
-
+                "aes.keysize = 256;",
+                "rsa.keysize= 256",
+                "des.keysize= 256;",
+                "aes.Key = convert.frombase64string(chave);",
+                ""
             };
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Baixo] = new string[]
             {
-
-            };*/
+                "aes.keysize = 512;",
+                "rsa.keysize= 512;",
+                "des.keysize= 512;",
+                "",
+                ""
+            };
 
             //Privacy Violation
             /*padroes["Possivel Violação de Privacidade"] = new Dictionary<string, int>
@@ -399,8 +406,8 @@ namespace Projeto.Classes
             dados_teste["Possivel Violação de Privacidade"][(int)NivelRisco.Baixo] = new string[]
             {
 
-            };
-            */
+            };*/
+            
 
             //Path
             padroes["Possivel Caminho Transversal"] = new Dictionary<string, int>
@@ -432,35 +439,27 @@ namespace Projeto.Classes
             };
 
             // HSTS Header
-            /*padroes["Possivel HSTS Header"] = new Dictionary<string, int>
+            padroes["Possivel HSTS Header"] = new Dictionary<string, int>
             {
-                { "strict-transport-security", 0},
-                { "max-age", 1},
-                { "preload", 2},
+                { "usehsts",0 }
                  // Adicione outras palavras reservadas conforme necessário
             };
 
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-                @"response.addheader\(""strict-transport-security"",\s*"".*""\)",
-                @"response.headers\.add\(""strict-transport-security"",\s*"".*""\)",
-                @"httpcontext.current.response.addheader\(""strict-transport-security"",\s*"".*""\)"
+                "app.usehsts(options => options.maxage(0));"
             };
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Medio] = new string[]
             {
-                // Expressões Regulares para médio risco
-                @"response.addheader\(""max-age"",\s*\d+\)",
-                @"response.headers\.Add\(""max-age"",\s*\d+\)",
-                @"httpcontext.current.response.addheader\(""max-age"",\s*\d+\)"
+                "app.usehsts(options => options.maxage(2592000).includesubdomains());"
+
             };
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                // Expressões Regulares para baixo risco
-                @"response.addheader\(""preload"",\s*"".*""\)",
-                @"response.headers\.add\(""preload"",\s*"".*""\)",
-                @"httpcontext.current.response.addheader\(""preload"",\s*"".*""\)"
-            };*/
+                "app.usehsts(options => options.maxage(3600));",
+                
+            };
 
             //CSRF
             /*padroes["Possivel Vulnerabilidade CSRF"] = new string[]
@@ -479,7 +478,7 @@ namespace Projeto.Classes
              }*/
 
             //Heap Inspection
-            padroes["Possivel Heap Inspection"] = new Dictionary<string, int>
+            /*padroes["Possivel Heap Inspection"] = new Dictionary<string, int>
             {
                 {"new",0 },
                 {"weakreference",1},
@@ -507,7 +506,7 @@ namespace Projeto.Classes
                 "var obj = new object();",
                 "",
                 "intptr buffer = marshal.allochglobal(1024);"
-            };
+            };*/
         }
 
         public List<(string Tipo, List<int> Linha, string Codigo, NivelRisco NivelRisco)> VulnerabilidadesEncontradas
@@ -551,10 +550,6 @@ namespace Projeto.Classes
                     AnalisarVulnerabilidade(l, linhas[l], padroes[nome], nome);
                 }
             }
-
-            
-
-
         }
 
         private void AnalisarVulnerabilidade(string code, List<int> linha ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
