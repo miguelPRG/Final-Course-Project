@@ -24,6 +24,7 @@ using Windows.Networking.Sockets;
 using System.Net;
 using Windows.Services.Maps;
 using Windows.ApplicationModel.Contacts;
+using System.Security.Cryptography;
 
 /*A FAZER: 
  
@@ -110,7 +111,6 @@ namespace Projeto.Classes
                 { "<object>", 3 },
                 // Adicione outras palavras reservadas conforme necessário
             };
-
             dados_teste["Possível Cliente XSS"] = new string[3][];
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new string[]
             {
@@ -343,38 +343,32 @@ namespace Projeto.Classes
                ""
             };*/
 
+
             //Chaves de Criptografia
             padroes["Possivel Fragilidade de Chave de Criptografia"] = new Dictionary<string, int>
             {
                 { "aes",0 },
                 { "rsa",1 },
-                { "des",2 },
-                { "convert.frombase64string(chave);",3 },
-                {"{ 0x13, 0x24, 0x35, 0x46, 0x57, 0x68, 0x79, 0x8A }",4 }
+                { "byte[]",2 },
             };
-            
+
+            dados_teste["Possivel Fragilidade de Chave de Criptografia"] = new string[3][];
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Alto] = new string[]
             {
-                "aes.keysize = 128;",
-                "rsa.keysize= 128",
-                "des.keysize= 128;",
                 "",
-                "byte[] chave = new byte[] { 0x13, 0x24, 0x35, 0x46, 0x57, 0x68, 0x79, 0x8A };"
+                "",
+                "byte[] key = new byte[] { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0, 0x00 };"
             };
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Medio] = new string[]
             {
-                "aes.keysize = 256;",
-                "rsa.keysize= 256",
-                "des.keysize= 256;",
-                "aes.Key = convert.frombase64string(chave);",
-                ""
+                "",
+                "",
+                "bitconverter.getbytes(datetime.now.ticks);"
             };
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Baixo] = new string[]
             {
-                "aes.keysize = 512;",
-                "rsa.keysize= 512;",
-                "des.keysize= 512;",
-                "",
+                "aes aes = aes.create()",
+                "rsa rsa = rsa.create()",
                 ""
             };
 
@@ -445,6 +439,7 @@ namespace Projeto.Classes
                  // Adicione outras palavras reservadas conforme necessário
             };
 
+            dados_teste["Possivel HSTS Header"] = new string[3][];
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
