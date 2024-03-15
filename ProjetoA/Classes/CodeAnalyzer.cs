@@ -156,19 +156,19 @@ namespace ProjetoA
 
         static string RemoverComentarios(string linha, ref bool isMultiline)
         {
-            if(string.IsNullOrEmpty(linha))
+            if (string.IsNullOrEmpty(linha))
             {
                 return null;
             }
-            
-            linha  = linha.Trim();
+
+            linha = linha.Trim();
             int fimComentario;
 
             if (isMultiline)
             {
                 fimComentario = linha.IndexOf("*/");
 
-                if(fimComentario!= -1)
+                if (fimComentario != -1)
                 {
                     isMultiline = false;
                     linha = linha.Substring(0, fimComentario);
@@ -180,36 +180,52 @@ namespace ProjetoA
                 }
             }
 
-            // Verificar se a linha contém um comentário de uma única linha
-            int inicioComentario = linha.IndexOf("//");
-            if (inicioComentario != -1)
+            bool dentroString = false;
+            char charAnterior = '\0';
+
+            for (int i = 0; i < linha.Length; i++)
             {
-                linha = linha.Substring(0, inicioComentario);
-            }
-
-            inicioComentario = linha.IndexOf("/*");
-
-            while (inicioComentario !=-1)
-            {
-                fimComentario = linha.IndexOf("*/", inicioComentario);
-
-                if (fimComentario != -1)
+                if (linha[i] == '"' && charAnterior != '\\')
                 {
-                    linha = linha.Remove(inicioComentario, fimComentario - inicioComentario + 2);
-                    inicioComentario = linha.IndexOf("/*");
+                    dentroString = !dentroString;
                 }
 
-                else
+                if (!dentroString)
                 {
-                    isMultiline = true;
-                    linha = linha.Substring(0, inicioComentario);
-                    break;
+                    int inicioComentario;
+
+                    // Verificar se a linha contém um comentário de uma única linha
+                    if (linha[i] == '/' && i + 1 < linha.Length && linha[i + 1] == '/')
+                    {
+                        linha = linha.Substring(0, i);
+                        break;
+                    }
+
+                    else if (linha[i] == '/' && i + 1 < linha.Length && linha[i + 1] == '*')
+                    {
+                        inicioComentario = i;
+                        fimComentario = linha.IndexOf("*/", inicioComentario);
+
+                        if (fimComentario != -1)
+                        {
+                            linha = linha.Remove(inicioComentario, fimComentario - inicioComentario + 2);
+                            i = inicioComentario - 1;
+                        }
+                        else
+                        {
+                            isMultiline = true;
+                            linha = linha.Substring(0, inicioComentario);
+                            break;
+                        }
+                    }
                 }
+
+                charAnterior = linha[i];
             }
-           
-            //Chamei esta função para garantir que os simbolos <> são convetidos para texto no documento html quando necessário
+
             return linha;
         }
+
 
         static void AnalisarVulnerabilidades(Dictionary<string,List<int>> code, StringBuilder htmlBuilder)
         {
@@ -547,7 +563,6 @@ namespace ProjetoA
 
             return string.Empty;
         }
-
 
         static void AnalisarConcorrencia(StringBuilder htmlBuilder, string code)
         {

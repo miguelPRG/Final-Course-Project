@@ -104,38 +104,37 @@ namespace Projeto.Classes
 
             //Client XSS
             padroes["Possível Cliente XSS"] = new Dictionary<string, int>
-            {
-                { "<script>", 0 },
-                { "<img>", 1 },
-                { "<iframe>", 2 },
-                { "<object>", 3 },
-                // Adicione outras palavras reservadas conforme necessário
-            };
+        {
+            { "<script>", 0 },
+            { "<img src=", 1 },
+            { "<iframe src=", 2 },
+            { "<object data=", 3 },
+            // Adicione outras palavras reservadas conforme necessário
+        };
             dados_teste["Possível Cliente XSS"] = new string[3][];
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
                 "",
                 "string userinput = \"<img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' />\";",
-                "string userinput = \"<img src=\\\"x\\\" onerror=\\\"alert('XSS')\\\" />\";",
-                "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnZG9jdW1lbnQucGhwJyk8L3NjcmlwdD4=\\\"></object>\";"
+                "string userinput = \"<iframe src=\\\"http://www.example.com\\\"></iframe>\";",
+                "string userinput= \"<object data =\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"></object>\";",
             };
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                "string userinput = $\"<div><script>alert('xss ataque!');</script>\"</div>\";",
-                "string userinput = \"<img src=\\\"javascript:alert('xss')\\\" />\";",
-                "string usercontent = \"<script>document.write(\\\"<iframe src='http://www.example.com'></iframe>\\\");</script>\";",
-                "string userinput = \"<object data=\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"></object>\";",
-
+                "",
+                "string userinput = \"<img src=\\\"javascript:alert('XSS')\\\">\";",
+                "string userinput = \"<script>document.write(\\\"<iframe src=\\\\\\\"http://www.example.com\\\\\\\"></iframe>\\\");</script>\\\"\";",
+                ""
             };
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
-               "string userinput = \"<script>alert('xss ataque!');</script>\";",
-               "string userinput = \"<img src=\\\"http://example.com\\\" />\";",
-               "string usercontent = \"<iframe src='http://www.example.com'></iframe>\";",
-               "string userinput = \"<object data=\\\"javascript:alert('xss')\\\"></object>\";"
+                "string userinput = \"<script>alert('xss ataque!');</script>\";",
+                "string userinput = \"<img src=\\\"http://example.com\\\"/>\";",
+                "string userinput = \"<iframe src=\\\"http://www.example.com\\\"></iframe>\";",
+                "string userinput = \"<object data=\\\"javascript:alert('xss')\\\"></object>\";",
             };
 
             //Hardcoded Password
@@ -164,12 +163,11 @@ namespace Projeto.Classes
             {
                 { "target=\\\"_blank\\\"",0 }
             };
-
             dados_teste["Possível Target Blank"] = new string[3][];
             dados_teste["Possível Target Blank"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-                "string link = $\"<a href='{userurl}' target='_blank' rel='noopener noreferrer'>link personalizado</a>\";",
+                "string link = $\"<a href=\\\"http://www.example.com/?user={userId}\\\" target=\\\"_blank\\\">Link Externo</a>\";",
             };
             dados_teste["Possível Target Blank"][(int)NivelRisco.Medio] = new string[]
             {
