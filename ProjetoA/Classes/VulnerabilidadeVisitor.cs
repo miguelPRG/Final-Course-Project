@@ -52,8 +52,8 @@ namespace Projeto.Classes
         //Lista que guarda palavras reservadas para cada tipo de vulnerabilidade
         Dictionary<string, Dictionary<string, int>> padroes;
 
-        int falsos_positivos = 0;
-        int verdadeiros_positivos = 0;
+        double falsos_positivos = 0;
+        double verdadeiros_positivos = 0;
 
         public VulnerabilidadeVisitor()
         {
@@ -115,7 +115,7 @@ namespace Projeto.Classes
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-                "",
+                null,
                 "string userinput = \"<img src='\" + userinputfromuser + \"' onload='alert(\\\"xss attack\\\")' />\";",
                 "string userinput = \"<iframe src=\\\"http://www.example.com\\\"></iframe>\";",
                 "string userinput= \"<object data =\\\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\\\"></object>\";",
@@ -123,10 +123,10 @@ namespace Projeto.Classes
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                "",
+                null,
                 "string userinput = \"<img src=\\\"javascript:alert('XSS')\\\">\";",
                 "string userinput = \"<script>document.write(\\\"<iframe src=\\\\\\\"http://www.example.com\\\\\\\"></iframe>\\\");</script>\\\"\";",
-                ""
+                null
             };
             dados_teste["Possível Cliente XSS"][(int)NivelRisco.Baixo] = new string[]
             {
@@ -181,18 +181,20 @@ namespace Projeto.Classes
             };
 
             //Cookies
-            padroes["Possiveis Cookies não Protegidos"] = new Dictionary<string, int>
+            /*padroes["Possiveis Cookies não Protegidos"] = new Dictionary<string, int>
             {
                 {"httpcookie",0 },
-                {"set-cookie",1 },
-                {"samesite",2 },
+                {"httpcontext",1 },
+                {"set-cookie",2 },
+                {"samesite",3 },
 
             // Adicione outras palavras reservadas conforme necessário
             };
             dados_teste["Possiveis Cookies não Protegidos"] = new string[3][];
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Alto] = new string[]
             {
-                "httpcookie cookie = new httpcookie(\"tokensutenticacao\", token);",
+                "",
+                "\"string valordocookie = httpcontext.current.request.querystring[\\\"valor\\\"];\",",
                 "response.setcookie(new httpcookie(\"meucookie\", valor) { secure = true, httponly = true });",
                 "cookie.sameSite = samesitemode.none;",
 
@@ -200,15 +202,17 @@ namespace Projeto.Classes
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Medio] = new string[]
             {
                "httpcookie cookie = new httpcookie(\"usuarioid\", usuario.id.tostring());",
+               "httpcontext.current.response.cookies.add(cookie);",
                "response.setcookie(new sttpcookie(\"meucookie\", \"valor\") { secure = true });",
                "cookie.samesite = samesitemode.lax;",
             };
             dados_teste["Possiveis Cookies não Protegidos"][(int)NivelRisco.Baixo] = new string[]
             {
-               "httpcookie cookie = new httpcookie(\"meucookie\", \"valor\");",
+               "httpcookie cookie = new httpcookie(\"meucookie\", \"valordocookie\");",
+               "",
                "response.setcookie(new httpcookie(\"meucookie\", \"valor\") { httponly = true });",
                "cookie.SameSite = samesitemode.strict;"
-            };
+            };*/
 
             //CSP Header
             /*padroes["Possivel CSP Header"] = new Dictionary<string, int>
@@ -340,34 +344,33 @@ namespace Projeto.Classes
             {
                ""
             };*/
-
-
+            
             //Chaves de Criptografia
             padroes["Possivel Fragilidade de Chave de Criptografia"] = new Dictionary<string, int>
             {
                 { "aes",0 },
-                { "rsa",1 },
-                { "byte[]",2 },
+                { "rsa",0 },
+                { "dsa",0 },
+                { "byte[]",1 },
+                {"string privkey",2 }
             };
 
             dados_teste["Possivel Fragilidade de Chave de Criptografia"] = new string[3][];
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Alto] = new string[]
             {
-                "",
-                "",
-                "byte[] key = new byte[] { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xF0, 0x00 };"
+               "aes aes = aes.create()",
+                null,
+                "static string privateKey = \"ultrasecretprivatekey\";"
             };
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Medio] = new string[]
             {
-                "",
-                "",
-                "bitconverter.getbytes(datetime.now.ticks);"
+                "dsa dsa = dsa.create()",
+                "byte[] key = new byte[16];"
             };
             dados_teste["Possivel Fragilidade de Chave de Criptografia"][(int)NivelRisco.Baixo] = new string[]
             {
-                "aes aes = aes.create()",
                 "rsa rsa = rsa.create()",
-                ""
+                "byte[] key = new byte[] { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef };",
             };
 
             //Privacy Violation
@@ -419,7 +422,7 @@ namespace Projeto.Classes
             };
             dados_teste["Possivel Caminho Transversal"][(int)NivelRisco.Medio] = new string[]
             {
-                "sttring path =\"c:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+\"",
+                "string path =\"c:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+\"",
                 "string path =\"d:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+\"",
                 "string path =\"e:\\\\(?:[^\\\\]+\\\\)*[^\\\\]+\"",
             };
@@ -433,25 +436,21 @@ namespace Projeto.Classes
             // HSTS Header
             padroes["Possivel HSTS Header"] = new Dictionary<string, int>
             {
-                { "usehsts",0 }
-                 // Adicione outras palavras reservadas conforme necessário
+                { "response.addheader",0 }
             };
-
             dados_teste["Possivel HSTS Header"] = new string[3][];
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Alto] = new string[]
             {
-                // Expressões Regulares para alto risco
-                "app.usehsts(options => options.maxage(0));"
+                null
             };
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Medio] = new string[]
             {
-                "app.usehsts(options => options.maxage(2592000).includesubdomains());"
+                "response.addheader(\"strict-transport-security\", \"max-age=3600\");"
 
             };
             dados_teste["Possivel HSTS Header"][(int)NivelRisco.Baixo] = new string[]
             {
-                "app.usehsts(options => options.maxage(3600));",
-                
+                "response.addheader(\"strict-transport-security\", \"max-age=0\");",               
             };
 
             //CSRF
@@ -511,7 +510,7 @@ namespace Projeto.Classes
         {
             try 
             {
-                return (verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) * 100;
+                return (int)((verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) * 100);
             }
 
             catch (DivideByZeroException)
@@ -566,10 +565,10 @@ namespace Projeto.Classes
                     code = SubstituirSimbolos(code);
                     
                     AdicionarVulnerabilidade(nomeVulnerabilidade, linha,code, (NivelRisco)index);
-                    verdadeiros_positivos++;
+                    verdadeiros_positivos += precisao[index]/100;
                 }
 
-                else falsos_positivos++;
+                else falsos_positivos+= precisao[index]/100;
 
             }
         }
