@@ -32,7 +32,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("<head><meta charset=\"utf-8\"><title>Análise de Código</title>");
             htmlBuilder.AppendLine("<style>body {\r\n                                font-family: Arial, sans-serif;\r\n                            }\r\n                        \r\n                            h1 {\r\n                                text-align: center;\r\n                                margin-bottom: 20px;\r\n                            }\r\n                        \r\n                            h2 {\r\n                            text-align: center;\r\n                            margin-bottom: 15px;\r\n                            margin-top: 80px; /* Ajuste o valor conforme necessário */\r\n                            }\r\n                        \r\n                            h3 {\r\n                                text-align: center;\r\n                                margin-bottom: 10px;\r\n                            }\r\n                        \r\n                            a {\r\n                                text-decoration: none;\r\n                                color: #333;\r\n                                cursor: pointer;\r\n                            }\r\n                        \r\n                            a:hover {\r\n                                color: #007bff;\r\n                            }\r\n                        \r\n                            .indice {\r\n                                text-align: center;\r\n                                margin-bottom: 30px;\r\n                                display: block;\r\n                            }\r\n                        \r\n                            ul {\r\n                                list-style: none;\r\n                                padding: 0;\r\n                            }\r\n                        \r\n                            li {\r\n                                margin-bottom: 10px;\r\n                                font-size: 18px;\r\n                            }\r\n                        \r\n                            table {\r\n                                width: 100%;\r\n                                border-collapse: collapse;\r\n                                margin-top: 20px;\r\n                            }\r\n                        \r\n                            /* Estilo para as células da tabela */\r\n                            table td, table th {\r\n                                padding: 10px;\r\n                                border: 1px solid #ddd;\r\n                                text-align: left;\r\n                            }\r\n                        \r\n                            /* Estilo para o cabeçalho da tabela */\r\n                            table th {\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            /* Estilo para alternância de cores nas linhas */\r\n                            .table tr:nth-child(even) {\r\n                                background-color: #f9f9f9;\r\n                            }\r\n                        \r\n                            .alto {\r\n                                background-color: rgb(238, 93, 93);\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            .medio {\r\n                                background-color: yellow;\r\n                                \r\n                            }\r\n                        \r\n                            .baixo {\r\n                                background-color: greenyellow;\r\n                                \r\n                            }\r\n                        \r\n                            /* Estilo para o código analisado */\r\n                            .codigo-container {\r\n                                margin-top: 20px;\r\n                                padding: 10px;\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            .codigo-container pre {\r\n                                white-space: pre-wrap;\r\n                                font-size: 14px;\r\n                            }\r\n                            \r\n                            span{\r\n                                color: rgb(137, 8, 8);\r\n                            }</style>");
             //htmlBuilder.AppendLine("<style type=\"text/css\" id=\"operaUserStyle\"></style>");
-            htmlBuilder.AppendLine("<script>\r\n        function mostrarSecao(id) {\r\n            var secao = document.getElementById(id);\r\n            \r\n            if (secao.style.display == '' || secao.style.display == \"none\") {\r\n                secao.style.display = \"block\";\r\n            } \r\n                    \r\n            else {\r\n                secao.style.display = \"none\";\r\n            }\r\n        }\r\n\r\n        function destacarLinha(numeroLinha, risco) {\r\n    var linhaClicada = document.getElementById('linha-numero' + numeroLinha);\r\n\r\n    // Verifica se a linha clicada contém alguma das classes 'alto', 'medio' ou 'baixo'\r\n    var nocodigo = linhaClicada.classList.contains('alto') || \r\n                   linhaClicada.classList.contains('medio') || \r\n                   linhaClicada.classList.contains('baixo');\r\n    \r\n    // Remove o event listener antes de verificar a classe 'destacada' e nocodigo\r\n    linhaClicada.removeEventListener('click', clickHandler);\r\n\r\n    // Verifica se alguma das classes 'alto', 'medio' ou 'baixo' está presente\r\n    if (nocodigo) {\r\n        // Se estiver presente, remove a classe e o event listener\r\n        linhaClicada.classList.remove('alto');\r\n        linhaClicada.classList.remove('medio');\r\n        linhaClicada.classList.remove('baixo');\r\n        linhaClicada.style.cursor = null; // Remover o cursor\r\n    } \r\n    else {\r\n        // Se não estiver presente, adiciona a classe conforme o nível de risco\r\n        switch (risco) {\r\n            case 1:\r\n                linhaClicada.classList.add('alto');\r\n                break;\r\n            case 2:\r\n                linhaClicada.classList.add('medio');\r\n                break;\r\n            case 3:\r\n                linhaClicada.classList.add('baixo');\r\n                break;\r\n        }\r\n        linhaClicada.style.cursor = 'pointer'; // Adicionar o cursor\r\n\r\n        // Define o event listener usando a mesma função de callback\r\n        linhaClicada.addEventListener('click', clickHandler);\r\n    }\r\n}\r\n\r\n    // Função handler para o event listener\r\n    function clickHandler() {\r\n        destacarLinha(numeroLinha, true);\r\n    }\r\n\r\n    </script>");
+            htmlBuilder.AppendLine("<script> function mostrarSecao(id) {\r\n            var secao = document.getElementById(id);\r\n            \r\n            if (secao.style.display == '' || secao.style.display == \"none\") {\r\n                secao.style.display = \"block\";\r\n            } \r\n                    \r\n            else {\r\n                secao.style.display = \"none\";\r\n            }\r\n        }\r\n        \r\n        function modificarPadrao(num,risco){\r\n        var minhaDiv = document.getElementById('linha-numero'+num);\r\n\r\n        switch(risco){\r\n            case 1: minhaDiv.classList.add('alto'); break;\r\n            case 2: minhaDiv.classList.add('medio'); break;\r\n            case 3: minhaDiv.classList.add('baixo'); break;\r\n        }\r\n    }</script>");
             htmlBuilder.AppendLine("</head>");
 
             // Início do corpo HTML
@@ -72,7 +72,10 @@ namespace ProjetoA
             // Adicione a chamada para o método AnalisarVulnerabilidade
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
-            AnalisarVulnerabilidades(linhas, htmlBuilder);
+
+            Dictionary<int,int> linhasVulneraveis;
+
+            AnalisarVulnerabilidades(linhas, htmlBuilder,out linhasVulneraveis);
             htmlBuilder.AppendLine("</div>");
     
             // Realiza a análise de complexidade ciclomática
@@ -121,6 +124,10 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2 id=\"codigo-analisado\">Código Analisado:</h2>");
             ExibirCodigo(linhasSeparadas, htmlBuilder);
 
+            //Marca as linhas que estão com alguma vulnerabilidade
+            htmlBuilder.AppendLine("<script>");
+            modificarBackground(linhasVulneraveis, htmlBuilder);
+            htmlBuilder.AppendLine("</script>");
             // Feche as tags HTML
             htmlBuilder.AppendLine("</body></html>");
 
@@ -226,10 +233,11 @@ namespace ProjetoA
         }
 
 
-        static void AnalisarVulnerabilidades(Dictionary<string,List<int>> code, StringBuilder htmlBuilder)
+        static void AnalisarVulnerabilidades(Dictionary<string,List<int>> code, StringBuilder htmlBuilder, out Dictionary<int,int>linhasVulneraveis)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
 
+            linhasVulneraveis =new Dictionary<int, int>();
             // Analisar o código usando o visitor
             vulnerabilidadeVisitor.Visit(code);
 
@@ -249,7 +257,10 @@ namespace ProjetoA
 
                 for(int i = 0; i<linha.Count();i++)
                 {
-                    htmlBuilder.Append($"<a href=\"#linha-numero{linha[i]}\" onclick=\"destacarLinha({linha[i]})\">{linha[i]}</a>");
+                    htmlBuilder.Append($"<a href=\"#linha-numero{linha[i]}\">{linha[i]}</a>");
+
+                    linhasVulneraveis[i] = (int)vulnerabilidade.NivelRisco;
+
                     if(i+1<linha.Count)
                     {
                         htmlBuilder.Append(',');
@@ -260,9 +271,9 @@ namespace ProjetoA
 
                 switch (vulnerabilidade.NivelRisco)
                 {
-                    case NivelRisco.Baixo: htmlBuilder.AppendLine("<td id=\"baixo\">Baixo</td>"); break;
-                    case NivelRisco.Medio: htmlBuilder.AppendLine("<td id=\"medio\">Médio</td>"); break;
-                    case NivelRisco.Alto: htmlBuilder.AppendLine("<td id=\"alto\">Alto</td>"); break;
+                    case NivelRisco.Baixo: htmlBuilder.AppendLine("<td class=\"baixo\">Baixo</td>"); break;
+                    case NivelRisco.Medio: htmlBuilder.AppendLine("<td class=\"medio\">Médio</td>"); break;
+                    case NivelRisco.Alto: htmlBuilder.AppendLine("<td class=\"alto\">Alto</td>"); break;
                 }
 
                 htmlBuilder.AppendLine("</tr>");
@@ -271,6 +282,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("</table>");
 
             htmlBuilder.AppendLine($"<h3>Taxa de Precisão de Análise de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
+      
         }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
@@ -293,6 +305,14 @@ namespace ProjetoA
 
             htmlBuilder.AppendLine("</code></pre>");
             htmlBuilder.AppendLine("</div>"); // Fecha a div de contêiner
+        }
+
+        static void modificarBackground(Dictionary<int,int> linhasVulneraveis, StringBuilder htmlBuilder)
+        {
+            foreach(var linha in linhasVulneraveis.Keys)
+            {
+                htmlBuilder.AppendLine($"modificarPadrao({linha},{linhasVulneraveis[linha]})");
+            }
         }
 
         static bool EncontrouErrosSintaxe(StringBuilder htmlBuilder, string code)
