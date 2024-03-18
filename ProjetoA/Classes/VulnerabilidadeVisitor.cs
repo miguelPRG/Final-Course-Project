@@ -44,7 +44,7 @@ namespace Projeto.Classes
     public class VulnerabilidadeVisitor
     {
         //Lista de vulnerabilidades encontradas
-        private List<(string Tipo, List<int> Linha, string Codigo, NivelRisco NivelRisco)> vulnerabilidadesEncontradas;
+        private List<(string Tipo, List<int> Linhas, string Codigo, NivelRisco NivelRisco)> vulnerabilidadesEncontradas;
 
         //Diciónário utilizado para testar as vulnerabilidades encontradas
         Dictionary<string, string[][]> dados_teste;
@@ -77,7 +77,7 @@ namespace Projeto.Classes
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Alto] = new string[]
             {
                 // Expressões Regulares para alto risco
-               "string query = \"select * from users where username = '{userinput}'\";",
+               "string consulta = \"select * from usuarios where username = '\" + username + \"' and password = '\" + password + \"'\";",
                "string query = \"insert into tabela (colunas) values ('\" + userinput + \"')\";",
                "string query = \"update tabela set coluna1 = 'valor' where coluna2 = '\" + userinput + \"'\";",
                "string query = \"delete from tabela where coluna= '\" + userinput + \"'\";",
@@ -86,7 +86,7 @@ namespace Projeto.Classes
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Medio] = new string[]
             {
                 // Expressões Regulares para médio risco
-                 "string query = \"select * from users where username = @username\";",
+                 "string query = \"select * from users where username = '{userinput}'\";",
                  "string query = \"insert into tabela (colunas) values (@parametro)\";",
                  "string query = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
                  "string query = \"delete from tabela where coluna = @valor\"",
@@ -501,7 +501,7 @@ namespace Projeto.Classes
             };*/
         }
 
-        public List<(string Tipo, List<int> Linha, string Codigo, NivelRisco NivelRisco)> VulnerabilidadesEncontradas
+        public List<(string Tipo, List<int> Linhas, string Codigo, NivelRisco NivelRisco)> VulnerabilidadesEncontradas
         {
             get { return vulnerabilidadesEncontradas; }
         }
@@ -510,7 +510,12 @@ namespace Projeto.Classes
         {
             try 
             {
-                return (int)((verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) * 100);
+                if(falsos_positivos==0)
+                {
+                    return (int)Math.Round(verdadeiros_positivos, 0);
+                }
+
+                return (int)Math.Round((verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) * 100,0);
             }
 
             catch (DivideByZeroException)
@@ -533,18 +538,18 @@ namespace Projeto.Classes
             return false;
         }
 
-        public void Visit(Dictionary<string,List<int>>linhas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
+        public void Visit(Dictionary<string,List<int>>Linhas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
         {
-            foreach(var l in linhas.Keys)
+            foreach(var l in Linhas.Keys)
             {
                 foreach(var nome in padroes.Keys)
                 {
-                    AnalisarVulnerabilidade(l, linhas[l], padroes[nome], nome);
+                    AnalisarVulnerabilidade(l, Linhas[l], padroes[nome], nome);
                 }
             }
         }
 
-        private void AnalisarVulnerabilidade(string code, List<int> linha ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
+        private void AnalisarVulnerabilidade(string code, List<int> Linhas ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
         {
             if (ContemUmaPalavra(code, palavras, out int value))
             {
@@ -562,13 +567,16 @@ namespace Projeto.Classes
 
                 if (Math.Round(precisao[index]) >= 50)
                 {
-                    code = SubstituirSimbolos(code);
+                    if(code.IndexOf("<")!=-1 || code.IndexOf(">")!=-1)
+                    {
+                        code = SubstituirSimbolos(code);
+                    }
                     
-                    AdicionarVulnerabilidade(nomeVulnerabilidade, linha,code, (NivelRisco)index);
-                    verdadeiros_positivos += precisao[index]/100;
+                    AdicionarVulnerabilidade(nomeVulnerabilidade, Linhas,code, (NivelRisco)index);
+                    verdadeiros_positivos += precisao[index];
                 }
 
-                else falsos_positivos+= precisao[index]/100;
+                else falsos_positivos+= precisao[index];
 
             }
         }
@@ -581,6 +589,11 @@ namespace Projeto.Classes
         private static string SubstituirSimbolos(string texto)
         {
             int index = texto.IndexOf("\"");
+
+            if (index == -1)
+            {
+                return texto;
+            }
 
             try
             {
@@ -608,9 +621,9 @@ namespace Projeto.Classes
         }
 
 
-        private void AdicionarVulnerabilidade(string nomeVulnerabilidade, List<int> linha ,string code, NivelRisco nivelRisco)
+        private void AdicionarVulnerabilidade(string nomeVulnerabilidade, List<int> Linhas ,string code, NivelRisco nivelRisco)
         {
-            vulnerabilidadesEncontradas.Add((nomeVulnerabilidade,linha, code, nivelRisco));
+            vulnerabilidadesEncontradas.Add((nomeVulnerabilidade,Linhas, code, nivelRisco));
         }
         //PREFERENCIALMENTE. Tenta utilizar estes métodos para determinar precisão:
 
