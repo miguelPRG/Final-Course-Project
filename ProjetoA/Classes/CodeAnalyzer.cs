@@ -19,6 +19,8 @@ using Windows.UI.Xaml;
 
 namespace ProjetoA
 {
+    //Hora de testar os outros métodos
+
     public class CodeAnalyzer
     {
         public static string GerarRelatorioHTML(string code)
