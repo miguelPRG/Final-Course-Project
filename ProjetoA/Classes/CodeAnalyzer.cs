@@ -32,7 +32,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("<!DOCTYPE html>");
             htmlBuilder.AppendLine("<html lang=\"pt\">");
             htmlBuilder.AppendLine("<head><meta charset=\"utf-8\"><title>Análise de Código</title>");
-            htmlBuilder.AppendLine("<style>body {\r\n                                font-family: Arial, sans-serif;\r\n                            }\r\n                        \r\n                            h1 {\r\n                                text-align: center;\r\n                                margin-bottom: 20px;\r\n                            }\r\n                        \r\n                            h2 {\r\n                            text-align: center;\r\n                            margin-bottom: 15px;\r\n                            margin-top: 80px; /* Ajuste o valor conforme necessário */\r\n                            }\r\n                        \r\n                            h3 {\r\n                                text-align: center;\r\n                                margin-bottom: 10px;\r\n                            }\r\n                        \r\n                            a {\r\n                                text-decoration: none;\r\n                                color: #333;\r\n                                cursor: pointer;\r\n                            }\r\n                        \r\n                            a:hover {\r\n                                color: #007bff;\r\n                            }\r\n                        \r\n                            .indice {\r\n                                text-align: center;\r\n                                margin-bottom: 30px;\r\n                                display: block;\r\n                            }\r\n                        \r\n                            ul {\r\n                                list-style: none;\r\n                                padding: 0;\r\n                            }\r\n                        \r\n                            li {\r\n                                margin-bottom: 10px;\r\n                                font-size: 18px;\r\n                            }\r\n                        \r\n                            table {\r\n                                width: 100%;\r\n                                border-collapse: collapse;\r\n                                margin-top: 20px;\r\n                            }\r\n                        \r\n                            /* Estilo para as células da tabela */\r\n                            table td, table th {\r\n                                padding: 10px;\r\n                                border: 1px solid #ddd;\r\n                                text-align: left;\r\n                            }\r\n                        \r\n                            /* Estilo para o cabeçalho da tabela */\r\n                            table th {\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            /* Estilo para alternância de cores nas linhas */\r\n                            .table tr:nth-child(even) {\r\n                                background-color: #f9f9f9;\r\n                            }\r\n                        \r\n                            .alto {\r\n                                background-color: rgb(238, 93, 93);\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            .medio {\r\n                                background-color: yellow;\r\n                                \r\n                            }\r\n                        \r\n                            .baixo {\r\n                                background-color: greenyellow;\r\n                                \r\n                            }\r\n                        \r\n                            /* Estilo para o código analisado */\r\n                            .codigo-container {\r\n                                margin-top: 20px;\r\n                                padding: 10px;\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            .codigo-container pre {\r\n                                white-space: pre-wrap;\r\n                                font-size: 14px;\r\n                            }\r\n                            \r\n                            span{\r\n                                color: rgb(137, 8, 8);\r\n                            }</style>");
+            htmlBuilder.AppendLine("<style>body {\r\n                                font-family: Arial, sans-serif;\r\n                            }\r\n                        \r\n                            h1 {\r\n                                text-align: center;\r\n                                margin-bottom: 20px;\r\n                            }\r\n                        \r\n                            h2 {\r\n                            text-align: center;\r\n                            margin-bottom: 15px;\r\n                            margin-top: 80px; /* Ajuste o valor conforme necessário */\r\n                            }\r\n                        \r\n                            h3 {\r\n                                text-align: center;\r\n                                margin-bottom: 10px;\r\n                            }\r\n                        \r\n                            a {\r\n                                text-decoration: none;\r\n                                color: #333;\r\n                                cursor: pointer;\r\n                            }\r\n                        \r\n                            a:hover {\r\n                                color: #007bff;\r\n                            }\r\n                        \r\n                            .indice {\r\n                                text-align: center;\r\n                                margin-bottom: 30px;\r\n                                display: block;\r\n                            }\r\n                        \r\n                            ul {\r\n                                list-style: none;\r\n                                padding: 0;\r\n                            }\r\n                        \r\n                            li {\r\n                                margin-bottom: 10px;\r\n                                font-size: 18px;\r\n                            }\r\n                        \r\n                            table {\r\n                                width: 100%;\r\n                                border-collapse: collapse;\r\n                                margin-top: 20px;\r\n                            }\r\n                        \r\n                            /* Estilo para as células da tabela */\r\n                            table td, table th {\r\n                                padding: 10px;\r\n                                border: 1px solid #ddd;\r\n                                text-align: left;\r\n                            }\r\n                        \r\n                            /* Estilo para o cabeçalho da tabela */\r\n                            table th {\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            /* Estilo para alternância de cores nas linhas */\r\n                            .table tr:nth-child(even) {\r\n                                background-color: #f9f9f9;\r\n                            }\r\n                        \r\n                            .alto {\r\n                                background-color: rgb(238, 93, 93);\r\n                                font-weight: bold;\r\n                            \r\n\t\t\t    }\r\n                        \r\n                            .medio {\r\n                                background-color: yellow;\r\n                            \tfont-weight: bold;\r\n                            }\r\n                        \r\n                            .baixo {\r\n                                background-color: greenyellow;\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            /* Estilo para o código analisado */\r\n                            .codigo-container {\r\n                                margin-top: 20px;\r\n                                padding: 10px;\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            .codigo-container pre {\r\n                                white-space: pre-wrap;\r\n                                font-size: 14px;\r\n                            }\r\n                            \r\n                            span{\r\n                                color: rgb(137, 8, 8);\r\n                            }</style>");
             //htmlBuilder.AppendLine("<style type=\"text/css\" id=\"operaUserStyle\"></style>");
             htmlBuilder.AppendLine("<script> function mostrarSecao(id) {\r\n            var secao = document.getElementById(id);\r\n            \r\n            if (secao.style.display == '' || secao.style.display == \"none\") {\r\n                secao.style.display = \"block\";\r\n            } \r\n                    \r\n            else {\r\n                secao.style.display = \"none\";\r\n            }\r\n        }\r\n        \r\n        function modificarPadrao(num,risco){\r\n        var minhaDiv = document.getElementById('linha-numero'+num);\r\n\r\n        switch(risco){\r\n            case 0: minhaDiv.classList.add('alto'); break;\r\n            case 1: minhaDiv.classList.add('medio'); break;\r\n            case 2: minhaDiv.classList.add('baixo'); break;\r\n        }\r\n    }</script>");
             htmlBuilder.AppendLine("</head>");
@@ -89,7 +89,7 @@ namespace ProjetoA
             //Analise de Dependencias
             htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
-            //AnalizarDependencias(htmlBuilder,linhas);
+            AnalizarDependencias(htmlBuilder,linhas);
             htmlBuilder.AppendLine("</div>");
 
             // Identificar práticas que afetam o desempenho
@@ -234,7 +234,6 @@ namespace ProjetoA
             return linha;
         }
 
-
         static void AnalisarVulnerabilidades(Dictionary<string,List<int>> code, StringBuilder htmlBuilder, out Dictionary<int,int>linhasVulneraveis)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
@@ -287,28 +286,6 @@ namespace ProjetoA
       
         }
 
-        static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
-        {   
-            htmlBuilder.AppendLine("<div class=\"codigo-container\">"); // Adiciona uma div de contêiner
-
-            htmlBuilder.AppendLine("<pre><code class=\"csharp\">");
-
-
-            // Descobrir quantos dígitos tem o número da última linha para ajustar a formatação
-            int numeroLinhas = linhasDeCodigo.Length;
-
-            // Adicionar cada linha com o número da linha à esquerda
-            for (int i = 0; i < numeroLinhas; i++)
-            {
-                // Adicionar a linha de código com o número da linha à esquerda
-                htmlBuilder.AppendLine($"<div id=\"linha-numero{i + 1}\"><span>{i + 1}</span> {WebUtility.HtmlEncode(linhasDeCodigo[i])}</div>");
-
-            }
-
-            htmlBuilder.AppendLine("</code></pre>");
-            htmlBuilder.AppendLine("</div>"); // Fecha a div de contêiner
-        }
-
         static void modificarBackground(Dictionary<int,int> linhasVulneraveis, StringBuilder htmlBuilder)
         {
             foreach(var linha in linhasVulneraveis.Keys)
@@ -349,23 +326,29 @@ namespace ProjetoA
 
         static void AnalizarDependencias(StringBuilder htmlBuilder, Dictionary<string,List<int>> lines)
         {
-            // Expressão regular para encontrar os usings
-            Regex usingRegex = new Regex(@"\busing\s+([^\s;]+)\s*;");
-
             // Dividir o código em linhas
 
             htmlBuilder.AppendLine("<table><tr><th>Excerto do Código</th><th>Linha</th></tr>");
 
+            int j;
+
             foreach(var key in lines.Keys)
             {
-                Match match = usingRegex.Match(key);
-                if (match.Success)
-                {
-                    htmlBuilder.Append($"<tr><td>{key}");
+                j = key.IndexOf("using");
 
-                    foreach (var i in key)
+
+                if (j!=-1 && j ==0)
+                {
+                    htmlBuilder.Append($"<tr><td>{key}</td><td>");
+
+                    for(int i = 0; i < lines[key].Count;i++)
                     {
-                        htmlBuilder.Append($"<a href=\"#linha-numero{i + 1}\" onclick=\"destacarLinha({i + 1})\">{i + 1}</a>");
+                        htmlBuilder.Append($"{lines[key][i]}");
+                    
+                        if(i+1<lines.Count)
+                        {
+                            htmlBuilder.Append(',');
+                        }
                     }
 
                     htmlBuilder.Append($"</td></tr>");
@@ -620,6 +603,28 @@ namespace ProjetoA
                 htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma concorrência.</h3>");
             }
         }
+        
 
+        static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
+        {   
+            htmlBuilder.AppendLine("<div class=\"codigo-container\">"); // Adiciona uma div de contêiner
+
+            htmlBuilder.AppendLine("<pre><code class=\"csharp\">");
+
+
+            // Descobrir quantos dígitos tem o número da última linha para ajustar a formatação
+            int numeroLinhas = linhasDeCodigo.Length;
+
+            // Adicionar cada linha com o número da linha à esquerda
+            for (int i = 0; i < numeroLinhas; i++)
+            {
+                // Adicionar a linha de código com o número da linha à esquerda
+                htmlBuilder.AppendLine($"<div id=\"linha-numero{i + 1}\"><span>{i + 1}</span> {WebUtility.HtmlEncode(linhasDeCodigo[i])}</div>");
+
+            }
+
+            htmlBuilder.AppendLine("</code></pre>");
+            htmlBuilder.AppendLine("</div>"); // Fecha a div de contêiner
+        }
     }
 }
