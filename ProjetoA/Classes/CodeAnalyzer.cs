@@ -128,7 +128,12 @@ namespace ProjetoA
 
             //Marca as linhas que estão com alguma vulnerabilidade
             htmlBuilder.AppendLine("<script>");
-            modificarBackground(linhasVulneraveis, htmlBuilder);
+            
+            if(linhasVulneraveis!=null)
+            {
+                modificarBackground(linhasVulneraveis, htmlBuilder);
+            }
+          
             htmlBuilder.AppendLine("</script>");
             // Feche as tags HTML
             htmlBuilder.AppendLine("</body></html>");
@@ -237,10 +242,18 @@ namespace ProjetoA
         static void AnalisarVulnerabilidades(Dictionary<string, List<int>> code, StringBuilder htmlBuilder, out Dictionary<int, int> linhasVulneraveis)
         {
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
+            vulnerabilidadeVisitor.Visit(code);
+
+            if(vulnerabilidadeVisitor.VulnerabilidadesEncontradas.Count()==0)
+            {
+                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma vulnerabilidade de segurança!</h3>");
+                linhasVulneraveis = null;
+                return;
+            }
 
             linhasVulneraveis = new Dictionary<int, int>();
             // Analisar o código usando o visitor
-            vulnerabilidadeVisitor.Visit(code);
+            
 
             // Construir tabela HTML
             htmlBuilder.AppendLine("<table>");
@@ -351,37 +364,51 @@ namespace ProjetoA
             // Expressão regular para encontrar os usings
             Regex usingRegex = new Regex(@"\busing\s+([^\s;]+)\s*;");
 
+            bool tabelaVazia = true;
+            StringBuilder tabelaHtml = new StringBuilder();
+
             // Dividir o código em linhas
 
-            htmlBuilder.AppendLine("<table><tr><th>Excerto do Código</th><th>Linhas</th></tr>");
-            
+            tabelaHtml.AppendLine("<table><tr><th>Excerto do Código</th><th>Linhas</th></tr>");
+
             foreach (var codigo in lines.Keys)
             {
                 Match match = usingRegex.Match(codigo);
 
                 if (match.Success)
                 {
-                    htmlBuilder.AppendLine("<tr>");
-                    htmlBuilder.AppendLine($"<td>{codigo}</td>");
-                    htmlBuilder.AppendLine($"<td>");
+                    tabelaHtml.AppendLine("<tr>");
+                    tabelaHtml.AppendLine($"<td>{codigo}</td>");
+                    tabelaHtml.AppendLine($"<td>");
 
                     for (int i = 0; i < lines[codigo].Count(); i++)
                     {
-                        htmlBuilder.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
+                        tabelaHtml.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
 
                         if (i + 1 < lines[codigo].Count())
                         {
-                            htmlBuilder.Append(',');
+                            tabelaHtml.Append(',');
                         }
                     }
-                }
 
-                htmlBuilder.Append($"</td></tr>");
+                    tabelaVazia = false;
+
+                    tabelaHtml.Append($"</td></tr>");
+                }
             }
 
-            htmlBuilder.AppendLine("</table>");
-        }
+            tabelaHtml.AppendLine("</table>");
 
+            if (tabelaVazia)
+            {
+                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma dependência externa!</h3>");
+            }
+
+            else
+            {
+                htmlBuilder.Append(tabelaHtml.ToString());
+            }
+        }
 
         /*static void IdentificarPraticasDesempenho(StringBuilder htmlBuilder, string code)
     {
@@ -475,34 +502,42 @@ namespace ProjetoA
         {
             // Iniciar a tabela HTML no relatório
             relatorio.AppendLine("<table>");
-            relatorio.AppendLine("<tr><th>Código</th><th>Linhas</th></tr>");
+            relatorio.AppendLine("<tr><th>Nome da Exceção</th><th>Código</th><th>Linhas</th></tr>");
 
             // Iterar sobre cada código no dicionário
             foreach (var codigo in lines.Keys)
             {
-                // Verificar se há exceções para o código atual
-
-                if (codigo.IndexOf("catch(") != 1)
+                
+                if (codigo.Contains("catch"))
                 {
-                    relatorio.AppendLine($"<tr><td>{codigo}</td>");
+                    string[] partes = codigo.Split('(', ')');
+                    string tipoExcecao = partes[1];
+
+                    relatorio.AppendLine("<tr>");
+                    relatorio.AppendLine($"<td>{tipoExcecao}</td>");
+                    relatorio.AppendLine($"<td>{codigo}</td>");
                     relatorio.AppendLine("<td>");
 
+                    // Iterar sobre cada linha onde a exceção é capturada
                     for (int i = 0; i < lines[codigo].Count(); i++)
                     {
-                        relatorio.Append(lines[codigo][i]);
+                        relatorio.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
 
                         if (i + 1 < lines[codigo].Count())
                         {
-                            relatorio.Append(",");
+                            relatorio.Append(", ");
                         }
-
-                        relatorio.Append("</td></tr>");
                     }
-                }   
+
+                    // Fechar a tag 'td' após listar todas as linhas
+                    relatorio.AppendLine("</td>");
+                    relatorio.AppendLine("</tr>");
+                }
             }
-            
+
             relatorio.AppendLine("</table>");
         }
+
 
         static void VerificarRepeticao(StringBuilder htmlBuilder, string code)
     {
