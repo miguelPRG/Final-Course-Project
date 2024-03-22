@@ -16,6 +16,7 @@ using System.Diagnostics;
 using Windows.UI.Xaml.Documents;
 using Windows.Globalization.DateTimeFormatting;
 using Windows.UI.Xaml;
+using System.Threading.Tasks;
 
 namespace ProjetoA
 {
@@ -23,6 +24,13 @@ namespace ProjetoA
 
     public class CodeAnalyzer
     {
+        static Dictionary<int, int> linhasVulneraveis;
+
+        public CodeAnalyzer()
+        {
+            linhasVulneraveis = new Dictionary<int, int>();
+        }
+
         public static string GerarRelatorioHTML(string code)
         {
             var htmlBuilder = new StringBuilder();
@@ -72,13 +80,9 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"</div>");
 
             // Adicione a chamada para o método AnalisarVulnerabilidade
-            htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
-            htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
-
-            Dictionary<int, int> linhasVulneraveis;
-
-            AnalisarVulnerabilidades(linhas, htmlBuilder, out linhasVulneraveis);
-            htmlBuilder.AppendLine("</div>");
+          
+            htmlBuilder.Append(AnalisarCodigo(linhas));
+            
 
             // Realiza a análise de complexidade ciclomática
             int complexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
@@ -89,7 +93,7 @@ namespace ProjetoA
             //Analise de Dependencias
             htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
-            AnalizarDependencias(htmlBuilder, linhas);
+            htmlBuilder.Append(AnalizarDependencias(linhas));
             htmlBuilder.AppendLine("</div>");
 
             // Identificar práticas que afetam o desempenho
@@ -107,7 +111,7 @@ namespace ProjetoA
             //Verificar Repetição de código
             htmlBuilder.AppendLine("<div id=\"repeticao-codigo\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Repetição de código</h2>");
-            //VerificarRepeticao(htmlBuilder, code);
+            //VerificarRepeticao(htmlBuilder, linhas);
             htmlBuilder.AppendLine("</div>");
 
             // Análise de Concorrência
@@ -239,16 +243,41 @@ namespace ProjetoA
             return linha;
         }
 
-        static void AnalisarVulnerabilidades(Dictionary<string, List<int>> code, StringBuilder htmlBuilder, out Dictionary<int, int> linhasVulneraveis)
+        static async Task<List<StringBuilder>> AnalisarCodigo(Dictionary<string, List<int>> lines)
         {
+            // Inicia as duas tarefas em paralelo
+            // Adicione a chamada para o método AnalisarVulnerabilidade
+            
+            var taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
+            var taskAnalizarDependencias = AnalizarDependencias(lines);
+
+            // Aguarda o término de ambas as tarefas
+            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias);
+
+            // Obtém os resultados das tarefas
+            var resultadoAnalisarVulnerabilidades = await taskAnalisarVulnerabilidades;
+            var resultadoAnalizarDependencias = await taskAnalizarDependencias;
+
+            // Retorna os resultados na ordem especificada
+            return new List<StringBuilder> { resultadoAnalisarVulnerabilidades, resultadoAnalizarDependencias };
+        }
+
+
+        static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
+        {
+            StringBuilder htmlBuilder = new StringBuilder();
+            htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
+            htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
+
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
             vulnerabilidadeVisitor.Visit(code);
 
             if(vulnerabilidadeVisitor.VulnerabilidadesEncontradas.Count()==0)
             {
                 htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma vulnerabilidade de segurança!</h3>");
+                htmlBuilder.AppendLine("</div>");
                 linhasVulneraveis = null;
-                return;
+                return await Task.FromResult(htmlBuilder);
             }
 
             linhasVulneraveis = new Dictionary<int, int>();
@@ -296,6 +325,9 @@ namespace ProjetoA
             htmlBuilder.AppendLine("</table>");
 
             htmlBuilder.AppendLine($"<h3>Taxa de Precisão de Análise de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
+            htmlBuilder.AppendLine("</div>");
+
+            return await Task.FromResult(htmlBuilder);
 
         }
 
@@ -359,9 +391,14 @@ namespace ProjetoA
 
         }
 
-        static void AnalizarDependencias(StringBuilder htmlBuilder, Dictionary<string, List<int>> lines)
+        static async Task<StringBuilder> AnalizarDependencias( Dictionary<string, List<int>> lines)
         {
             // Expressão regular para encontrar os usings
+            StringBuilder htmlBuilder = new StringBuilder();
+            
+            htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
+            htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
+
             Regex usingRegex = new Regex(@"\busing\s+([^\s;]+)\s*;");
 
             bool tabelaVazia = true;
@@ -401,12 +438,16 @@ namespace ProjetoA
 
             if (tabelaVazia)
             {
-                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma dependência externa!</h3>");
+                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma dependência!</h3>");
+                htmlBuilder.AppendLine("</div>");
+                return await Task.FromResult(htmlBuilder);
             }
 
             else
             {
-                htmlBuilder.Append(tabelaHtml.ToString());
+                htmlBuilder.Append(tabelaHtml);
+                htmlBuilder.AppendLine("</div>");
+                return await Task.FromResult(htmlBuilder);
             }
         }
 
@@ -500,9 +541,12 @@ namespace ProjetoA
 
         static void AnalisarExcecoes(StringBuilder relatorio, Dictionary<string, List<int>> lines)
         {
+            StringBuilder tabelaHtml = new StringBuilder();
+            bool tabelaVazia = true;
+
             // Iniciar a tabela HTML no relatório
-            relatorio.AppendLine("<table>");
-            relatorio.AppendLine("<tr><th>Nome da Exceção</th><th>Código</th><th>Linhas</th></tr>");
+            tabelaHtml.AppendLine("<table>");
+            tabelaHtml.AppendLine("<tr><th>Nome da Exceção</th><th>Código</th><th>Linhas</th></tr>");
 
             // Iterar sobre cada código no dicionário
             foreach (var codigo in lines.Keys)
@@ -513,51 +557,81 @@ namespace ProjetoA
                     string[] partes = codigo.Split('(', ')');
                     string tipoExcecao = partes[1];
 
-                    relatorio.AppendLine("<tr>");
-                    relatorio.AppendLine($"<td>{tipoExcecao}</td>");
-                    relatorio.AppendLine($"<td>{codigo}</td>");
-                    relatorio.AppendLine("<td>");
+                    tabelaHtml.AppendLine("<tr>");
+                    tabelaHtml.AppendLine($"<td>{tipoExcecao}</td>");
+                    tabelaHtml.AppendLine($"<td>{codigo}</td>");
+                    tabelaHtml.AppendLine("<td>");
 
                     // Iterar sobre cada linha onde a exceção é capturada
                     for (int i = 0; i < lines[codigo].Count(); i++)
                     {
-                        relatorio.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
+                        tabelaHtml.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
 
                         if (i + 1 < lines[codigo].Count())
                         {
-                            relatorio.Append(", ");
+                            tabelaHtml.Append(", ");
                         }
                     }
 
+                    tabelaVazia = false;
+
                     // Fechar a tag 'td' após listar todas as linhas
-                    relatorio.AppendLine("</td>");
-                    relatorio.AppendLine("</tr>");
+                    tabelaHtml.AppendLine("</td>");
+                    tabelaHtml.AppendLine("</tr>");
                 }
             }
 
-            relatorio.AppendLine("</table>");
+            tabelaHtml.AppendLine("</table>");
+
+            if (tabelaVazia)
+            {
+                relatorio.AppendLine("<h3>Não foi encontrada nenhuma dependência exceção!</h3>");
+            }
+            else
+            {
+                relatorio.Append(tabelaHtml.ToString());
+            }
+        
         }
 
-
-        static void VerificarRepeticao(StringBuilder htmlBuilder, string code)
-    {
-        var syntaxTree = CSharpSyntaxTree.ParseText(code);
-        var root = syntaxTree.GetRoot();
-
-        var metodosRepetidos = VerificarRepeticao(root.DescendantNodes().OfType<MethodDeclarationSyntax>());
-        var variaveisRepetidas = VerificarRepeticao(root.DescendantNodes().OfType<VariableDeclarationSyntax>());
-        var classesRepetidas = VerificarRepeticao(root.DescendantNodes().OfType<ClassDeclarationSyntax>());
-
-        // Generar tablas HTML
-
-        if (!GerarTabelaHTML(htmlBuilder, "Métodos Repetidos", metodosRepetidos) &&
-           !GerarTabelaHTML(htmlBuilder, "Variáveis Repetidas", variaveisRepetidas) &&
-           !GerarTabelaHTML(htmlBuilder, "Classes Repetidas", classesRepetidas))
+        static void VerificarRepeticao(StringBuilder htmlBuilder, Dictionary<string, List<int>> lines)
         {
-            htmlBuilder.Append("<h3>Não foi encontrado nenhum código repetido!</h3>");
-        }
+            StringBuilder tabela = new StringBuilder();
+            bool tabelaVazia = true;
+            
+            tabela.AppendLine("<table><tr><th>Código Repetido</th><th>Linhas</th></tr>");
 
-    }
+            foreach(var chave in lines.Keys)
+            {
+                if (lines[chave].Count() > 1)
+                {
+                    tabela.AppendLine("<tr>");
+                    tabela.Append($"<td>{lines[chave]}</td>");
+                    for(int i = 0; i < lines[chave].Count();i++)
+                    {
+                        tabela.Append($"<td>{i}</td>");
+
+                        if (i + 1 > lines[chave].Count())
+                        {
+                            tabela.Append(',');
+                        }
+
+                        tabelaVazia = false;
+                    }
+                }
+            }
+
+            if (tabelaVazia)
+            {
+                htmlBuilder.AppendLine("<h3>Não foi encontrado código repetido!</h3>");
+            }
+            
+            else
+            {
+                htmlBuilder.AppendLine(tabela.ToString());
+            }
+        
+        }
 
         static Dictionary<string, List<int>> VerificarRepeticao(IEnumerable<SyntaxNode> nodes)
     {
