@@ -251,11 +251,13 @@ namespace ProjetoA
             var taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             var taskAnalizarDependencias = AnalizarDependencias(lines);
 
+            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias);
+
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
             
-            resultadoFinal.Append(await taskAnalisarVulnerabilidades);
-            resultadoFinal.Append(await taskAnalizarDependencias);
+            resultadoFinal.Append(taskAnalisarVulnerabilidades);
+            resultadoFinal.Append(taskAnalizarDependencias);
 
             // Retorna a junção das strings HTML
             return resultadoFinal;
