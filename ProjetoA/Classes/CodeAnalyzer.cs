@@ -26,13 +26,11 @@ namespace ProjetoA
     {
         static Dictionary<int, int> linhasVulneraveis;
 
-        public CodeAnalyzer()
-        {
-            linhasVulneraveis = new Dictionary<int, int>();
-        }
 
         public static string GerarRelatorioHTML(string code)
         {
+            linhasVulneraveis = new Dictionary<int, int>();
+            
             var htmlBuilder = new StringBuilder();
             code = code.Trim();
 
@@ -77,11 +75,13 @@ namespace ProjetoA
                 "<li><a onclick=\"mostrarSecao('repeticao-codigo')\">Análise de Repetição de Código</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
-            htmlBuilder.AppendLine($"</div>");
+            htmlBuilder.AppendLine($"</ul></div>");
 
             // Adicione a chamada para o método AnalisarVulnerabilidade
           
-            htmlBuilder.Append(AnalisarCodigo(linhas));
+            var analises = AnalisarCodigo(linhas);
+
+            htmlBuilder.Append(analises.Result);
             
 
             // Realiza a análise de complexidade ciclomática
@@ -243,24 +243,25 @@ namespace ProjetoA
             return linha;
         }
 
-        static async Task<List<StringBuilder>> AnalisarCodigo(Dictionary<string, List<int>> lines)
+        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines)
         {
             // Inicia as duas tarefas em paralelo
             // Adicione a chamada para o método AnalisarVulnerabilidade
-            
+
             var taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             var taskAnalizarDependencias = AnalizarDependencias(lines);
 
-            // Aguarda o término de ambas as tarefas
-            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias);
+            // Concatena as strings HTML
+            StringBuilder resultadoFinal = new StringBuilder();
+            
+            resultadoFinal.Append(await taskAnalisarVulnerabilidades);
+            resultadoFinal.Append(await taskAnalizarDependencias);
 
-            // Obtém os resultados das tarefas
-            var resultadoAnalisarVulnerabilidades = await taskAnalisarVulnerabilidades;
-            var resultadoAnalizarDependencias = await taskAnalizarDependencias;
-
-            // Retorna os resultados na ordem especificada
-            return new List<StringBuilder> { resultadoAnalisarVulnerabilidades, resultadoAnalizarDependencias };
+            // Retorna a junção das strings HTML
+            return resultadoFinal;
         }
+
+
 
 
         static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
@@ -330,6 +331,65 @@ namespace ProjetoA
             return await Task.FromResult(htmlBuilder);
 
         }
+        static async Task<StringBuilder> AnalizarDependencias( Dictionary<string, List<int>> lines)
+        {
+            // Expressão regular para encontrar os usings
+            StringBuilder htmlBuilder = new StringBuilder();
+            
+            htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
+            htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
+
+            Regex usingRegex = new Regex(@"\busing\s+([^\s;]+)\s*;");
+
+            bool tabelaVazia = true;
+            StringBuilder tabelaHtml = new StringBuilder();
+
+            // Dividir o código em linhas
+
+            tabelaHtml.AppendLine("<table><tr><th>Excerto do Código</th><th>Linhas</th></tr>");
+
+            foreach (var codigo in lines.Keys)
+            {
+                Match match = usingRegex.Match(codigo);
+
+                if (match.Success)
+                {
+                    tabelaHtml.AppendLine("<tr>");
+                    tabelaHtml.AppendLine($"<td>{codigo}</td>");
+                    tabelaHtml.AppendLine($"<td>");
+
+                    for (int i = 0; i < lines[codigo].Count(); i++)
+                    {
+                        tabelaHtml.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
+
+                        if (i + 1 < lines[codigo].Count())
+                        {
+                            tabelaHtml.Append(',');
+                        }
+                    }
+
+                    tabelaVazia = false;
+
+                    tabelaHtml.Append($"</td></tr>");
+                }
+            }
+
+            tabelaHtml.AppendLine("</table>");
+
+            if (tabelaVazia)
+            {
+                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma dependência!</h3>");
+                htmlBuilder.AppendLine("</div>");
+                return await Task.FromResult(htmlBuilder);
+            }
+
+            else
+            {
+                htmlBuilder.Append(tabelaHtml);
+                htmlBuilder.AppendLine("</div>");
+                return await Task.FromResult(htmlBuilder);
+            }
+        }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
@@ -391,65 +451,6 @@ namespace ProjetoA
 
         }
 
-        static async Task<StringBuilder> AnalizarDependencias( Dictionary<string, List<int>> lines)
-        {
-            // Expressão regular para encontrar os usings
-            StringBuilder htmlBuilder = new StringBuilder();
-            
-            htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
-            htmlBuilder.AppendLine($"<h2>Análise de Dependências:</h2>");
-
-            Regex usingRegex = new Regex(@"\busing\s+([^\s;]+)\s*;");
-
-            bool tabelaVazia = true;
-            StringBuilder tabelaHtml = new StringBuilder();
-
-            // Dividir o código em linhas
-
-            tabelaHtml.AppendLine("<table><tr><th>Excerto do Código</th><th>Linhas</th></tr>");
-
-            foreach (var codigo in lines.Keys)
-            {
-                Match match = usingRegex.Match(codigo);
-
-                if (match.Success)
-                {
-                    tabelaHtml.AppendLine("<tr>");
-                    tabelaHtml.AppendLine($"<td>{codigo}</td>");
-                    tabelaHtml.AppendLine($"<td>");
-
-                    for (int i = 0; i < lines[codigo].Count(); i++)
-                    {
-                        tabelaHtml.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
-
-                        if (i + 1 < lines[codigo].Count())
-                        {
-                            tabelaHtml.Append(',');
-                        }
-                    }
-
-                    tabelaVazia = false;
-
-                    tabelaHtml.Append($"</td></tr>");
-                }
-            }
-
-            tabelaHtml.AppendLine("</table>");
-
-            if (tabelaVazia)
-            {
-                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma dependência!</h3>");
-                htmlBuilder.AppendLine("</div>");
-                return await Task.FromResult(htmlBuilder);
-            }
-
-            else
-            {
-                htmlBuilder.Append(tabelaHtml);
-                htmlBuilder.AppendLine("</div>");
-                return await Task.FromResult(htmlBuilder);
-            }
-        }
 
         /*static void IdentificarPraticasDesempenho(StringBuilder htmlBuilder, string code)
     {
