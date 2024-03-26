@@ -17,6 +17,7 @@ using Windows.UI.Xaml.Documents;
 using Windows.Globalization.DateTimeFormatting;
 using Windows.UI.Xaml;
 using System.Threading.Tasks;
+using System.Collections;
 
 namespace ProjetoA
 {
@@ -79,16 +80,16 @@ namespace ProjetoA
 
             // Adicione a chamada para o método AnalisarVulnerabilidade
           
-            var analises = AnalisarCodigo(linhas);
+            var analises = AnalisarCodigo(linhas,code);
 
             htmlBuilder.Append(analises.Result);
             
 
             // Realiza a análise de complexidade ciclomática
-            int complexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
+            /*int complexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
             htmlBuilder.AppendLine("<div id=\"complexidade-ciclomatica\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>");
-            htmlBuilder.AppendLine("</div>");
+            htmlBuilder.AppendLine("</div>");*/
 
             //Analise de Dependencias
             htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
@@ -243,26 +244,31 @@ namespace ProjetoA
             return linha;
         }
 
-        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines)
+        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,string code)
         {
             // Inicia as duas tarefas em paralelo
             // Adicione a chamada para o método AnalisarVulnerabilidade
 
             var taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
-            var taskAnalizarDependencias = AnalizarDependencias(lines);
+            var taskAnalizarDependencias = IdentificarPraticasDesempenho(lines);
+            var taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
 
-            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias);
+            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
             
             resultadoFinal.Append(taskAnalisarVulnerabilidades);
             resultadoFinal.Append(taskAnalizarDependencias);
+            string[] complexidadeHTML = { "<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n" ,
+                                          $"<h2>Complexidade Ciclomática: {taskComplexidadeCiclomatica}</h2>\n",
+                                          "</div>"};
+            resultadoFinal.Append(complexidadeHTML[0] + complexidadeHTML[1] + complexidadeHTML[2]);
+
 
             // Retorna a junção das strings HTML
             return resultadoFinal;
         }
-
 
 
 
@@ -453,94 +459,68 @@ namespace ProjetoA
 
         }
 
-
-        /*static void IdentificarPraticasDesempenho(StringBuilder htmlBuilder, string code)
-    {
-        SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
-        SyntaxNode root = tree.GetRoot();
-
-        // Verificar loops desnecessariamente complexos
-        IEnumerable<SyntaxNode> loopNodes = root.DescendantNodes()
-            .Where(node => node.IsKind(SyntaxKind.ForStatement) || node.IsKind(SyntaxKind.WhileStatement));
-        AdicionarRelatorio(htmlBuilder, "Loops desnecessariamente complexos identificados", loopNodes, tree);
-
-        // Verificar alocações excessivas de memória
-        IEnumerable<SyntaxNode> allocationNodes = root.DescendantNodes()
-            .Where(node => node.IsKind(SyntaxKind.ArrayCreationExpression) ||
-                            node.IsKind(SyntaxKind.ObjectCreationExpression) ||
-                            (node.IsKind(SyntaxKind.GenericName) &&
-                            ((GenericNameSyntax)node).TypeArgumentList?.Arguments.Any() == true));
-        AdicionarRelatorio(htmlBuilder, "Possíveis alocações excessivas de memória identificadas", allocationNodes, tree);
-
-        // Verificar uso excessivo de boxing e unboxing
-        IEnumerable<SyntaxNode> boxingNodes = root.DescendantNodes()
-            .Where(node => node.IsKind(SyntaxKind.CastExpression) ||
-                            node.IsKind(SyntaxKind.AsExpression));
-        AdicionarRelatorio(htmlBuilder, "Uso excessivo de boxing e unboxing identificado", boxingNodes, tree);
-
-        // Verificar falha de otimização em consultas LINQ
-        IEnumerable<SyntaxNode> linqQueryNodes = root.DescendantNodes()
-            .Where(node => node.IsKind(SyntaxKind.QueryExpression) ||
-                            node.IsKind(SyntaxKind.QueryContinuation));
-        AdicionarRelatorio(htmlBuilder, "Possíveis falhas de otimização em consultas LINQ identificadas", linqQueryNodes, tree);
-
-        // Verificar StringBuilder para manipulação de strings
-        IEnumerable<SyntaxNode> stringBuilderNodes = root.DescendantNodes()
-            .Where(node => node.IsKind(SyntaxKind.ObjectCreationExpression) &&
-                            ((ObjectCreationExpressionSyntax)node).Type.ToString() == "StringBuilder");
-        AdicionarRelatorio(htmlBuilder, "Uso de StringBuilder para manipulação de strings identificado", stringBuilderNodes, tree);
-
-        // Verificar uso incorreto de cache
-        IEnumerable<SyntaxNode> cacheUsageNodes = root.DescendantNodes()
-    .Where(node => node.IsKind(SyntaxKind.SimpleMemberAccessExpression) &&
-                    ((MemberAccessExpressionSyntax)node).Name.Identifier.Text == "Cache");
-
-        AdicionarRelatorio(htmlBuilder, "Uso incorreto de cache identificado", cacheUsageNodes, tree);
-    }*/
-
-        /*static void AdicionarRelatorio(StringBuilder relatorio, string mensagem, IEnumerable<SyntaxNode> nodes, SyntaxTree tree)
-    {
-        if (nodes != null && nodes.Any())
+        public static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
         {
-            relatorio.AppendLine($"<h3>{mensagem}</h3>");
-            relatorio.AppendLine("<table>");
-            relatorio.AppendLine("<tr><th>Código</th><th>Linha</th></tr>");
+            StringBuilder htmlBuilder = new StringBuilder();
 
-            StringBuilder tableContent = new StringBuilder();
-
-            // Antes do loop foreach
-            HashSet<int> linhasIncluidas = new HashSet<int>();
-
-            foreach (SyntaxNode node in nodes)
+            await Task.Run(() =>
             {
-                var lineSpan = tree.GetLineSpan(node.Span);
-                int linha = lineSpan.StartLinePosition.Line + 1;
+                // Lista de expressões regulares para identificar más práticas de desempenho
+                var patterns = new Dictionary<string, string>
+        {
+            { "Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\"""},
+            { "Uso de foreach em coleções grandes", @"\bforeach\s *\(.*\b(List | Dictionary | IEnumerable)\b.*\)" },
+            { "Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\"""},
+            { "Alocação excessiva de objetos", @"\b(new\s *\w +\s *\(.*\))\s *;" },
+            { "Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
+            { "Possiveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b" }
+            // Adicione mais padrões de má prática de desempenho conforme necessário
+        };
 
-                if (linhasIncluidas.Contains(linha))
+                
+
+                // Inicializa a tabela HTML
+                htmlBuilder.AppendLine("<table>");
+                htmlBuilder.AppendLine("<tr><th>Nome da Má Prática</th><th>Números das Linhas</th></tr>");
+
+                // Itera sobre cada padrão de má prática
+                foreach (var pattern in patterns)
                 {
-                    continue; // Pule esta linha se já estiver incluída na tabela
+                    var regex = new Regex(pattern.Value);
+
+                    // Itera sobre cada par chave-valor do dicionário
+                    foreach (var kvp in codeDictionary)
+                    {
+                        // Encontra todas as correspondências no código
+                        var matches = regex.Matches(kvp.Key);
+
+                        // Adiciona as correspondências à tabela HTML
+                        foreach (Match match in matches)
+                        {
+                            // Para cada correspondência, itera sobre a lista de números de linhas
+                            foreach (int lineNumber in kvp.Value)
+                            {
+                                // Adiciona a má prática à tabela HTML
+                                htmlBuilder.AppendLine($"<tr><td>{pattern.Key}</td><td>{lineNumber}</td></tr>");
+                            }
+                        }
+                    }
                 }
 
-                // Use o método GetNodeContentWithoutComments para obter o conteúdo sem comentários
-                string codigoCompleto = GetNodeContentWithoutComments(node);
+                // Finaliza a tabela HTML
+                htmlBuilder.AppendLine("</table>");
+            });
 
-                // Definir um limite para o comprimento máximo do código exibido
-                int comprimentoMaximo = 120; // ajusta conforme necessário
-
-                // Se o código for muito grande, exibe apenas uma parte dele
-                string codigoFormatado = codigoCompleto.Length > comprimentoMaximo
-                    ? WebUtility.HtmlEncode(codigoCompleto.Substring(0, comprimentoMaximo) + "...")
-                    : WebUtility.HtmlEncode(codigoCompleto);
-
-                linhasIncluidas.Add(linha);
-
-                tableContent.AppendLine($"<tr><td>{codigoFormatado}</td><td><a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a></td></tr>");
-            }
-
-            relatorio.Append(tableContent.ToString());
-            relatorio.AppendLine("</table>");
+            // Retorna o htmlBuilder
+            return htmlBuilder;
         }
-    }*/
+
+
+        private int GetLineNumber(string code, int index)
+        {
+            return code.Substring(0, index).Split('\n').Length;
+        }
+
 
         static void AnalisarExcecoes(StringBuilder relatorio, Dictionary<string, List<int>> lines)
         {
