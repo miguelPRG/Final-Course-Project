@@ -69,27 +69,27 @@ namespace ProjetoA
 
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
-                "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
-                "<li><a onclick=\"mostrarSecao('analise-dependencias')\">Análise de Dependências</a></li>\r\n   " +
+               // "<li><a onclick=\"mostrarSecao('analise-dependencias')\">Análise de Dependências</a></li>\r\n   " +
                 "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
-                "<li><a onclick=\"mostrarSecao('analise-excecoes')\">Análise de Exceções</a></li>\r\n    " +
+               // "<li><a onclick=\"mostrarSecao('analise-excecoes')\">Análise de Exceções</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('repeticao-codigo')\">Análise de Repetição de Código</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
+                "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
                 "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</ul></div>");
 
             // Adicione a chamada para o método AnalisarVulnerabilidade
           
-            var analises = AnalisarCodigo(linhas,code);
+            Task<StringBuilder> analises = AnalisarCodigo(linhas,code);
 
             htmlBuilder.Append(analises.Result);
             
-
+            /*
             // Realiza a análise de complexidade ciclomática
-            /*int complexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
+            int complexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
             htmlBuilder.AppendLine("<div id=\"complexidade-ciclomatica\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>");
-            htmlBuilder.AppendLine("</div>");*/
+            htmlBuilder.AppendLine("</div>");
 
             //Analise de Dependencias
             htmlBuilder.AppendLine("<div id=\"analise-dependencias\" style=\"display: none;\">");
@@ -119,7 +119,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("<div id=\"concorrencia\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Concorrência:</h2>");
             //AnalisarConcorrencia(htmlBuilder, code);
-            htmlBuilder.AppendLine("</div>");
+            htmlBuilder.AppendLine("</div>");*/
 
 
             stopwatch.Stop();
@@ -244,32 +244,31 @@ namespace ProjetoA
             return linha;
         }
 
-        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,string code)
+        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines, string code)
         {
-            // Inicia as duas tarefas em paralelo
-            // Adicione a chamada para o método AnalisarVulnerabilidade
+            // Inicia as três tarefas em paralelo
+            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
+            Task<StringBuilder> taskAnalizarDependencias = IdentificarPraticasDesempenho(lines);
+            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
 
-            var taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
-            var taskAnalizarDependencias = IdentificarPraticasDesempenho(lines);
-            var taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
-
-            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias,taskComplexidadeCiclomatica);
+            // Espera até que todas as tarefas estejam concluídas
+            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias, taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
-            
-            resultadoFinal.Append(taskAnalisarVulnerabilidades);
-            resultadoFinal.Append(taskAnalizarDependencias);
-            string[] complexidadeHTML = { "<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n" ,
-                                          $"<h2>Complexidade Ciclomática: {taskComplexidadeCiclomatica}</h2>\n",
-                                          "</div>"};
-            resultadoFinal.Append(complexidadeHTML[0] + complexidadeHTML[1] + complexidadeHTML[2]);
 
+            // Append o resultado das tarefas de análise de vulnerabilidades e dependências
+            resultadoFinal.Append(await taskAnalisarVulnerabilidades);
+            resultadoFinal.Append(await taskAnalizarDependencias);
 
-            // Retorna a junção das strings HTML
+            // Adiciona a complexidade ciclomática ao resultado
+            resultadoFinal.Append($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n");
+            resultadoFinal.Append($"<h2>Complexidade Ciclomática: {await taskComplexidadeCiclomatica}</h2>\n");
+            resultadoFinal.Append($"</div>");
+
+            // Retorna o resultado final
             return resultadoFinal;
         }
-
 
 
         static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
@@ -339,7 +338,8 @@ namespace ProjetoA
             return await Task.FromResult(htmlBuilder);
 
         }
-        static async Task<StringBuilder> AnalizarDependencias( Dictionary<string, List<int>> lines)
+
+        /*static async Task<StringBuilder> AnalizarDependencias( Dictionary<string, List<int>> lines)
         {
             // Expressão regular para encontrar os usings
             StringBuilder htmlBuilder = new StringBuilder();
@@ -397,6 +397,70 @@ namespace ProjetoA
                 htmlBuilder.AppendLine("</div>");
                 return await Task.FromResult(htmlBuilder);
             }
+        }*/
+        static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
+        {
+            StringBuilder htmlBuilder = new StringBuilder();
+            StringBuilder resultado = new StringBuilder();
+
+            bool tabelaVazia = true;
+            
+            resultado.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
+            resultado.AppendLine($"<h2>Identificação de Práticas de Mau Desempenho:</h2>");
+
+
+            // Lista de expressões regulares para identificar más práticas de desempenho
+            var patterns = new Dictionary<string, string>
+            {
+                { "Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\"""},
+                { "Uso de foreach em coleções grandes", @"\bforeach\s *\(.*\b(List | Dictionary | IEnumerable)\b.*\)" },
+                { "Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\"""},
+                { "Alocação excessiva de objetos", @"\b(new\s *\w +\s *\(.*\))\s *;" },
+                { "Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
+                { "Possiveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b" },
+                // Adicionando padrão para chamada de método estático em instância da classe
+                { "Chamada de métodos estáticos em uma instância da classe", @"\b\w+\.\w+\(\)" }
+            };
+
+            htmlBuilder.Append("<table>");
+            htmlBuilder.Append("<tr><th>Nome do padrão encontrado</th><th>Números das linhas onde esse padrão foi encontrado</th></tr>");
+
+            foreach (var lineCode in codeDictionary)
+            {
+                string line = lineCode.Key;
+                List<int> lineNumbers = lineCode.Value;
+
+                foreach (var pattern in patterns)
+                {
+                    Match match = Regex.Match(line, pattern.Value);
+                    if (match.Success)
+                    {
+                        tabelaVazia = false;
+
+                        htmlBuilder.Append("<tr>");
+                        htmlBuilder.Append($"<td>{pattern.Key}</td>");
+                        htmlBuilder.Append($"<td>{string.Join(", ", lineNumbers)}</td>");
+                        htmlBuilder.Append("</tr>");
+                        break; // Break once a match is found
+                    }
+                }
+            }
+
+            htmlBuilder.Append("</table>");
+
+            if(!tabelaVazia)
+            {
+                resultado.Append(htmlBuilder);
+            }
+
+            else
+            {
+                resultado.AppendLine("<h3>Não foi encontrado nenhum padrão de mau desempenho!</h3>");
+            }
+
+            resultado.AppendLine("</div>");
+
+            return await Task.FromResult(resultado);
         }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
@@ -459,61 +523,6 @@ namespace ProjetoA
 
         }
 
-        public static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
-        {
-            StringBuilder htmlBuilder = new StringBuilder();
-
-            await Task.Run(() =>
-            {
-                // Lista de expressões regulares para identificar más práticas de desempenho
-                var patterns = new Dictionary<string, string>
-        {
-            { "Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\"""},
-            { "Uso de foreach em coleções grandes", @"\bforeach\s *\(.*\b(List | Dictionary | IEnumerable)\b.*\)" },
-            { "Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\"""},
-            { "Alocação excessiva de objetos", @"\b(new\s *\w +\s *\(.*\))\s *;" },
-            { "Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
-            { "Possiveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b" }
-            // Adicione mais padrões de má prática de desempenho conforme necessário
-        };
-
-                
-
-                // Inicializa a tabela HTML
-                htmlBuilder.AppendLine("<table>");
-                htmlBuilder.AppendLine("<tr><th>Nome da Má Prática</th><th>Números das Linhas</th></tr>");
-
-                // Itera sobre cada padrão de má prática
-                foreach (var pattern in patterns)
-                {
-                    var regex = new Regex(pattern.Value);
-
-                    // Itera sobre cada par chave-valor do dicionário
-                    foreach (var kvp in codeDictionary)
-                    {
-                        // Encontra todas as correspondências no código
-                        var matches = regex.Matches(kvp.Key);
-
-                        // Adiciona as correspondências à tabela HTML
-                        foreach (Match match in matches)
-                        {
-                            // Para cada correspondência, itera sobre a lista de números de linhas
-                            foreach (int lineNumber in kvp.Value)
-                            {
-                                // Adiciona a má prática à tabela HTML
-                                htmlBuilder.AppendLine($"<tr><td>{pattern.Key}</td><td>{lineNumber}</td></tr>");
-                            }
-                        }
-                    }
-                }
-
-                // Finaliza a tabela HTML
-                htmlBuilder.AppendLine("</table>");
-            });
-
-            // Retorna o htmlBuilder
-            return htmlBuilder;
-        }
 
 
         private int GetLineNumber(string code, int index)
