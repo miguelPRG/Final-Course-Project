@@ -18,6 +18,7 @@ using Windows.Globalization.DateTimeFormatting;
 using Windows.UI.Xaml;
 using System.Threading.Tasks;
 using System.Collections;
+using Windows.Devices.Power;
 
 namespace ProjetoA
 {
@@ -398,83 +399,115 @@ namespace ProjetoA
         static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
         {
             StringBuilder htmlBuilder = new StringBuilder();
-            StringBuilder resultado = new StringBuilder();
+            StringBuilder result = new StringBuilder();
 
-            bool tabelaVazia = true;
-            
-            resultado.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
-            resultado.AppendLine($"<h2>Identificação de Práticas de Mau Desempenho:</h2>");
+            List<Task<StringBuilder>> tarefas = new List<Task<StringBuilder>>();
 
+            result.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
+            result.AppendLine($"<h2>Identificação de Práticas de Mau Desempenho:</h2>");
 
             // Lista de expressões regulares para identificar más práticas de desempenho
-            var patterns = new Dictionary<string, string>
-            {
-                { "Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\"""},
-                { "Uso de foreach em coleções grandes", @"\bforeach\s *\(.*\b(List | Dictionary | IEnumerable)\b.*\)" },
-                { "Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\"""},
-                { "Alocação excessiva de objetos", @"\b(new\s *\w +\s *\(.*\))\s *;" },
-                { "Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
-                { "Possiveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b" },
-                // Adicionando padrão para chamada de método estático em instância da classe
-                { "Chamada de métodos estáticos em uma instância da classe", @"\b\w+\.\w+\(\)" }
-            };
+            var patterns = new Dictionary<string, string>();
+
+            patterns.Add("Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\""");
+            patterns.Add("Uso de foreach em coleções grandes", @"\bforeach\s *\(.*\b(List | Dictionary | IEnumerable)\b.*\)");
+            patterns.Add("Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\""");
+            patterns.Add("Alocação excessiva de objetos", @"\b(new\s *\w +\s *\(.*\))\s *;");
+            patterns.Add("Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}");
+            patterns.Add("Possiveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b");
+            patterns.Add("Chamada de métodos estáticos em uma instância da classe", @"\b\w+\.\w+\(\)");
 
             htmlBuilder.Append("<table>");
             htmlBuilder.Append("<tr><th>Nome do padrão encontrado</th><th>Números das linhas onde esse padrão foi encontrado</th></tr>");
 
-            foreach (var lineCode in codeDictionary)
+            //Este loop vai
+            foreach (var pattern in patterns)
             {
-                string line = lineCode.Key;
-                List<int> lineNumbers = lineCode.Value;
+                tarefas.Add(TestarPadrao(pattern, codeDictionary));
 
-                foreach (var pattern in patterns)
+            }
+
+            await Task.WhenAll(tarefas);
+
+            bool tabelaVazia = true;
+
+            foreach (var task in tarefas)
+            {
+                var t = await task;
+
+                if (t != null)
                 {
-                    Match match = Regex.Match(line, pattern.Value);
-                    if (match.Success)
-                    {
-                        tabelaVazia = false;
-
-                        htmlBuilder.Append("<tr>");
-                        htmlBuilder.Append($"<td>{pattern.Key}</td>");
-
-                        for (int i = 0; i < lineNumbers.Count();i++)
-                        {
-                            htmlBuilder.Append($"<td><a href=\"#linha-numero{lineNumbers[i]}\" onclick=\"selecionar({lineNumbers[i]})\">{lineNumbers[i]}</a>");
-
-
-                            if (!linhasImportantes.ContainsKey(lineNumbers[i]))
-                            {
-                                linhasImportantes[lineNumbers[i]] = 3;
-                                //O valor 3 signfica que a linha se trata de um padrão de mau desempenho 
-                            }
-
-                            if (i + 1 < lineNumbers.Count)
-                            {
-                                htmlBuilder.Append(',');
-                            }
-                        }
-                        
-                        htmlBuilder.Append("</td></tr>");
-                        break; // Break once a match is found
-                    }
+                    tabelaVazia = false;
+                    htmlBuilder.Append(t);
                 }
             }
 
-            htmlBuilder.Append("</table>");
+            htmlBuilder.AppendLine("</table>");
 
-            if(!tabelaVazia)
+            
+
+            if (!tabelaVazia)
             {
-                resultado.Append(htmlBuilder);
+                result.Append(htmlBuilder);
             }
 
             else
             {
-                resultado.AppendLine("<h3>Não foi encontrado nenhum padrão de mau desempenho!</h3>");
+                result.AppendLine("<h3>Não foi encontrado nenhum padrão de mau desempenho!</h3>");
             }
 
-            resultado.AppendLine("</div>");
+            result.AppendLine("</div>");
 
-            return await Task.FromResult(resultado);
+            return await Task.FromResult(result);
+        }
+
+        static async Task<StringBuilder> TestarPadrao(KeyValuePair<string,string> padrao, Dictionary<string, List<int>> codeDictionary)
+        {
+            bool padraoEncontrado= false;
+            StringBuilder htmlBuilder = new StringBuilder();
+
+            foreach(var code in codeDictionary.Keys)
+            {
+                Match match = Regex.Match(code, padrao.Value);
+                //Temos um match, padrão detetado!
+                if (match.Success)
+                {
+                    if(!padraoEncontrado)
+                    {
+                        padraoEncontrado = true;
+                        htmlBuilder.AppendLine("<tr>");
+                        htmlBuilder.Append($"<td>{padrao.Key}</td>");
+                        htmlBuilder.Append($"<td>");
+                    }
+
+                    for(int i =0; i < code.Count(); i++)
+                    {
+                        htmlBuilder.Append($"{code[i]}");
+
+                        if (i + i < code.Count())
+                        {
+                            htmlBuilder.Append(',');
+                        }
+                    }
+
+                    htmlBuilder.Append(',');
+                }
+            }
+
+            if (padraoEncontrado)
+            {
+                // Remove a última vírgula, se houver
+                if (htmlBuilder[htmlBuilder.Length - 1] == ',')
+                {
+                    htmlBuilder.Length -= 1;
+                }
+                htmlBuilder.Append("</td></tr>");
+
+                return await Task.FromResult(htmlBuilder);
+            }
+
+            return null;
+        
         }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
