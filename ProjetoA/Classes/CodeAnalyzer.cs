@@ -26,6 +26,7 @@ namespace ProjetoA
 
     public class CodeAnalyzer
     {
+        //Linhas onde forem encontradas informações importantes
         static Dictionary<int, int> linhasImportantes;
 
         public CodeAnalyzer()
@@ -82,8 +83,7 @@ namespace ProjetoA
                 "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</ul></div>");
 
-            // Adicione a chamada para o método AnalisarVulnerabilidade
-          
+            //Este é o método principal que analisa o código inteiro
             Task<StringBuilder> analises = AnalisarCodigo(linhas,code);
 
             htmlBuilder.Append(analises.Result);
@@ -247,12 +247,13 @@ namespace ProjetoA
             return linha;
         }
 
+
         static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines, string code)
         {
             // Inicia as três tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
 
-            List<Task<StringBuilder>> praticasDeMauDesempenho;
+            Task<StringBuilder> taskAnalizarDependencias = IdentificarPraticasDesempenho(lines);
 
             //Task<StringBuilder> taskAnalizarDependencias = IdentificarPraticasDesempenho(lines);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
@@ -275,7 +276,7 @@ namespace ProjetoA
             // Retorna o resultado final
             return resultadoFinal;
         }
-
+        
         static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
         {
             StringBuilder htmlBuilder = new StringBuilder();
@@ -338,7 +339,8 @@ namespace ProjetoA
             return await Task.FromResult(htmlBuilder);
 
         }
-        static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
+
+        static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
         {
             var result = new StringBuilder();
             result.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
@@ -359,37 +361,31 @@ namespace ProjetoA
         { "Chamada de métodos estáticos em uma instância da classe", @"\b\w+\.\w+\(\)" }
     };
 
-
-            bool tabelaVazia = true; // Inicializar como verdadeiro
             var tasks = new List<Task<StringBuilder>>();
 
             foreach (var padrao in patterns)
             {
-                var tarefa = VerificarPadrao(codeDictionary, padrao);
-
-                if (tarefa != null)
-                {
-                    tasks.Add(tarefa);
-                }
+                var tarefa = Task.Run(() => VerificarPadrao(codeDictionary, padrao));
+                tasks.Add(tarefa);
             }
 
             var results = await Task.WhenAll(tasks);
 
             foreach (var taskResult in results)
             {
-                if (taskResult.Length > 0)
+                if (taskResult != null && taskResult.Length > 0)
                 {
-                    tabelaVazia = false;
                     htmlBuilder.Append(taskResult);
                 }
             }
 
-            if (tabelaVazia)
+            if (htmlBuilder.Length <= 0)
             {
                 result.AppendLine("<h3>Não foi encontrado nenhum padrão de mau desempenho!</h3>");
             }
             else
             {
+                htmlBuilder.AppendLine("</table>"); // Adicionando a tag de fechamento da tabela
                 result.Append(htmlBuilder); // Adiciona a tabela completa ao resultado
             }
 
@@ -398,40 +394,43 @@ namespace ProjetoA
             return result;
         }
 
-        static async Task<StringBuilder> VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
+        static StringBuilder VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
         {
             var patternName = pattern.Key;
             var patternValue = pattern.Value;
 
-            StringBuilder htmlBuilder = new StringBuilder();
-
-            List<int> linhasDescobertas = new List<int>();
+            StringBuilder htmlBuilder = null;
 
             foreach (var codePair in codeDictionary)
             {
                 var code = codePair.Key;
                 var lineNumbers = codePair.Value; //linhas onde o codigo aparece
 
-                var match = Regex.Match(code, patternValue);
+                var matches = Regex.Matches(code, patternValue); // Usando Matches para encontrar todas as correspondências
 
-                if (match.Success)
+                foreach (Match match in matches)
                 {
-                    htmlBuilder.Append($"<tr><td>{patternName}</td>");
-                    //tabelaVazia = false; // Atualizar a variável tabelaVazia
-                    linhasDescobertas.Concat(lineNumbers).ToList();
+                    if (match.Success)
+                    {
+                        if (htmlBuilder == null)
+                        {
+                            htmlBuilder = new StringBuilder();
+                        }
+
+                        if (htmlBuilder.Length <= 0)
+                        {
+                            htmlBuilder.AppendLine("<tr>");
+                            htmlBuilder.AppendLine($"<td>{patternName}</td>");
+                            htmlBuilder.AppendLine("<td>");
+                        }
+
+                        htmlBuilder.Append(string.Join(",", lineNumbers));
+                        htmlBuilder.Append("</td></tr>");
+                    }
                 }
             }
 
-            if (linhasDescobertas.Count > 0)
-            {
-                linhasDescobertas.Sort();
-                htmlBuilder.Append("<td>");
-                htmlBuilder.Append(string.Join(",", linhasDescobertas));
-                htmlBuilder.Append("</td></tr>");
-                return await Task.FromResult(htmlBuilder);
-            }
-
-            return null;
+            return htmlBuilder;
         }
 
 
@@ -440,7 +439,6 @@ namespace ProjetoA
             htmlBuilder.AppendLine("<div class=\"codigo-container\">"); // Adiciona uma div de contêiner
 
             htmlBuilder.AppendLine("<pre><code class=\"csharp\">");
-
 
             // Descobrir quantos dígitos tem o número da última linha para ajustar a formatação
             int numeroLinhas = linhasDeCodigo.Length;
