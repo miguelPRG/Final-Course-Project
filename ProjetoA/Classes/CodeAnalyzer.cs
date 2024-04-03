@@ -351,15 +351,15 @@ namespace ProjetoA
             htmlBuilder.AppendLine("<tr><th>Nome do Padrão de Mau Desempenho</th><th>Linhas do Código</th></tr>");
 
             var patterns = new Dictionary<string, string>()
-    {
-        { "Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\""" },
-        { "Uso de foreach em coleções grandes", @"\bforeach\s*\(.*\b(List|Dictionary|IEnumerable)\b.*\)" },
-        { "Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\""" },
-        { "Alocação excessiva de objetos", @"\b(new\s*\w+\s*\(.*\))\s*;" },
-        { "Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
-        { "Possíveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b" },
-        { "Chamada de métodos estáticos em uma instância da classe", @"\b\w+\.\w+\(\)" }
-    };
+            {
+                { "Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\""" },
+                { "Uso de foreach em coleções grandes", @"\bforeach\s*\(.*\b(List|Dictionary|IEnumerable)\b.*\)" },
+                { "Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\""" },
+                { "Alocação excessiva de objetos", @"\b(new\s*\w+\s*\(.*\))\s*;" },
+                { "Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
+                { "Possíveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b" },
+                { "Chamada de métodos estáticos em uma instância da classe", @"\b\w+\.\w+\(\)" }
+            };
 
             var tasks = new List<Task<StringBuilder>>();
 
@@ -393,46 +393,64 @@ namespace ProjetoA
 
             return result;
         }
-
         static StringBuilder VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
         {
             var patternName = pattern.Key;
             var patternValue = pattern.Value;
 
-            StringBuilder htmlBuilder = null;
+            bool isEmpty = true;
 
-            foreach (var codePair in codeDictionary)
+            StringBuilder htmlBuilder = new StringBuilder();
+            List<int> lineList = new List<int>();  
+
+            htmlBuilder.AppendLine("<tr>");
+            htmlBuilder.AppendLine($"<td>{patternName}</td>");
+            htmlBuilder.AppendLine("<td>");
+
+
+            foreach (var line in codeDictionary)//O(n)
             {
-                var code = codePair.Key;
-                var lineNumbers = codePair.Value; //linhas onde o codigo aparece
+                var code = line.Key;
+                var lineValues = line.Value;
+                var match = Regex.Match(code, patternValue);
 
-                var matches = Regex.Matches(code, patternValue); // Usando Matches para encontrar todas as correspondências
-
-                foreach (Match match in matches)
+                if (match.Success)
                 {
-                    if (match.Success)
+                    if (isEmpty)
                     {
-                        if (htmlBuilder == null)
-                        {
-                            htmlBuilder = new StringBuilder();
-                        }
-
-                        if (htmlBuilder.Length <= 0)
-                        {
-                            htmlBuilder.AppendLine("<tr>");
-                            htmlBuilder.AppendLine($"<td>{patternName}</td>");
-                            htmlBuilder.AppendLine("<td>");
-                        }
-
-                        htmlBuilder.Append(string.Join(",", lineNumbers));
-                        htmlBuilder.Append("</td></tr>");
+                        isEmpty = false;
                     }
+
+                    lineList.Concat(lineValues).ToList();
                 }
+
             }
 
-            return htmlBuilder;
-        }
+            if(!isEmpty)
+            {
+                lineList.Sort();
+                
+                for(int i= 0; i<lineList.Count();i++)
+                {
+                    htmlBuilder.Append($"<a href=\"linha-numero{lineList[i]}\">{lineList[i]}</a>");
 
+                    if (i + 1 < lineList.Count())
+                    {
+                        htmlBuilder.Append(',');
+                    }
+                }
+
+
+                htmlBuilder.AppendLine("</td></tr>");
+
+                return htmlBuilder;
+            }
+            else
+            {
+                return null;
+            }
+        
+        }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {

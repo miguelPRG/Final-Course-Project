@@ -538,18 +538,70 @@ namespace Projeto.Classes
             return false;
         }
 
-        public void Visit(Dictionary<string,List<int>>Linhas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
+        public async Task Visit(Dictionary<string,List<int>>Linhas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
         {
-            foreach(var l in Linhas.Keys)
+            /*foreach(var l in Linhas.Keys)
             {
                 foreach(var nome in padroes.Keys)
                 {
                     AnalisarVulnerabilidade(l, Linhas[l], padroes[nome], nome);
                 }
+            }*/
+
+            List<Task> tarefas = new List<Task>();
+        
+            foreach(var padrao in padroes.Keys)
+            {
+                tarefas.Add(Task.Run(() => AnalisarVulnerabilidade(Linhas, padrao, padroes[padrao])));
+            }
+        
+            await Task.WhenAll(tarefas);
+
+
+        }
+
+        void AnalisarVulnerabilidade(Dictionary<string,List<int>> Linhas, string padrao,Dictionary<string,int> palavras)
+        {
+            int indicePadrao;
+
+            List<int> linhasVulneraveis = new List<int>();
+
+            foreach(var line in Linhas.Keys)
+            {
+                if(ContemUmaPalavra(line,palavras, out indicePadrao))
+                {
+                    string min = line.ToLower();
+
+                    //Este array guarda a precisão dos dados de teste correspondentes à vulnerabilidade encontrada para diferentes niveis de risco
+                    double[] precisao = {
+                    CalculateSimilarity(min,dados_teste[padrao][(int)NivelRisco.Alto][indicePadrao])* 100,
+                    CalculateSimilarity(min,dados_teste[padrao][(int)NivelRisco.Medio][indicePadrao])* 100,
+                    CalculateSimilarity(min,dados_teste[padrao][(int)NivelRisco.Baixo][indicePadrao])*100
+                };
+
+                    int index = Array.IndexOf(precisao, precisao.Max());
+                    
+                    string codigoCorrigido;//Esta variavel será o código html corrigido
+
+                    if (Math.Round(precisao[index]) >= 50)
+                    {
+                        if (line.IndexOf("<") != -1 || line.IndexOf(">") != -1)
+                        {
+                            codigoCorrigido = SubstituirSimbolos(line);
+
+
+                        }
+
+                      
+                    }
+
+                   
+
+                }
             }
         }
 
-        private void AnalisarVulnerabilidade(string code, List<int> Linhas ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
+        /*private void AnalisarVulnerabilidade(string code, List<int> Linhas ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
         {
             if (ContemUmaPalavra(code, palavras, out int value))
             {
@@ -579,7 +631,7 @@ namespace Projeto.Classes
                 else falsos_positivos+= precisao[index];
 
             }
-        }
+        }*/
 
         static bool isEndOfSubString(string s,char a,char b, char c)
         {
@@ -625,7 +677,7 @@ namespace Projeto.Classes
         {
             vulnerabilidadesEncontradas.Add((nomeVulnerabilidade,Linhas, code, nivelRisco));
         }
-        //PREFERENCIALMENTE. Tenta utilizar estes métodos para determinar precisão:
+        
 
         static double CalculateSimilarity(string str1, string str2)
         {
