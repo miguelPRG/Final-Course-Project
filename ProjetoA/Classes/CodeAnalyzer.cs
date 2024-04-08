@@ -284,7 +284,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
 
             var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
-            vulnerabilidadeVisitor.Visit(code);
+            await vulnerabilidadeVisitor.Visit(code);
 
             if(vulnerabilidadeVisitor.VulnerabilidadesEncontradas.Count()==0)
             {
@@ -297,7 +297,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("<table>");
             htmlBuilder.AppendLine("<tr><th>Nome da Vulnerabilidade</th><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
 
-            foreach (var vulnerabilidade in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
+            /*foreach (var vulnerabilidade in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
             {
                 htmlBuilder.AppendLine("<tr>");
                 htmlBuilder.AppendLine($"<td>{vulnerabilidade.Tipo}</td>");
@@ -329,7 +329,7 @@ namespace ProjetoA
                 }
 
                 htmlBuilder.AppendLine("</tr>");
-            }
+            }*/
 
             htmlBuilder.AppendLine("</table>");
 

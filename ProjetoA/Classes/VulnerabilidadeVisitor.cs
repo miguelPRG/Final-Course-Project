@@ -41,23 +41,37 @@ namespace Projeto.Classes
         Baixo
     }
 
+    public class Vulnerabilidade
+    {
+        string tipo;
+        string codigo;
+        NivelRisco risco;
+
+        public Vulnerabilidade(string tipo,string codigo, NivelRisco risco)
+        {
+            this.tipo = tipo;
+            this.codigo = codigo;
+            this.risco = risco;
+        }
+    }
+
     public class VulnerabilidadeVisitor
     {
         //Lista de vulnerabilidades encontradas
-        private List<(string Tipo, List<int> Linhas, string Codigo, NivelRisco NivelRisco)> vulnerabilidadesEncontradas;
-
-        //Diciónário utilizado para testar as vulnerabilidades encontradas
-        Dictionary<string, string[][]> dados_teste;
+        private List<(Vulnerabilidade Vulnerabilidade,List<int> Linhas)> vulnerabilidadesEncontradas;
 
         //Lista que guarda palavras reservadas para cada tipo de vulnerabilidade
         Dictionary<string, Dictionary<string, int>> padroes;
+
+        //Diciónário utilizado para testar as vulnerabilidades encontradas
+        Dictionary<string, string[][]> dados_teste;
 
         double falsos_positivos = 0;
         double verdadeiros_positivos = 0;
 
         public VulnerabilidadeVisitor()
         {
-            vulnerabilidadesEncontradas = new List<(string, List<int>, string, NivelRisco)>();
+            vulnerabilidadesEncontradas = new List<(Vulnerabilidade Vulnerabilidade, List<int> Linhas)>();
             dados_teste = new Dictionary<string, string[][]>();
             padroes = new Dictionary<string, Dictionary<string, int>>();
 
@@ -501,7 +515,7 @@ namespace Projeto.Classes
             };*/
         }
 
-        public List<(string Tipo, List<int> Linhas, string Codigo, NivelRisco NivelRisco)> VulnerabilidadesEncontradas
+        public List<(Vulnerabilidade Vulnerabilidade, List<int> Linhas)> VulnerabilidadesEncontradas
         {
             get { return vulnerabilidadesEncontradas; }
         }
@@ -540,24 +554,16 @@ namespace Projeto.Classes
 
         public async Task Visit(Dictionary<string,List<int>>Linhas) //Tempo de Compexidade: O(30n) <=> O(n)                                                                                                                               
         {
-            /*foreach(var l in Linhas.Keys)
-            {
-                foreach(var nome in padroes.Keys)
-                {
-                    AnalisarVulnerabilidade(l, Linhas[l], padroes[nome], nome);
-                }
-            }*/
+            Task[] tarefas = new Task[padroes.Count];
+            int i = 0;
 
-            List<Task> tarefas = new List<Task>();
-        
-            foreach(var padrao in padroes.Keys)
+            foreach(var p in padroes.Keys)
             {
-                tarefas.Add(Task.Run(() => AnalisarVulnerabilidade(Linhas, padrao, padroes[padrao])));
+                tarefas[i] = Task.Run(() =>AnalisarVulnerabilidade(Linhas, p, padroes[p]));
             }
         
             await Task.WhenAll(tarefas);
-
-
+        
         }
 
         void AnalisarVulnerabilidade(Dictionary<string,List<int>> Linhas, string padrao,Dictionary<string,int> palavras)
@@ -565,6 +571,7 @@ namespace Projeto.Classes
             int indicePadrao;
 
             List<int> linhasVulneraveis = new List<int>();
+            
 
             foreach(var line in Linhas.Keys)
             {
@@ -577,28 +584,27 @@ namespace Projeto.Classes
                     CalculateSimilarity(min,dados_teste[padrao][(int)NivelRisco.Alto][indicePadrao])* 100,
                     CalculateSimilarity(min,dados_teste[padrao][(int)NivelRisco.Medio][indicePadrao])* 100,
                     CalculateSimilarity(min,dados_teste[padrao][(int)NivelRisco.Baixo][indicePadrao])*100
-                };
+                    };
 
                     int index = Array.IndexOf(precisao, precisao.Max());
                     
-                    string codigoCorrigido;//Esta variavel será o código html corrigido
+                    string codigoCorrigido = line;//Esta variavel será o código html corrigido
 
                     if (Math.Round(precisao[index]) >= 50)
                     {
                         if (line.IndexOf("<") != -1 || line.IndexOf(">") != -1)
                         {
                             codigoCorrigido = SubstituirSimbolos(line);
-
-
                         }
 
-                      
+                        var vul = new Vulnerabilidade(padrao, codigoCorrigido, (NivelRisco)index);
+                        linhasVulneraveis.Concat(Linhas[line]);
+                        AdicionarVulnerabilidade(vul, linhasVulneraveis);
                     }
-
-                   
 
                 }
             }
+
         }
 
         /*private void AnalisarVulnerabilidade(string code, List<int> Linhas ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
@@ -673,9 +679,9 @@ namespace Projeto.Classes
         }
 
 
-        private void AdicionarVulnerabilidade(string nomeVulnerabilidade, List<int> Linhas ,string code, NivelRisco nivelRisco)
+        private void AdicionarVulnerabilidade(Vulnerabilidade vulnerabilidade, List<int> linhas)
         {
-            vulnerabilidadesEncontradas.Add((nomeVulnerabilidade,Linhas, code, nivelRisco));
+            vulnerabilidadesEncontradas.Add((vulnerabilidade,linhas));
         }
         
 
