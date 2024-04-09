@@ -43,15 +43,15 @@ namespace Projeto.Classes
 
     public class Vulnerabilidade
     {
-        string tipo;
-        string codigo;
-        NivelRisco risco;
+        public string Tipo { get; set; }
+        public string Codigo { get; set; }
+        public NivelRisco Risco { get; set; }
 
         public Vulnerabilidade(string tipo,string codigo, NivelRisco risco)
         {
-            this.tipo = tipo;
-            this.codigo = codigo;
-            this.risco = risco;
+            this.Tipo = tipo;
+            this.Codigo = codigo;
+            this.Risco = risco;
         }
     }
 
@@ -524,12 +524,17 @@ namespace Projeto.Classes
         {
             try 
             {
-                if(falsos_positivos==0)
+                double valor = verdadeiros_positivos / VulnerabilidadesEncontradas.Count * 100;
+
+                if (falsos_positivos==0)
                 {
-                    return (int)Math.Round(verdadeiros_positivos, 0);
+                    return (int)Math.Round(valor, 0);
                 }
 
-                return (int)Math.Round((verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) * 100,0);
+
+                valor = (verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) / VulnerabilidadesEncontradas.Count *100;
+
+                return (int)Math.Round(valor,0);
             }
 
             catch (DivideByZeroException)
@@ -600,8 +605,10 @@ namespace Projeto.Classes
                         var vul = new Vulnerabilidade(padrao, codigoCorrigido, (NivelRisco)index);
                         linhasVulneraveis.Concat(Linhas[line]);
                         AdicionarVulnerabilidade(vul, linhasVulneraveis);
+                        verdadeiros_positivos += precisao[index];
                     }
 
+                    else falsos_positivos += precisao[index];
                 }
             }
 

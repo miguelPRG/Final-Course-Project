@@ -84,9 +84,9 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"</ul></div>");
 
             //Este é o método principal que analisa o código inteiro
-            Task<StringBuilder> analises = AnalisarCodigo(linhas,code);
+            StringBuilder analises = AnalisarCodigo(linhas,code).Result;
 
-            htmlBuilder.Append(analises.Result);
+            htmlBuilder.Append(analises);
             
             /*
             // Realiza a análise de complexidade ciclomática
@@ -247,36 +247,37 @@ namespace ProjetoA
             return linha;
         }
 
-
         static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines, string code)
         {
             // Inicia as três tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
-
-            Task<StringBuilder> taskAnalizarDependencias = IdentificarPraticasDesempenho(lines);
-
-            //Task<StringBuilder> taskAnalizarDependencias = IdentificarPraticasDesempenho(lines);
+            Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalizarDependencias, taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades, taskAnalisarDependencias, taskComplexidadeCiclomatica);
+
+            // Extrai os resultados das tarefas
+            StringBuilder resultadoAnalisarVulnerabilidades = taskAnalisarVulnerabilidades.Result;
+            StringBuilder resultadoAnalisarDependencias = taskAnalisarDependencias.Result;
+            int complexidadeCiclomatica = taskComplexidadeCiclomatica.Result;
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
 
-            // Append o resultado das tarefas de análise de vulnerabilidades e dependências
-            resultadoFinal.Append(await taskAnalisarVulnerabilidades);
-            resultadoFinal.Append(await taskAnalizarDependencias);
+            // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
+            resultadoFinal.Append(resultadoAnalisarVulnerabilidades);
+            resultadoFinal.Append(resultadoAnalisarDependencias);
 
             // Adiciona a complexidade ciclomática ao resultado
             resultadoFinal.Append($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n");
-            resultadoFinal.Append($"<h2>Complexidade Ciclomática: {await taskComplexidadeCiclomatica}</h2>\n");
+            resultadoFinal.Append($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>\n");
             resultadoFinal.Append($"</div>");
 
             // Retorna o resultado final
             return resultadoFinal;
         }
-        
+
         static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
         {
             StringBuilder htmlBuilder = new StringBuilder();
@@ -294,9 +295,44 @@ namespace ProjetoA
             }
 
             // Construir tabela HTML
-            htmlBuilder.AppendLine("<table>");
-            htmlBuilder.AppendLine("<tr><th>Nome da Vulnerabilidade</th><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
+            //htmlBuilder.AppendLine("<table>");
+            //htmlBuilder.AppendLine("<tr><th>Nome da Vulnerabilidade</th><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
 
+            foreach(var vul in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
+            {
+                htmlBuilder.AppendLine($"<h3>Vulnerabilidades de {vul.Vulnerabilidade.Tipo}</h3>");
+                htmlBuilder.AppendLine("<table>");
+                htmlBuilder.AppendLine($"<tr><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
+                
+                htmlBuilder.AppendLine("<tr>");
+                htmlBuilder.AppendLine($"<td>{vul.Vulnerabilidade.Codigo}</td>");
+                htmlBuilder.AppendLine($"<td>");
+
+                for (int i = 0; i < vul.Linhas.Count(); i++)
+                {
+                    htmlBuilder.Append($"<a href=\"#linha-numero{vul.Linhas[i]}\" onclick=\"selecionar({vul.Linhas[i]})\">{vul.Linhas[i]}</a>");
+
+                    linhasImportantes[vul.Linhas[i]] = (int)vul.Vulnerabilidade.Risco;
+
+                    if (i + 1 < vul.Linhas.Count)
+                    {
+                        htmlBuilder.Append(',');
+                    }
+                }
+
+                htmlBuilder.Append("</td>");
+
+                switch (vul.Vulnerabilidade.Risco)
+                {
+                    case NivelRisco.Baixo: htmlBuilder.AppendLine("<td class=\"baixo\">Baixo</td>"); break;
+                    case NivelRisco.Medio: htmlBuilder.AppendLine("<td class=\"medio\">Médio</td>"); break;
+                    case NivelRisco.Alto: htmlBuilder.AppendLine("<td class=\"alto\">Alto</td>"); break;
+                }
+
+                htmlBuilder.AppendLine("</tr>");
+                htmlBuilder.AppendLine("</table>");
+            }
+            
             /*foreach (var vulnerabilidade in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
             {
                 htmlBuilder.AppendLine("<tr>");
@@ -331,9 +367,7 @@ namespace ProjetoA
                 htmlBuilder.AppendLine("</tr>");
             }*/
 
-            htmlBuilder.AppendLine("</table>");
-
-            htmlBuilder.AppendLine($"<h3>Taxa de Precisão de Análise de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
+            htmlBuilder.AppendLine($"<h3>Taxa de Precisão Média de todas as Análises de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
             htmlBuilder.AppendLine("</div>");
 
             return await Task.FromResult(htmlBuilder);
