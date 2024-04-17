@@ -76,7 +76,7 @@ namespace ProjetoA
                 string codigoCSharp = await FileIO.ReadTextAsync(file);
 
                 // Gere o relatório em formato HTML
-                string relatorioHTML = CodeAnalyzer.GerarRelatorioHTML(codigoCSharp);
+                string relatorioHTML = await CodeAnalyzer.GerarRelatorioHTML(codigoCSharp);
 
                 // Salve o relatório HTML
                 StorageFile relatorio = await SaveHtmlRelatorio(relatorioHTML);
@@ -102,7 +102,7 @@ namespace ProjetoA
             }
 
             // Gere o relatório em formato HTML
-            string relatorioHTML = CodeAnalyzer.GerarRelatorioHTML(codigo);
+            string relatorioHTML = await CodeAnalyzer.GerarRelatorioHTML(codigo);
 
             // Salve o relatório HTML
             StorageFile relatorio = await SaveHtmlRelatorio(relatorioHTML);

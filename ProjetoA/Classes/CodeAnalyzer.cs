@@ -34,7 +34,7 @@ namespace ProjetoA
             linhasImportantes = new Dictionary<int, int>();
         }
 
-        public static string GerarRelatorioHTML(string code)
+        public static async Task<string> GerarRelatorioHTML(string code)
         {
             linhasImportantes = new Dictionary<int, int>();
             
@@ -84,7 +84,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"</ul></div>");
 
             //Este é o método principal que analisa o código inteiro
-            StringBuilder analises = AnalisarCodigo(linhas,code).Result;
+            StringBuilder analises = await AnalisarCodigo(linhas,code);
 
             htmlBuilder.Append(analises);
             
@@ -146,7 +146,7 @@ namespace ProjetoA
             // Feche as tags HTML
             htmlBuilder.AppendLine("</body></html>");
 
-            return htmlBuilder.ToString();
+            return await Task.FromResult(htmlBuilder.ToString());
         }
 
         static Dictionary<string, List<int>> GuardarEmDicionario(string[] linhasSeparadas)
@@ -250,12 +250,12 @@ namespace ProjetoA
         static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines, string code)
         {
             // Inicia as três tarefas em paralelo
-            //Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
+            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(/*taskAnalisarVulnerabilidades,*/ taskAnalisarDependencias, taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskComplexidadeCiclomatica);
 
             // Extrai os resultados das tarefas
             //StringBuilder resultadoAnalisarVulnerabilidades = taskAnalisarVulnerabilidades.Result;
@@ -266,7 +266,7 @@ namespace ProjetoA
             StringBuilder resultadoFinal = new StringBuilder();
 
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
-            //resultadoFinal.Append(resultadoAnalisarVulnerabilidades);
+            resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
             resultadoFinal.Append(taskAnalisarDependencias.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
@@ -275,7 +275,7 @@ namespace ProjetoA
             resultadoFinal.Append($"</div>");
 
             // Retorna o resultado final
-            return resultadoFinal;
+            return  await Task.FromResult(resultadoFinal);
         }
 
         static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
@@ -333,40 +333,6 @@ namespace ProjetoA
                 htmlBuilder.AppendLine("</table>");
             }
             
-            /*foreach (var vulnerabilidade in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
-            {
-                htmlBuilder.AppendLine("<tr>");
-                htmlBuilder.AppendLine($"<td>{vulnerabilidade.Tipo}</td>");
-                htmlBuilder.AppendLine($"<td>{vulnerabilidade.Codigo}</td>");
-
-                var linhas = vulnerabilidade.Linhas;
-
-                htmlBuilder.AppendLine("<td>");
-
-                for (int i = 0; i < linhas.Count(); i++)
-                {
-                    htmlBuilder.Append($"<a href=\"#linha-numero{linhas[i]}\" onclick=\"selecionar({linhas[i]})\">{linhas[i]}</a>");
-
-                    linhasImportantes[linhas[i]] = (int)vulnerabilidade.NivelRisco;
-
-                    if (i + 1 < linhas.Count)
-                    {
-                        htmlBuilder.Append(',');
-                    }
-                }
-
-                htmlBuilder.Append("</td>");
-
-                switch (vulnerabilidade.NivelRisco)
-                {
-                    case NivelRisco.Baixo: htmlBuilder.AppendLine("<td class=\"baixo\">Baixo</td>"); break;
-                    case NivelRisco.Medio: htmlBuilder.AppendLine("<td class=\"medio\">Médio</td>"); break;
-                    case NivelRisco.Alto: htmlBuilder.AppendLine("<td class=\"alto\">Alto</td>"); break;
-                }
-
-                htmlBuilder.AppendLine("</tr>");
-            }*/
-
             htmlBuilder.AppendLine($"<h3>Taxa de Precisão Média de todas as Análises de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
             htmlBuilder.AppendLine("</div>");
 
@@ -386,25 +352,27 @@ namespace ProjetoA
 
             var patterns = new Dictionary<string, string>()
             {
-                { "Uso excessivo de concatenação de strings", @"\bstring\s*\+\=\s*\""" },
-                { "Uso de foreach em coleções grandes", @"\bforeach\s*\(.*\b(List|Dictionary|IEnumerable)\b.*\)" },
-                { "Uso de string.Empty em vez de StringBuilder", @"\bstring\.Empty\s*\+\=\s*\""" },
-                { "Alocação excessiva de objetos", @"\b(new\s*\w+\s*\(.*\))\s*;" },
-                { "Manipulação de exceções em fluxos normais", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
-                { "Possíveis Dependências externas", @"\b(WebRequest|HttpClient|SqlConnection|SqlCommand|File|Directory|Registry|Process|Socket)\b" },
-                { "Chamada de métodos estáticos em uma instância da classe", @"\b\w+\.\w+\(\)" }
+                { "Possivel iteração desnecessária sobre uma coleção", @"\bfor\s*\(.*\bLength\b.*\)" },
+                { "Concatenação de strings em loop", @"\bstring\s*\+\=\s*\"" "},
+                { "Casting possivelmente desnecessário", @"\bConvert\.To[A-Za-z]+\(" },
+                { "Possivel uso inadequado de StringBuilder", @"\bnew\s*System\.Text\.StringBuilder\s*\(" },
+                { "Possivel bloqueio inadequado de recursos compartilhados", @"\block\s*\(.*\)" },
+                //Exceções não são padrões de mau desempenho
+                //{ "Exceções sendo usadas para fluxo de controle", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
             };
 
+
             var tasks = new List<Task<StringBuilder>>();
+            List<StringBuilder> results = new List<StringBuilder>();
 
             foreach (var padrao in patterns)
             {
                 //var tarefa = Task.Run(() => VerificarPadrao(codeDictionary, padrao));
-                var tarefa = Task.Run(() => VerificarPadrao(codeDictionary, padrao));
-                tasks.Add(tarefa);
+                 results.Add(VerificarPadrao(codeDictionary, padrao));
+                
             }
 
-            var results = await Task.WhenAll(tasks);
+            //var results = await Task.WhenAll(tasks);
 
             foreach (var taskResult in results)
             {
@@ -428,7 +396,7 @@ namespace ProjetoA
 
             return await Task.FromResult(result);
         }
-        static async Task<StringBuilder> VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
+        static StringBuilder VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
         {
             var patternName = pattern.Key;
             var patternValue = pattern.Value;
@@ -455,11 +423,9 @@ namespace ProjetoA
                         isEmpty = false;
                     }
 
-                    lineList.Concat(lineValues).ToList();
-
-                    foreach(var l in lineValues)
+                    foreach(var i in lineValues)
                     {
-                        lineList.Add(l);
+                        lineList.Add(i);
                     }
                 }
 
@@ -483,7 +449,7 @@ namespace ProjetoA
 
                 htmlBuilder.AppendLine("</td></tr>");
 
-                return await Task.FromResult(htmlBuilder);
+                return htmlBuilder;
             }
             else
             {

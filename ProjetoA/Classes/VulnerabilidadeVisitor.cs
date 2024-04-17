@@ -32,6 +32,7 @@ using System.Security.Cryptography;
  
  */
 
+
 namespace Projeto.Classes
 {
     public enum NivelRisco
@@ -524,7 +525,7 @@ namespace Projeto.Classes
         {
             try 
             {
-                double valor = verdadeiros_positivos / VulnerabilidadesEncontradas.Count * 100;
+                double valor = verdadeiros_positivos / VulnerabilidadesEncontradas.Count;
 
                 if (falsos_positivos==0)
                 {
@@ -532,7 +533,7 @@ namespace Projeto.Classes
                 }
 
 
-                valor = (verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) / VulnerabilidadesEncontradas.Count *100;
+                valor = (verdadeiros_positivos / verdadeiros_positivos + falsos_positivos) / VulnerabilidadesEncontradas.Count;
 
                 return (int)Math.Round(valor,0);
             }
@@ -564,7 +565,8 @@ namespace Projeto.Classes
 
             foreach(var p in padroes.Keys)
             {
-                tarefas[i] = Task.Run(() =>AnalisarVulnerabilidade(Linhas, p, padroes[p]));
+                tarefas[i] = Task.Run(() => AnalisarVulnerabilidade(Linhas, p, padroes[p])); 
+                i++;
             }
         
             await Task.WhenAll(tarefas);
@@ -604,6 +606,12 @@ namespace Projeto.Classes
 
                         var vul = new Vulnerabilidade(padrao, codigoCorrigido, (NivelRisco)index);
                         linhasVulneraveis.Concat(Linhas[line]);
+
+                        foreach(int i in Linhas[line])
+                        {
+                            linhasVulneraveis.Add(i);
+                        }
+
                         AdicionarVulnerabilidade(vul, linhasVulneraveis);
                         verdadeiros_positivos += precisao[index];
                     }
@@ -703,6 +711,7 @@ namespace Projeto.Classes
             int distance = ComputeLevenshteinDistance(str1, str2);
             return (1.0 - (double)distance / maxLength);
         }
+        //Justifica o porquê deste algoritmo
         static int ComputeLevenshteinDistance(string s, string t)
         {
             int n = s.Length;
