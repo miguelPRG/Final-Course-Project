@@ -105,16 +105,16 @@ namespace Projeto.Classes
                  "string query = \"insert into tabela (colunas) values (@parametro)\";",
                  "string query = \"update tabela set coluna1 = 'valor' where coluna2 = @valor;\"",
                  "string query = \"delete from tabela where coluna = @valor\"",
-                 "",
+                 null,
             };
             dados_teste["Possível Injeção de SQL"][(int)NivelRisco.Baixo] = new string[]
             {
                 // Expressões Regulares para baixo risco
                 "string query = \"select * table tabela;\"",
                 "string query = \"insert into tabela (colunas) values ('');\"",
-                "string query = \"update tabela set coluna1 = 'valor1' where coluna2 = 'valor2';\"",
+                null,
                 "string query = \"delete from tabela where coluna= 'valor'\"",
-                "",
+                null,
             };
 
             //Client XSS
@@ -599,20 +599,22 @@ namespace Projeto.Classes
 
                     if (Math.Round(precisao[index]) >= 50)
                     {
+                        //Verifica se existe sinal de menor ou maio naquela linha para evitar a criação de tags no relatório HTML
                         if (line.IndexOf("<") != -1 || line.IndexOf(">") != -1)
                         {
+                     
                             codigoCorrigido = SubstituirSimbolos(line);
                         }
 
                         var vul = new Vulnerabilidade(padrao, codigoCorrigido, (NivelRisco)index);
-                        linhasVulneraveis.Concat(Linhas[line]);
+                        /*linhasVulneraveis.Concat(Linhas[line]);
 
                         foreach(int i in Linhas[line])
                         {
                             linhasVulneraveis.Add(i);
-                        }
+                        }*/
 
-                        AdicionarVulnerabilidade(vul, linhasVulneraveis);
+                        AdicionarVulnerabilidade(vul, Linhas[line]);
                         verdadeiros_positivos += precisao[index];
                     }
 

@@ -294,23 +294,34 @@ namespace ProjetoA
                 return await Task.FromResult(htmlBuilder);
             }
 
+            //Ordenamos as vulnerabilidades por tipo
+            vulnerabilidadeVisitor.VulnerabilidadesEncontradas.Sort((x,y) => string.Compare(x.Vulnerabilidade.Tipo, y.Vulnerabilidade.Tipo));
+            
+            string nomeVulnerabilidade = "";
+
             // Construir tabela HTML
             //htmlBuilder.AppendLine("<table>");
             //htmlBuilder.AppendLine("<tr><th>Nome da Vulnerabilidade</th><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
 
             foreach(var vul in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
             {
-                htmlBuilder.AppendLine($"<h3>Vulnerabilidades de {vul.Vulnerabilidade.Tipo}</h3>");
-                htmlBuilder.AppendLine("<table>");
-                htmlBuilder.AppendLine($"<tr><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
-                
+                if(vul.Vulnerabilidade.Tipo != nomeVulnerabilidade)//Vulnerabilidade Nova, Tabela Nova
+                {
+
+                    htmlBuilder.AppendLine($"<h3>Vulnerabilidades de {vul.Vulnerabilidade.Tipo}</h3>");
+                    htmlBuilder.AppendLine("<table>");
+                    htmlBuilder.AppendLine($"<tr><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
+                    nomeVulnerabilidade = vul.Vulnerabilidade.Tipo;
+                }
+
                 htmlBuilder.AppendLine("<tr>");
                 htmlBuilder.AppendLine($"<td>{vul.Vulnerabilidade.Codigo}</td>");
                 htmlBuilder.AppendLine($"<td>");
 
+
                 for (int i = 0; i < vul.Linhas.Count(); i++)
                 {
-                    htmlBuilder.Append($"<a href=\"#linha-numero{vul.Linhas[i]}\" onclick=\"selecionar({vul.Linhas[i]})\">{vul.Linhas[i]}</a>");
+                    htmlBuilder.Append($"<a href=\"#linha-numero{vul.Linhas[i]}\" onclick=selecionar({vul.Linhas[i]})>{vul.Linhas[i]}</a>");
 
                     linhasImportantes[vul.Linhas[i]] = (int)vul.Vulnerabilidade.Risco;
 
@@ -330,9 +341,9 @@ namespace ProjetoA
                 }
 
                 htmlBuilder.AppendLine("</tr>");
-                htmlBuilder.AppendLine("</table>");
             }
-            
+
+            htmlBuilder.AppendLine("</table>");
             htmlBuilder.AppendLine($"<h3>Taxa de Precisão Média de todas as Análises de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
             htmlBuilder.AppendLine("</div>");
 
@@ -352,15 +363,14 @@ namespace ProjetoA
 
             var patterns = new Dictionary<string, string>()
             {
-                { "Possivel iteração desnecessária sobre uma coleção", @"\bfor\s*\(.*\bLength\b.*\)" },
-                { "Concatenação de strings em loop", @"\bstring\s*\+\=\s*\"" "},
-                { "Casting possivelmente desnecessário", @"\bConvert\.To[A-Za-z]+\(" },
-                { "Possivel uso inadequado de StringBuilder", @"\bnew\s*System\.Text\.StringBuilder\s*\(" },
-                { "Possivel bloqueio inadequado de recursos compartilhados", @"\block\s*\(.*\)" },
-                //Exceções não são padrões de mau desempenho
-                //{ "Exceções sendo usadas para fluxo de controle", @"\btry\s*{[^}]*}\s*catch\s*{\s*}" },
+                { "Possível iteração desnecessária sobre uma coleção", @"\bfor\s*\(.*\bLength\b.*\)" },
+                { "Concatenação de strings em loop", @"\b(?:string|StringBuilder)\s*\+\=\s*\""" },
+                { "Casting possivelmente desnecessário", @"\b(?:Convert | (?< !\.ToString))\.To[A - Za - z] +\(" },
+                { "Possível uso inadequado de StringBuilder", @"\b(?:new\s*System\.Text\.StringBuilder\s*\(.*\)\s*\.\s*(?:Append|AppendLine|Insert)\s*\(.*\))" },
+                { "Possível bloqueio inadequado de recursos compartilhados", @"\block\s*\(.*\)" },
+                { "Iteração sobre coleção sem uso do índice", @"\bforeach\s*\(.*\bLength\b.*\)" },
+                { "Utilização excessiva de expressões regulares", @"\b(?:Regex|RegexOptions)\." }
             };
-
 
             var tasks = new List<Task<StringBuilder>>();
             List<StringBuilder> results = new List<StringBuilder>();
@@ -396,6 +406,7 @@ namespace ProjetoA
 
             return await Task.FromResult(result);
         }
+        
         static StringBuilder VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
         {
             var patternName = pattern.Key;
@@ -437,7 +448,7 @@ namespace ProjetoA
                 
                 for(int i= 0; i<lineList.Count();i++)
                 {
-                    htmlBuilder.Append($"<a href=\"#linha-numero{lineList[i]}\">{lineList[i]}</a>");
+                    htmlBuilder.Append($"<a href=\"#linha-numero{lineList[i]}\" onclick=selecionar({lineList[i]})>{lineList[i]}</a>");
                     linhasImportantes[lineList[i]] = 3;
 
                     if (i + 1 < lineList.Count())
@@ -445,7 +456,6 @@ namespace ProjetoA
                         htmlBuilder.Append(',');
                     }
                 }
-
 
                 htmlBuilder.AppendLine("</td></tr>");
 
