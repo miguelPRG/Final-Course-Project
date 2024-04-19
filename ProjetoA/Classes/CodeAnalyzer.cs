@@ -363,36 +363,44 @@ namespace ProjetoA
 
             var patterns = new Dictionary<string, string>()
             {
-                { "Possível iteração desnecessária sobre uma coleção", @"\bfor\s*\(.*\bLength\b.*\)" },
+                { "Possível iteração desnecessária sobre uma coleção", @"\bforeach\s*\(.*\)" },
                 { "Concatenação de strings em loop", @"\b(?:string|StringBuilder)\s*\+\=\s*\""" },
-                { "Casting possivelmente desnecessário", @"\b(?:Convert | (?< !\.ToString))\.To[A - Za - z] +\(" },
+                { "Casting possivelmente desnecessário", @"\b(?:Convert|(?<!\.ToString))\.To[A-Za-z]+\(" },
                 { "Possível uso inadequado de StringBuilder", @"\b(?:new\s*System\.Text\.StringBuilder\s*\(.*\)\s*\.\s*(?:Append|AppendLine|Insert)\s*\(.*\))" },
                 { "Possível bloqueio inadequado de recursos compartilhados", @"\block\s*\(.*\)" },
-                { "Iteração sobre coleção sem uso do índice", @"\bforeach\s*\(.*\bLength\b.*\)" },
-                { "Utilização excessiva de expressões regulares", @"\b(?:Regex|RegexOptions)\." }
+                { "Iteração sobre coleção sem uso do índice", @"\bfor\s*\(.*\bLength\b.*\)" },
+                { "Utilização excessiva de expressões regulares", @"\b(?:Regex|RegexOptions)\." },
+                { "Possível uso de métodos ou operações de alto custo dentro de loops", @"\b(?:Array|List|ICollection)\.\w+\(" }
             };
 
+
             var tasks = new List<Task<StringBuilder>>();
-            List<StringBuilder> results = new List<StringBuilder>();
+            List<StringBuilder> dados= new List<StringBuilder>();
 
             foreach (var padrao in patterns)
             {
                 //var tarefa = Task.Run(() => VerificarPadrao(codeDictionary, padrao));
-                 results.Add(VerificarPadrao(codeDictionary, padrao));
-                
+                //tasks.Add(tarefa); // Adiciona a tarefa à lista de tarefas
+
+                dados.Add(VerificarPadrao(codeDictionary, padrao));
             }
 
-            //var results = await Task.WhenAll(tasks);
+            // Aguarda todas as tarefas serem concluídas
+            //await Task.WhenAll(tasks);
 
-            foreach (var taskResult in results)
+            // Depois que todas as tarefas forem concluídas, adiciona os resultados à lista de resultados
+            /*foreach (var task in tasks)
             {
-                if (taskResult != null && taskResult.Length > 0)
-                {
-                    htmlBuilder.Append(taskResult);
-                }
+                results.Add(task.Result);
+            }*/
+
+            foreach(var d in dados)
+            {
+                htmlBuilder.Append(d);
             }
 
-            if (htmlBuilder.Length <= 0)
+
+            if (dados.Count <= 0)
             {
                 result.AppendLine("<h3>Não foi encontrado nenhum padrão de mau desempenho!</h3>");
             }
@@ -425,6 +433,7 @@ namespace ProjetoA
             {
                 var code = line.Key;
                 var lineValues = line.Value;
+
                 var match = Regex.Match(code, patternValue);
 
                 if (match.Success)
