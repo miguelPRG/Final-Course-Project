@@ -149,6 +149,36 @@ namespace ProjetoA
             return await Task.FromResult(htmlBuilder.ToString());
         }
 
+        static bool EncontrouErrosSintaxe(StringBuilder htmlBuilder, string code)
+        {
+
+            SyntaxTree syntaxTree;
+
+            try
+            {
+                syntaxTree = CSharpSyntaxTree.ParseText(code);
+            }
+            catch (Exception ex)
+            {
+                htmlBuilder.AppendLine($"<tr><td>1</td><td>{WebUtility.HtmlEncode(ex.Message)}</td></tr>");
+                htmlBuilder.AppendLine("</table>");
+                return false;
+            }
+
+            var diagnostics = syntaxTree.GetDiagnostics();
+
+            if (diagnostics.Count() != 0)
+            {
+                return true;
+            }
+
+            else
+            {
+                return false;
+            }
+
+        }
+
         static Dictionary<string, List<int>> GuardarEmDicionario(string[] linhasSeparadas)
         {
             Dictionary<string, List<int>> dicionario = new Dictionary<string, List<int>>();
@@ -252,14 +282,12 @@ namespace ProjetoA
             // Inicia as três tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
+            Task<StringBuilder> taskAnalisarRepeticao = AnalisarRepeticao(lines);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarRepeticao,taskComplexidadeCiclomatica);
 
-            // Extrai os resultados das tarefas
-            //StringBuilder resultadoAnalisarVulnerabilidades = taskAnalisarVulnerabilidades.Result;
-            //StringBuilder resultadoAnalisarDependencias = taskAnalisarDependencias.Result;
             int complexidadeCiclomatica = taskComplexidadeCiclomatica.Result;
 
             // Concatena as strings HTML
@@ -270,14 +298,13 @@ namespace ProjetoA
             resultadoFinal.Append(taskAnalisarDependencias.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
-            resultadoFinal.Append($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n");
-            resultadoFinal.Append($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>\n");
-            resultadoFinal.Append($"</div>");
+            resultadoFinal.AppendLine($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n");
+            resultadoFinal.AppendLine($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>\n");
+            resultadoFinal.AppendLine($"</div>");
 
             // Retorna o resultado final
             return  await Task.FromResult(resultadoFinal);
         }
-
         static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
         {
             StringBuilder htmlBuilder = new StringBuilder();
@@ -350,7 +377,6 @@ namespace ProjetoA
             return await Task.FromResult(htmlBuilder);
 
         }
-
         static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
         {
             var result = new StringBuilder();
@@ -366,44 +392,41 @@ namespace ProjetoA
                 { "Possível iteração desnecessária sobre uma coleção", @"\bforeach\s*\(.*\)" },
                 { "Concatenação de strings em loop", @"\b(?:string|StringBuilder)\s*\+\=\s*\""" },
                 { "Casting possivelmente desnecessário", @"\b(?:Convert|(?<!\.ToString))\.To[A-Za-z]+\(" },
-                { "Possível uso inadequado de StringBuilder", @"\b(?:new\s*System\.Text\.StringBuilder\s*\(.*\)\s*\.\s*(?:Append|AppendLine|Insert)\s*\(.*\))" },
+                { "Possível uso inadequado de StringBuilder", @"\b(?:new\s*System\.Text\.StringBuilder\s*\(\s*\)|StringBuilder\s*=\s*new\s*StringBuilder\s*\(\s*\))" },
                 { "Possível bloqueio inadequado de recursos compartilhados", @"\block\s*\(.*\)" },
                 { "Iteração sobre coleção sem uso do índice", @"\bfor\s*\(.*\bLength\b.*\)" },
                 { "Utilização excessiva de expressões regulares", @"\b(?:Regex|RegexOptions)\." },
-                { "Possível uso de métodos ou operações de alto custo dentro de loops", @"\b(?:Array|List|ICollection)\.\w+\(" }
+                { "Possível uso de métodos ou operações de alto custo dentro de loops", @"\b(?:Array|List|ICollection)\.\w+\(" },
             };
 
-
             var tasks = new List<Task<StringBuilder>>();
-            List<StringBuilder> dados= new List<StringBuilder>();
 
             foreach (var padrao in patterns)
             {
-                //var tarefa = Task.Run(() => VerificarPadrao(codeDictionary, padrao));
-                //tasks.Add(tarefa); // Adiciona a tarefa à lista de tarefas
+                tasks.Add(VerificarPadrao(codeDictionary, padrao));
+            }
 
-                dados.Add(VerificarPadrao(codeDictionary, padrao));
+            var results = await Task.WhenAll(tasks);
+
+            bool hasPatterns = false;
+
+            foreach (var resultBuilder in results)
+            {
+                if (resultBuilder != null && !hasPatterns)
+                {
+                    hasPatterns = true;
+                }
+
+                htmlBuilder.Append(resultBuilder);
             }
 
             // Aguarda todas as tarefas serem concluídas
-            //await Task.WhenAll(tasks);
 
-            // Depois que todas as tarefas forem concluídas, adiciona os resultados à lista de resultados
-            /*foreach (var task in tasks)
-            {
-                results.Add(task.Result);
-            }*/
-
-            foreach(var d in dados)
-            {
-                htmlBuilder.Append(d);
-            }
-
-
-            if (dados.Count <= 0)
+            if (!hasPatterns)
             {
                 result.AppendLine("<h3>Não foi encontrado nenhum padrão de mau desempenho!</h3>");
             }
+
             else
             {
                 htmlBuilder.AppendLine("</table>"); // Adicionando a tag de fechamento da tabela
@@ -412,10 +435,9 @@ namespace ProjetoA
 
             result.AppendLine("</div>");
 
-            return await Task.FromResult(result);
+            return result;
         }
-        
-        static StringBuilder VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
+        static async Task<StringBuilder> VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
         {
             var patternName = pattern.Key;
             var patternValue = pattern.Value;
@@ -468,13 +490,48 @@ namespace ProjetoA
 
                 htmlBuilder.AppendLine("</td></tr>");
 
-                return htmlBuilder;
+                return await Task.FromResult(htmlBuilder);
             }
             else
             {
                 return null;
             }
         
+        }
+        static async Task<StringBuilder> AnalisarRepeticao(Dictionary<string, List<int>> codeDictionary)
+        {
+            StringBuilder htmlBuilder = new StringBuilder();
+
+            htmlBuilder.AppendLine($"<div id=\"repeticao-codigo\" style=\"display: none;\">\n");
+            htmlBuilder.AppendLine($"<h2>Código Repetido</h2>");
+            htmlBuilder.AppendLine("<table>");
+            htmlBuilder.AppendLine("<tr><th>Codigo</th><th>Linhas</th></tr>");
+
+            foreach(var key in codeDictionary.Keys)
+            {
+                htmlBuilder.AppendLine("<tr>");
+                htmlBuilder.Append($"<td>{key}</td>");
+                htmlBuilder.Append($"<td>");
+
+                int count = codeDictionary[key].Count;
+
+                for(int i = 0; i< count;i++)
+                {
+                    htmlBuilder.Append($"{codeDictionary[key][i]}");
+
+                        if (i + 1 < count)
+                        {
+                            htmlBuilder.Append($",");
+                        }
+                }
+
+                htmlBuilder.Append("</td>");
+            
+            }
+        
+            htmlBuilder.AppendLine("</div>");
+
+            return await Task.FromResult(htmlBuilder);
         }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
@@ -497,7 +554,6 @@ namespace ProjetoA
             htmlBuilder.AppendLine("</code></pre>");
             htmlBuilder.AppendLine("</div>"); // Fecha a div de contêiner
         }
-
         static void modificarBackground(Dictionary<int, int> linhasImportantes, StringBuilder htmlBuilder)
         {
             foreach (var linha in linhasImportantes.Keys)
@@ -505,37 +561,6 @@ namespace ProjetoA
                 htmlBuilder.AppendLine($"modificarPadrao({linha},{linhasImportantes[linha]})");
             }
         }
-
-        static bool EncontrouErrosSintaxe(StringBuilder htmlBuilder, string code)
-        {
-
-            SyntaxTree syntaxTree;
-
-            try
-            {
-                syntaxTree = CSharpSyntaxTree.ParseText(code);
-            }
-            catch (Exception ex)
-            {
-                htmlBuilder.AppendLine($"<tr><td>1</td><td>{WebUtility.HtmlEncode(ex.Message)}</td></tr>");
-                htmlBuilder.AppendLine("</table>");
-                return false;
-            }
-
-            var diagnostics = syntaxTree.GetDiagnostics();
-
-            if (diagnostics.Count() != 0)
-            {
-                return true;
-            }
-
-            else
-            {
-                return false;
-            }
-
-        }
-
 
 
         private int GetLineNumber(string code, int index)
