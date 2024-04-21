@@ -39,13 +39,13 @@ namespace ProjetoA
             linhasImportantes = new Dictionary<int, int>();
             
             var htmlBuilder = new StringBuilder();
-            code = code.Trim();
+            //code = code.Trim();
 
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
             htmlBuilder.AppendLine("<html lang=\"pt\">");
             htmlBuilder.AppendLine("<head><meta charset=\"utf-8\"><title>Análise de Código</title>");
-            htmlBuilder.AppendLine("<style>body {\r\n                                font-family: Arial, sans-serif;\r\n                                text-align: center;\r\n                            }\r\n                        \r\n                            h1 {\r\n                                \r\n                                margin-bottom: 20px;\r\n                            }\r\n                        \r\n                            h2 {\r\n                            \r\n                            margin-bottom: 15px;\r\n                            margin-top: 80px; /* Ajuste o valor conforme necessário */\r\n                            }\r\n                        \r\n                            h2#codigo-analisado{\r\n                                text-align: left;\r\n                            }\r\n\r\n                            h3 {\r\n                                \r\n                                margin-bottom: 10px;\r\n                            }\r\n                        \r\n                            a {\r\n                                text-decoration: none;\r\n                                color: #333;\r\n                                cursor: pointer;\r\n                            }\r\n                        \r\n                            a:hover {\r\n                                color: #007bff;\r\n                            }\r\n                        \r\n                            .indice {\r\n                                \r\n                                margin-bottom: 30px;\r\n                                display: block;\r\n                            }\r\n                        \r\n                            ul {\r\n                                list-style: none;\r\n                                padding: 0;\r\n                            }\r\n                        \r\n                            li {\r\n                                margin-bottom: 10px;\r\n                                font-size: 18px;\r\n                            }\r\n                        \r\n                            table {\r\n                                width: 100%;\r\n                                border-collapse: collapse;\r\n                                margin-top: 20px;\r\n                            }\r\n                        \r\n                            /* Estilo para as células da tabela */\r\n                            table td, table th {\r\n                                padding: 10px;\r\n                                border: 1px solid #ddd;\r\n                                text-align: left;\r\n                            }\r\n                        \r\n                            /* Estilo para o cabeçalho da tabela */\r\n                            table th {\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            /* Estilo para alternância de cores nas linhas */\r\n                            .table tr:nth-child(even) {\r\n                                background-color: #f9f9f9;\r\n                            }\r\n                        \r\n                            .alto {\r\n                                background-color: rgb(238, 93, 93);\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            .medio {\r\n                                background-color: yellow;\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            .baixo {\r\n                                background-color: greenyellow;\r\n                                font-weight: bold;\r\n                            }\r\n\r\n                            .desempenho{\r\n                                background-color: #57e0f8;\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            /* Estilo para o código analisado */\r\n                            .codigo-container {\r\n                                margin-top: 20px;\r\n                                padding: 10px;\r\n                                background-color: #f2f2f2;\r\n                                text-align: justify;\r\n                            }\r\n                        \r\n                            .codigo-container pre {\r\n                                white-space: pre-wrap;\r\n                                font-size: 14px;\r\n                            }\r\n                            \r\n                            span{\r\n                                color: rgb(137, 8, 8);\r\n                            }\r\n\r\n                            .selected{\r\n                                border: 5px solid rgb(167, 224, 9);\r\n                            }\r\n</style>");
+            htmlBuilder.AppendLine("<style>body {\r\n                                font-family: Arial, sans-serif;\r\n                                text-align: center;\r\n                            }\r\n                        \r\n                            h1 {\r\n                                \r\n                                margin-bottom: 20px;\r\n                            }\r\n                        \r\n                            h2 {\r\n                            \r\n                            margin-bottom: 15px;\r\n                            margin-top: 80px; /* Ajuste o valor conforme necessário */\r\n                            }\r\n                        \r\n                            h2#codigo-analisado{\r\n                                text-align: left;\r\n                            }\r\n\r\n                            h3 {\r\n                                \r\n                                margin-bottom: 10px;\r\n                            }\r\n                        \r\n                            a {\r\n                                text-decoration: none;\r\n                                color: #333;\r\n                                cursor: pointer;\r\n                            }\r\n                        \r\n                            a:hover {\r\n                                color: #007bff;\r\n                            }\r\n                        \r\n                            .indice {\r\n                                \r\n                                margin-bottom: 30px;\r\n                                display: block;\r\n                            }\r\n                        \r\n                            ul {\r\n                                list-style: none;\r\n                                padding: 0;\r\n                            }\r\n                        \r\n                            li {\r\n                                margin-bottom: 10px;\r\n                                font-size: 18px;\r\n                            }\r\n                        \r\n                            table {\r\n                                width: 100%;\r\n                                border-collapse: collapse;\r\n                                margin-top: 20px;\r\n                            }\r\n                        \r\n                            /* Estilo para as células da tabela */\r\n                            table td, table th {\r\n                                padding: 10px;\r\n                                border: 1px solid #ddd;\r\n                                text-align: left;\r\n                            }\r\n                        \r\n                            /* Estilo para o cabeçalho da tabela */\r\n                            table th {\r\n                                background-color: #f2f2f2;\r\n                            }\r\n                        \r\n                            /* Estilo para alternância de cores nas linhas */\r\n                            .table tr:nth-child(even) {\r\n                                background-color: #f9f9f9;\r\n                            }\r\n                        \r\n                            .alto {\r\n                                background-color: rgb(238, 93, 93);\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            .medio {\r\n                                background-color: yellow;\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            .baixo {\r\n                                background-color: greenyellow;\r\n                                font-weight: bold;\r\n                            }\r\n\r\n                            .desempenho{\r\n                                background-color: #57e0f8;\r\n                                font-weight: bold;\r\n                            }\r\n\r\n                            .repeticao{\r\n                                background-color:rgb(138, 58, 58);\r\n                                font-weight: bold;\r\n                            }\r\n                        \r\n                            /* Estilo para o código analisado */\r\n                            .codigo-container {\r\n                                margin-top: 20px;\r\n                                padding: 10px;\r\n                                background-color: #f2f2f2;\r\n                                text-align: justify;\r\n                            }\r\n                        \r\n                            .codigo-container pre {\r\n                                white-space: pre-wrap;\r\n                                font-size: 14px;\r\n                            }\r\n                            \r\n                            span{\r\n                                color: rgb(137, 8, 8);\r\n                            }\r\n\r\n                            .selected{\r\n                                border: 5px solid rgb(130, 160, 100);\r\n                            }\r\n</style>");
             htmlBuilder.AppendLine("<script> function mostrarSecao(id) {\r\n            var secao = document.getElementById(id);\r\n            \r\n            if (secao.style.display == '' || secao.style.display == \"none\") {\r\n                secao.style.display = \"block\";\r\n            } \r\n                    \r\n            else {\r\n                secao.style.display = \"none\";\r\n            }\r\n        }\r\n        \r\n        function modificarPadrao(num,risco){\r\n        var minhaDiv = document.getElementById('linha-numero'+num);\r\n\r\n        if(minhaDiv.classList.length==0){\r\n                \r\n                minhaDiv.style.display = 'inline-block';\r\n\r\n                switch(risco){\r\n                case 0: \r\n                    minhaDiv.classList.add('alto'); \r\n                    break;\r\n                case 1: \r\n                    minhaDiv.classList.add('medio'); break;\r\n                case 2: \r\n                    minhaDiv.classList.add('baixo'); \r\n                    break;\r\n            \r\n                case 3: minhaDiv.classList.add('desempenho')\r\n                }\r\n                \r\n            }\r\n        }\r\n        \r\n        function tirarSelection(num) {\r\n    return function() {\r\n        var minhaDiv = document.getElementById('linha-numero' + num);\r\n        minhaDiv.classList.remove('selected');\r\n        minhaDiv.removeEventListener('click', tirarSelection(num));\r\n    }\r\n}\r\n\r\nfunction selecionar(num) {\r\n    var minhaDiv = document.getElementById('linha-numero' + num);\r\n\r\n    if (!minhaDiv.classList.contains('selected')) {\r\n        minhaDiv.classList.add('selected');\r\n        minhaDiv.onclick= tirarSelection(num)\r\n    }\r\n}\r\n</script>");
             htmlBuilder.AppendLine("</head>");
 
@@ -85,6 +85,7 @@ namespace ProjetoA
 
             //Este é o método principal que analisa o código inteiro
             StringBuilder analises = await AnalisarCodigo(linhas,code);
+            stopwatch.Stop();
 
             htmlBuilder.Append(analises);
             
@@ -124,9 +125,6 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"<h2>Análise de Concorrência:</h2>");
             //AnalisarConcorrencia(htmlBuilder, code);
             htmlBuilder.AppendLine("</div>");*/
-
-
-            stopwatch.Stop();
 
             htmlBuilder.AppendLine("<div id=\"tempo\" style=\"display:none;\">");
             htmlBuilder.AppendLine($"<h2>Tempo Total de Análise:{stopwatch.ElapsedMilliseconds} ms</h2>");
@@ -296,6 +294,7 @@ namespace ProjetoA
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
             resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
             resultadoFinal.Append(taskAnalisarDependencias.Result);
+            resultadoFinal.Append(taskAnalisarRepeticao.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
             resultadoFinal.AppendLine($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n");
@@ -507,32 +506,35 @@ namespace ProjetoA
             htmlBuilder.AppendLine("<table>");
             htmlBuilder.AppendLine("<tr><th>Codigo</th><th>Linhas</th></tr>");
 
-            foreach(var key in codeDictionary.Keys)
+            foreach (var key in codeDictionary.Keys)
             {
-                htmlBuilder.AppendLine("<tr>");
-                htmlBuilder.Append($"<td>{key}</td>");
-                htmlBuilder.Append($"<td>");
-
-                int count = codeDictionary[key].Count;
-
-                for(int i = 0; i< count;i++)
+                if (key == "{" || key == "}")
                 {
-                    htmlBuilder.Append($"{codeDictionary[key][i]}");
-
-                        if (i + 1 < count)
-                        {
-                            htmlBuilder.Append($",");
-                        }
+                    continue;
                 }
 
-                htmlBuilder.Append("</td>");
-            
+                if (codeDictionary[key].Count() > 1)
+                {
+                    htmlBuilder.AppendLine("<tr>");
+                    htmlBuilder.AppendLine($"<td>{key}</td><td>");
+
+                    for (int i = 0; i < codeDictionary[key].Count(); i++)
+                    {
+                        htmlBuilder.Append($"<a href=\"#linha-numero{codeDictionary[key][i]}\" onclick=selecionar({codeDictionary[key][i]})>{codeDictionary[key][i]}</a>");
+
+                        if (i + 1 < codeDictionary[key].Count())
+                        {
+                            htmlBuilder.Append(',');
+                        }
+                    }
+
+                    htmlBuilder.Append("</td>");
+                }
             }
         
-            htmlBuilder.AppendLine("</div>");
-
             return await Task.FromResult(htmlBuilder);
         }
+
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
@@ -562,206 +564,5 @@ namespace ProjetoA
             }
         }
 
-
-        private int GetLineNumber(string code, int index)
-        {
-            return code.Substring(0, index).Split('\n').Length;
-        }
-
-
-        static void AnalisarExcecoes(StringBuilder relatorio, Dictionary<string, List<int>> lines)
-        {
-            StringBuilder tabelaHtml = new StringBuilder();
-            bool tabelaVazia = true;
-
-            // Iniciar a tabela HTML no relatório
-            tabelaHtml.AppendLine("<table>");
-            tabelaHtml.AppendLine("<tr><th>Nome da Exceção</th><th>Código</th><th>Linhas</th></tr>");
-
-            // Iterar sobre cada código no dicionário
-            foreach (var codigo in lines.Keys)
-            {
-                
-                if (codigo.Contains("catch"))
-                {
-                    string[] partes = codigo.Split('(', ')');
-                    string tipoExcecao = partes[1];
-
-                    tabelaHtml.AppendLine("<tr>");
-                    tabelaHtml.AppendLine($"<td>{tipoExcecao}</td>");
-                    tabelaHtml.AppendLine($"<td>{codigo}</td>");
-                    tabelaHtml.AppendLine("<td>");
-
-                    // Iterar sobre cada linha onde a exceção é capturada
-                    for (int i = 0; i < lines[codigo].Count(); i++)
-                    {
-                        tabelaHtml.Append($"<a href=\"#linha-numero{lines[codigo][i]}\">{lines[codigo][i]}</a>");
-
-                        if (i + 1 < lines[codigo].Count())
-                        {
-                            tabelaHtml.Append(", ");
-                        }
-                    }
-
-                    tabelaVazia = false;
-
-                    // Fechar a tag 'td' após listar todas as linhas
-                    tabelaHtml.AppendLine("</td>");
-                    tabelaHtml.AppendLine("</tr>");
-                }
-            }
-
-            tabelaHtml.AppendLine("</table>");
-
-            if (tabelaVazia)
-            {
-                relatorio.AppendLine("<h3>Não foi encontrada nenhuma dependência exceção!</h3>");
-            }
-            else
-            {
-                relatorio.Append(tabelaHtml.ToString());
-            }
-        
-        }
-
-        static void VerificarRepeticao(StringBuilder htmlBuilder, Dictionary<string, List<int>> lines)
-        {
-            StringBuilder tabela = new StringBuilder();
-            bool tabelaVazia = true;
-            
-            tabela.AppendLine("<table><tr><th>Código Repetido</th><th>Linhas</th></tr>");
-
-            foreach(var chave in lines.Keys)
-            {
-                if (lines[chave].Count() > 1)
-                {
-                    tabela.AppendLine("<tr>");
-                    tabela.Append($"<td>{lines[chave]}</td>");
-                    for(int i = 0; i < lines[chave].Count();i++)
-                    {
-                        tabela.Append($"<td>{i}</td>");
-
-                        if (i + 1 > lines[chave].Count())
-                        {
-                            tabela.Append(',');
-                        }
-
-                        tabelaVazia = false;
-                    }
-                }
-            }
-
-            if (tabelaVazia)
-            {
-                htmlBuilder.AppendLine("<h3>Não foi encontrado código repetido!</h3>");
-            }
-            
-            else
-            {
-                htmlBuilder.AppendLine(tabela.ToString());
-            }
-        
-        }
-
-        static Dictionary<string, List<int>> VerificarRepeticao(IEnumerable<SyntaxNode> nodes)
-    {
-        var repetidos = new Dictionary<string, List<int>>();
-
-        foreach (var node in nodes)
-        {
-            var nome = ObtenerNombre(node);
-
-            if (!repetidos.ContainsKey(nome))
-            {
-                repetidos[nome] = new List<int>();
-            }
-
-            repetidos[nome].Add(node.GetLocation().GetMappedLineSpan().StartLinePosition.Line + 1);
-        }
-
-        // Remover entradas que não têm duplicatas
-        repetidos = repetidos.Where(entry => entry.Value.Count > 1).ToDictionary(entry => entry.Key, entry => entry.Value);
-
-        return repetidos;
-    }
-
-        static bool GerarTabelaHTML(StringBuilder htmlBuilder, string tipo, Dictionary<string, List<int>> repetidosPorLinha)
-    {
-        if (repetidosPorLinha.Count == 0)
-        {
-            return false;
-        }
-
-        htmlBuilder.AppendLine($"<h3>{tipo}</h3>");
-        htmlBuilder.AppendLine("<table>");
-        htmlBuilder.AppendLine("<tr><th>Nome</th><th>Linha(s) Encontrada(s)</th></tr>");
-
-        foreach (var entry in repetidosPorLinha)
-        {
-            var nome = entry.Key;
-            var linhas = entry.Value;
-
-            var linkLinhas = linhas.Select(linha => $"<a href=\"#linha-numero{linha}\" onclick=\"destacarLinha({linha})\">{linha}</a>");
-
-            htmlBuilder.AppendLine($"<tr><td>{nome}</td><td>{string.Join(", ", linkLinhas)}</td></tr>");
-        }
-
-        htmlBuilder.AppendLine("</table>");
-
-        return true;
-    }
-
-        static string ObtenerNombre(SyntaxNode node)
-    {
-        // Lógica para obtener el nombre según el tipo de nodo
-        if (node is MethodDeclarationSyntax methodSyntax)
-        {
-            return methodSyntax.Identifier.ValueText;
-        }
-        else if (node is VariableDeclarationSyntax variableSyntax)
-        {
-            return variableSyntax.Variables.FirstOrDefault()?.Identifier.ValueText;
-        }
-        else if (node is ClassDeclarationSyntax classSyntax)
-        {
-            return classSyntax.Identifier.ValueText;
-        }
-
-        return string.Empty;
-    }
-
-        static void AnalisarConcorrencia(StringBuilder htmlBuilder, string code)
-    {
-        ConcurrencyAnalyzer concurrencyAnalyzer = new ConcurrencyAnalyzer();
-        List<DependencyInfo> dependencies = concurrencyAnalyzer.AnalyzeConcurrencyIssues(code);
-
-        if (dependencies.Count != 0)
-        {
-            // Adicionar cabeçalhos da tabela
-            htmlBuilder.AppendLine("<table><tr><th>Nome da Concorrência</th><th>Linha do Código</th></tr>");
-
-            foreach (var dependency in dependencies)
-            {
-                // Adicionar uma linha na tabela para cada dependência
-                htmlBuilder.AppendLine("<tr>");
-
-                // Coluna 1: Nome da Concorrência
-                htmlBuilder.AppendLine($"<td>{dependency.DependencyType}</td>");
-
-                // Coluna 2: Linha do Código
-                htmlBuilder.AppendLine($"<td><a href=\"#linha-numero{dependency.LineNumber}\" onclick=\"destacarLinha({dependency.LineNumber})\">{dependency.LineNumber}</a></td>");
-
-                // Fechar a linha na tabela
-                htmlBuilder.AppendLine("</tr>");
-            }
-
-            // Fechar a tabela HTML
-            htmlBuilder.AppendLine("</table>");
-        }
-        else
-        {
-            htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma concorrência.</h3>");
-        }
-    }
     }
 }

@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -15,7 +16,7 @@ namespace ProjetoA
 {
     public sealed partial class MainPage : Page
     {
-        private double initialBorderWidth = 980;
+        bool isRecordSaved;
         //private TextBox inputTextBox;
 
         public MainPage()
@@ -79,9 +80,9 @@ namespace ProjetoA
                 string relatorioHTML = await CodeAnalyzer.GerarRelatorioHTML(codigoCSharp);
 
                 // Salve o relatório HTML
-                StorageFile relatorio = await SaveHtmlRelatorio(relatorioHTML);
+                OpenAndSaveHtmlRelatorio(relatorioHTML);
 
-                if (relatorio == null)
+                if (!isRecordSaved)
                 {
                     // Lide com o erro de salvamento do relatório
                     // Considere exibir uma mensagem de erro para o usuário
@@ -105,10 +106,10 @@ namespace ProjetoA
             string relatorioHTML = await CodeAnalyzer.GerarRelatorioHTML(codigo);
 
             // Salve o relatório HTML
-            StorageFile relatorio = await SaveHtmlRelatorio(relatorioHTML);
+            OpenAndSaveHtmlRelatorio(relatorioHTML);
 
             // Converta o HTML para PDF
-            if (relatorio == null)
+            if (!isRecordSaved)
             {
                 // Lide com o erro de salvamento de registro
                 // Considere exibir uma mensagem de erro para o usuário
@@ -138,7 +139,7 @@ namespace ProjetoA
             return null;
         }
 
-        private async Task ConvertHtmlToPdfAsync(string relatorioHTML, StorageFile file)
+        /*private async Task ConvertHtmlToPdfAsync(string relatorioHTML, StorageFile file)
         {
             var converter = new BasicConverter(new PdfTools());
 
@@ -160,61 +161,83 @@ namespace ProjetoA
             byte[] pdfBytes = converter.Convert(doc);
 
             await FileIO.WriteBytesAsync(file, pdfBytes);
-        }
+        }*/
 
 
-        private async Task<StorageFile> SaveHtmlRelatorio(string relatorioHTML)
+        private async Task OpenAndSaveHtmlRelatorio(string relatorioHTML)
         {
-            FileSavePicker savePicker = new FileSavePicker
+            // Salva o relatório temporariamente
+            StorageFolder tempFolder = ApplicationData.Current.TemporaryFolder;
+            StorageFile tempHtmlFile = await tempFolder.CreateFileAsync("Relatorio.html", CreationCollisionOption.ReplaceExisting);
+            await FileIO.WriteTextAsync(tempHtmlFile, relatorioHTML);
+
+            // Abre o relatório no navegador padrão
+            await Launcher.LaunchFileAsync(tempHtmlFile);
+
+            // Pergunta ao usuário se deseja salvar o relatório
+            ContentDialog saveDialog = new ContentDialog
             {
-                SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-                SuggestedFileName = "Relatorio",
+                Title = "Salvar Relatório",
+                Content = "Deseja salvar o relatório?",
+                PrimaryButtonText = "Sim",
+                SecondaryButtonText = "Não"
             };
 
-            // Adiciona as escolhas de tipo de arquivo
-            savePicker.FileTypeChoices.Add("Documento HTML", new List<string> { ".html" });
-            savePicker.FileTypeChoices.Add("Documento PDF", new List<string> { ".pdf" });
+           
 
-            try
+            ContentDialogResult result = await saveDialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
             {
-                StorageFile file = await savePicker.PickSaveFileAsync();
-
-                if (file != null)
+                FileSavePicker savePicker = new FileSavePicker
                 {
-                    string selectedExtension = file.FileType.ToLower();
+                    SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+                    SuggestedFileName = "Relatorio",
+                };
 
-                    if (selectedExtension.Equals(".html"))
+                // Adiciona as escolhas de tipo de arquivo
+                savePicker.FileTypeChoices.Add("Documento HTML", new List<string> { ".html" });
+                savePicker.FileTypeChoices.Add("Documento PDF", new List<string> { ".pdf" });
+
+                try
+                {
+                    StorageFile file = await savePicker.PickSaveFileAsync();
+
+                    if (file != null)
                     {
-                        // Salve o conteúdo HTML no arquivo
-                        byte[] htmlBytes = Encoding.UTF8.GetBytes(relatorioHTML);
+                        string selectedExtension = file.FileType.ToLower();
 
-                        await FileIO.WriteBytesAsync(file, htmlBytes);
+                        // Move o relatório temporário para o local selecionado pelo usuário
+                        await tempHtmlFile.MoveAndReplaceAsync(file);
+
+                        isRecordSaved = true;
                     }
-                    else if (selectedExtension.Equals(".pdf"))
+                    else
                     {
-                        // Converta o HTML para PDF
-                        await ConvertHtmlToPdfAsync(relatorioHTML, file);
+                        // Usuário cancelou a operação de salvamento
+                        await tempHtmlFile.DeleteAsync();
+                        isRecordSaved = false;
                     }
-
-                    return file;
                 }
-                else
+                catch (UnauthorizedAccessException ex1)
                 {
-                    // Usuário cancelou a operação de salvamento
-                    return null;
+                    // Lidar com exceções de acesso não autorizado
+                    Console.WriteLine("Erro de acesso não autorizado: " + ex1.Message);
+                    await tempHtmlFile.DeleteAsync();
+                    isRecordSaved = false;
+                }
+                catch (Exception ex2)
+                {
+                    // Lidar com outras exceções de maneira mais específica, se necessário
+                    Console.WriteLine("Erro desconhecido: " + ex2.Message);
+                    await tempHtmlFile.DeleteAsync();
+                    isRecordSaved = false;
                 }
             }
-            catch (UnauthorizedAccessException ex1)
+            else
             {
-                // Lidar com exceções de acesso não autorizado
-                Console.WriteLine("Erro de acesso não autorizado: " + ex1.Message);
-                return null;
-            }
-            catch (Exception ex2)
-            {
-                // Lidar com outras exceções de maneira mais específica, se necessário
-                Console.WriteLine("Erro desconhecido: " + ex2.Message);
-                return null;
+                // Remove o relatório temporário se o usuário optar por não salvar
+                await tempHtmlFile.DeleteAsync();
+                isRecordSaved = false;
             }
         }
     }
