@@ -35,7 +35,8 @@ namespace ProjetoA
         public static async Task<string> GerarRelatorioHTML(string code)
         {
             linhasImportantes = new Dictionary<int, int>();
-            
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
+
             var htmlBuilder = new StringBuilder();
 
             // Início do HTML
@@ -74,8 +75,7 @@ namespace ProjetoA
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
                // "<li><a onclick=\"mostrarSecao('analise-dependencias')\">Análise de Dependências</a></li>\r\n   " +
                 "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
-               // "<li><a onclick=\"mostrarSecao('analise-excecoes')\">Análise de Exceções</a></li>\r\n    " +
-                "<li><a onclick=\"mostrarSecao('repeticao-codigo')\">Análise de Repetição de Código</a></li>\r\n    " +
+                "<li><a onclick=\"mostrarSecao('overloading')\">Análise de Repetição de Código</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
                 "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
@@ -529,7 +529,69 @@ namespace ProjetoA
 
             return await Task.FromResult(resultado);
         }
+        static async Task<StringBuilder> AnalisarOverloading(SyntaxTree tree)
+        {
+            // Obter a raiz da árvore sintática
+            var root = await tree.GetRootAsync().ConfigureAwait(false);
 
+            StringBuilder resultado = new StringBuilder();
+            StringBuilder table = new StringBuilder();
+            bool isEmpty = true;
+
+            // Lista para armazenar os resultados
+            var metodos = new Dictionary<string, List<int>>();
+
+            // Percorrer todas as invocações de método na árvore sintática
+            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                // Se a invocação é uma chamada de método, não uma chamada de delegado
+                if (invocation.Expression is IdentifierNameSyntax identifierName)
+                {
+                    var methodName = identifierName.Identifier.ValueText;
+                    var invocationLine = invocation.GetLocation().GetMappedLineSpan().StartLinePosition.Line + 1;
+
+                    if (!metodos.ContainsKey(methodName))
+                    {
+                        metodos[methodName] = new List<int>();
+                    }
+
+                    metodos[methodName].Add(invocationLine); // Adicionar linha de invocação à lista de linhas para o método
+
+                    if (metodos[methodName].Count()>1)
+                    {
+                        isEmpty = false;
+                    }
+                }
+            }
+
+            resultado.AppendLine("<div id=\"overloading\" style=\"display: none;\">");
+            resultado.AppendLine("<h2>Overloading</h2>");
+
+            if (!isEmpty)
+            {
+                table.AppendLine("<table>");
+                table.AppendLine("<tr><th>Method Name</th><th>Invocation Lines</th></tr>");
+
+                foreach (var methodEntry in metodos)
+                {
+                    var methodName = methodEntry.Key;
+                    var invocationLines = string.Join(", ", methodEntry.Value);
+
+                    table.AppendLine($"<tr><td>{methodName}</td><td>{invocationLines}</td></tr>");
+                }
+
+                table.AppendLine("</table>");
+                resultado.Append(table);
+            }
+            else
+            {
+                resultado.AppendLine("<h3>Não foi detectado Overloading!</h3>");
+            }
+
+            resultado.AppendLine("</div>");
+
+            return resultado;
+        }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
