@@ -20,22 +20,23 @@ using System.Threading.Tasks;
 using System.Collections;
 using Windows.Devices.Power;
 using System.Reflection;
+using System.Collections.Concurrent;
 
 namespace ProjetoA
 {
     public class CodeAnalyzer
     {
         //Linhas onde forem encontradas informações importantes
-        static Dictionary<int, int> linhasImportantes;
+        static ConcurrentDictionary<int, int> linhasImportantes = new ConcurrentDictionary<int, int>();
 
         public CodeAnalyzer()
         {
-            linhasImportantes = new Dictionary<int, int>();
+            linhasImportantes = new ConcurrentDictionary<int, int>();
+
         }
 
         public static async Task<string> GerarRelatorioHTML(string code)
         {
-            linhasImportantes = new Dictionary<int, int>();
             SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
 
             var htmlBuilder = new StringBuilder();
@@ -652,7 +653,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine("</code></pre>");
             htmlBuilder.AppendLine("</div>"); // Fecha a div de contêiner
         }
-        static void modificarBackground(Dictionary<int, int> linhasImportantes, StringBuilder htmlBuilder)
+        static void modificarBackground(ConcurrentDictionary<int, int> linhasImportantes, StringBuilder htmlBuilder)
         {
             foreach (var linha in linhasImportantes.Keys)
             {
