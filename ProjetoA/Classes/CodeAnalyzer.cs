@@ -21,6 +21,7 @@ using System.Collections;
 using Windows.Devices.Power;
 using System.Reflection;
 using System.Collections.Concurrent;
+using Microsoft.CodeAnalysis.Text;
 
 namespace ProjetoA
 {
@@ -28,7 +29,6 @@ namespace ProjetoA
     {
         //Linhas onde forem encontradas informações importantes
         static ConcurrentDictionary<int, int> linhasImportantes = new ConcurrentDictionary<int, int>();
-
         public CodeAnalyzer()
         {
             linhasImportantes = new ConcurrentDictionary<int, int>();
@@ -37,8 +37,6 @@ namespace ProjetoA
 
         public static async Task<string> GerarRelatorioHTML(string code)
         {
-            SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
-
             var htmlBuilder = new StringBuilder();
 
             // Início do HTML
@@ -84,7 +82,7 @@ namespace ProjetoA
             htmlBuilder.AppendLine($"</ul></div>");
 
             //Este é o método principal que analisa o código inteiro
-            StringBuilder analises = await AnalisarCodigo(linhas,tree);
+            StringBuilder analises = await AnalisarCodigo(linhas,code);
             stopwatch.Stop();
 
             htmlBuilder.Append(analises);
@@ -238,16 +236,16 @@ namespace ProjetoA
             return linha;
         }
 
-        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxTree tree)
+        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,string code)
         {
             // Inicia as três tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
-            Task<StringBuilder> taskAnalisarOverloading = AnalisarOverloading(tree);
-            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
+            StringBuilder taskAnalisarOverloading = AnalizarOverloading(code);
+            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,/*taskAnalisarOverloading,*/taskComplexidadeCiclomatica);
 
             int complexidadeCiclomatica = taskComplexidadeCiclomatica.Result;
 
@@ -257,11 +255,11 @@ namespace ProjetoA
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
             resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
             resultadoFinal.Append(taskAnalisarDependencias.Result);
-            resultadoFinal.Append(taskAnalisarOverloading.Result);
+            resultadoFinal.Append(taskAnalisarOverloading);
 
             // Adiciona a complexidade ciclomática ao resultado
-            resultadoFinal.AppendLine($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">\n");
-            resultadoFinal.AppendLine($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>\n");
+            resultadoFinal.AppendLine($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">");
+            resultadoFinal.AppendLine($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>");
             resultadoFinal.AppendLine($"</div>");
 
             // Retorna o resultado final
@@ -463,6 +461,7 @@ namespace ProjetoA
 
                 return await Task.FromResult(htmlBuilder);
             }
+            
             else
             {
                 return null;
@@ -533,105 +532,109 @@ namespace ProjetoA
 
             return await Task.FromResult(resultado);
         }*/
-        
-        static async Task<StringBuilder> AnalisarOverloading(SyntaxTree tree)
-        {
-            // Obter a raiz da árvore sintática
-            var root = await tree.GetRootAsync().ConfigureAwait(false);
 
-            StringBuilder resultado = new StringBuilder();
-            StringBuilder table = new StringBuilder();
+        static StringBuilder AnalizarOverloading(string code)
+        {
+            var syntaxTree = CSharpSyntaxTree.ParseText(code);
+            var compilation = CSharpCompilation.Create("OverloadingAnalyzer").AddSyntaxTrees(syntaxTree);
+
             bool isEmpty = true;
 
-            // Métodos Únicos
-            Dictionary<string, List<int>> MetodosUnicos = new Dictionary<string, List<int>>();
-            // Assinaturas dos métodos
-            Dictionary<string, int> Assinaturas = new Dictionary<string, int>();
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-            // Percorrer todas as invocações de método na árvore sintática
-            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            var methods = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+
+            var overloadingMethods = new Dictionary<string, List<int>>();
+
+            foreach (var method in methods)
             {
-                // Se a invocação é uma chamada de método, não uma chamada de delegado
-                if (invocation.Expression is IdentifierNameSyntax identifierName)
+                var methodSymbol = semanticModel.GetDeclaredSymbol(method);
+                if (methodSymbol != null)
                 {
-                    var methodName = GetMethodSignature(invocation);
+                    var methodName = methodSymbol.Name;
+                    var lineNumber = method.SyntaxTree.GetLineSpan(method.Span).StartLinePosition.Line;
 
-                    var invocationLine = invocation.GetLocation().GetMappedLineSpan().StartLinePosition.Line + 1;
+                    // Verificar se o método tem overloading
+                    var overloads = semanticModel.Compilation.GetSymbolsWithName(methodName).OfType<IMethodSymbol>()
+                      .Where(m => m.MethodKind == MethodKind.Ordinary ||
+                                   m.MethodKind == MethodKind.Constructor ||
+                                   m.MethodKind == MethodKind.UserDefinedOperator ||
+                                   m.MethodKind == MethodKind.Conversion)
+                      .GroupBy(m => string.Join(",", m.Parameters.Select(p => p.Type)))
+                      .Where(g => g.Count() > 1)
+                      .SelectMany(g => g)
+                      .ToList();
 
-                    // Adicionar à lista de invocações por nome do método
-                    if (!MetodosUnicos.ContainsKey(methodName))
+                    if (overloads.Count > 0)
                     {
-                        MetodosUnicos[methodName] = new List<int>();
-                    }
-                    MetodosUnicos[methodName].Add(invocationLine);
+                        var overloadsWithDifferentSignatures = overloads
+                          .GroupBy(m => string.Join(",", m.Parameters.Select(p => p.Type)))
+                          .Where(g => g.Count() > 1)
+                          .SelectMany(g => g)
+                          .ToList();
 
-                    // Contar as assinaturas do método
-                    if (!Assinaturas.ContainsKey(methodName))
-                    {
-                        Assinaturas[methodName] = 1;
-                    }
-                    else
-                    {
-                        Assinaturas[methodName]++;
-                    }
+                        if (overloadsWithDifferentSignatures.Count > 0)
+                        {
+                            if (overloadingMethods.ContainsKey(methodName))
+                            {
+                                overloadingMethods[methodName].Add(lineNumber);
+                            }
+                            else
+                            {
+                                overloadingMethods.Add(methodName, new List<int> { lineNumber });
+                            }
 
+                            isEmpty = false;
+                        }
+                    }
                 }
             }
 
-            resultado.AppendLine("<div id=\"overloading\" style=\"display: none;\">");
-            resultado.AppendLine("<h2>Overloading</h2>");
+            var result = new StringBuilder();
+            var tabela = new StringBuilder();
 
-            if (Assinaturas.Any(kv => kv.Value > 1))
+            result.AppendLine("<div id=\"overloading\" style=\"display: none;\">");
+            result.AppendLine("<h2>Análise de Overloading</h2>");
+
+            tabela.AppendLine("<table>");
+            tabela.AppendLine("<tr><th>Método</th><th>Linhas</th></tr>");
+            tabela.AppendLine("<tr>");
+
+            foreach (var kvp in overloadingMethods)
             {
-                isEmpty = false;
+                tabela.Append($"<td>{kvp.Key}</td><td>");
 
-                table.AppendLine("<table>");
-                table.AppendLine("<tr><th>Method Name</th><th>Invocation Lines</th></tr>");
-
-                foreach (var methodEntry in MetodosUnicos)
+                for (int i = 0; i < kvp.Value.Count; i++)
                 {
-                    var methodName = methodEntry.Key;
-                    var invocationLines = methodEntry.Value;
+                    tabela.Append($"<a href=\"#linha-numero{kvp.Value[i]}\">{kvp.Value[i]}</a>");
 
-                    if (invocationLines.Count <= 1)
+                    // Marcação de linhas de Overloading no relatório
+                    linhasImportantes[kvp.Value[i]] = 4;
+
+                    if (i + 1 < kvp.Value.Count)
                     {
-                        continue;
+                        tabela.Append(',');
                     }
-
-                    table.AppendLine($"<tr><td>{methodName}</td>");
-
-                    foreach (var line in invocationLines)
-                    {
-                        table.Append($"<td><a href=\"#linha-numero{line}\" onclick=selecionar({line})>{line}</a></td>");
-                    }
-
-                    table.AppendLine("</tr>");
                 }
 
-                table.AppendLine("</table>");
-                resultado.Append(table);
+                tabela.Append("</td></tr>");
+            }
+
+            tabela.AppendLine("</table>");
+
+            if (isEmpty)
+            {
+                result.AppendLine("<h3>Não foi detetado Overloading!</h3>");
             }
             else
             {
-                resultado.AppendLine("<h3>Não foi detectado Overloading!</h3>");
+                result.Append(tabela);
             }
 
-            resultado.AppendLine("</div>");
+            result.AppendLine("</div>");
 
-            return resultado;
+            return result;
         }
-        static string GetMethodSignature(InvocationExpressionSyntax invocation)
-        {
-            var methodName = (invocation.Expression as IdentifierNameSyntax)?.Identifier.ValueText;
-
-            var returnType = (invocation.Parent as MethodDeclarationSyntax)?.ReturnType.ToString() ?? "void";
-
-            var parameterTypes = string.Join(", ", invocation.ArgumentList.Arguments.Select(arg => arg.Expression.GetType().ToString())); // Usar os tipos dos argumentos como parte da assinatura
-
-            return $"{returnType} {methodName}({parameterTypes})";
-        }
-
-
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
@@ -660,6 +663,6 @@ namespace ProjetoA
                 htmlBuilder.AppendLine($"modificarPadrao({linha},{linhasImportantes[linha]})");
             }
         }
-
     }
+
 }
