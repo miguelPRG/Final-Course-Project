@@ -42,7 +42,7 @@ namespace Projeto.Classes
         Baixo
     }
 
-    public class Vulnerabilidade
+    internal class Vulnerabilidade
     {
         public string Tipo { get; set; }
         public string Codigo { get; set; }
@@ -56,7 +56,7 @@ namespace Projeto.Classes
         }
     }
 
-    public class VulnerabilidadeVisitor
+    internal class VulnerabilidadeVisitor
     {
         //Lista de vulnerabilidades encontradas
         private List<(Vulnerabilidade Vulnerabilidade,List<int> Linhas)> vulnerabilidadesEncontradas;

@@ -4,7 +4,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using ProjetoA.Classes;
 using System;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -23,7 +22,7 @@ using System.Reflection;
 using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis.Text;
 
-namespace ProjetoA
+namespace ProjetoA.Classes
 {
     public class CodeAnalyzer
     {
@@ -241,7 +240,7 @@ namespace ProjetoA
             // Inicia as três tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
-            StringBuilder taskAnalisarOverloading = AnalizarOverloading(code);
+            StringBuilder taskAnalisarOverloading = AnaliseOverloading(code); ;
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
 
             // Espera até que todas as tarefas estejam concluídas
@@ -533,106 +532,93 @@ namespace ProjetoA
             return await Task.FromResult(resultado);
         }*/
 
-        static StringBuilder AnalizarOverloading(string code)
+        public static StringBuilder AnaliseOverloading(string cSharpCode)
         {
-            var syntaxTree = CSharpSyntaxTree.ParseText(code);
-            var compilation = CSharpCompilation.Create("OverloadingAnalyzer").AddSyntaxTrees(syntaxTree);
+            // Parse the C# code into a syntax tree
+            SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(cSharpCode);
 
-            bool isEmpty = true;
+            // Get the root node of the syntax tree
+            SyntaxNode rootNode = syntaxTree.GetRoot();
 
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            // Create a dictionary to store the existing methods with the same name
+            Dictionary<string, List<int>> existingMethods = new Dictionary<string, List<int>>();
 
-            var methods = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+            // Find all the methods in the syntax tree
+            IEnumerable<MethodDeclarationSyntax> methods = rootNode.DescendantNodes().OfType<MethodDeclarationSyntax>();
 
-            var overloadingMethods = new Dictionary<string, List<int>>();
-
-            foreach (var method in methods)
+            // Iterate through the methods and find those with overloading
+            foreach (MethodDeclarationSyntax method in methods)
             {
-                var methodSymbol = semanticModel.GetDeclaredSymbol(method);
-                if (methodSymbol != null)
+                // Get the name of the method
+                string methodName = method.Identifier.ValueText;
+
+                // Get the line number where the method is defined
+                int lineNumber = method.GetLocation().GetLineSpan().StartLinePosition.Line;
+
+                // Check if there are any existing methods with the same name
+                if (existingMethods.ContainsKey(methodName))
                 {
-                    var methodName = methodSymbol.Name;
-                    var lineNumber = method.SyntaxTree.GetLineSpan(method.Span).StartLinePosition.Line;
+                    // Add the line number to the list of methods with overloading
+                    existingMethods[methodName].Add(lineNumber);
+                }
+                else
+                {
+                    // Add a new entry to the dictionary for the method
+                    existingMethods[methodName] = new List<int> { lineNumber };
+                }
+            }
 
-                    // Verificar se o método tem overloading
-                    var overloads = semanticModel.Compilation.GetSymbolsWithName(methodName).OfType<IMethodSymbol>()
-                      .Where(m => m.MethodKind == MethodKind.Ordinary ||
-                                   m.MethodKind == MethodKind.Constructor ||
-                                   m.MethodKind == MethodKind.UserDefinedOperator ||
-                                   m.MethodKind == MethodKind.Conversion)
-                      .GroupBy(m => string.Join(",", m.Parameters.Select(p => p.Type)))
-                      .Where(g => g.Count() > 1)
-                      .SelectMany(g => g)
-                      .ToList();
+            // Create a new StringBuilder to store the HTML report
+            StringBuilder result = new StringBuilder();
+            StringBuilder table = new StringBuilder();
 
-                    if (overloads.Count > 0)
+            // Add the HTML header to the report
+            result.Append("<div id=\"overloading\" style=\"display:none;\">");
+            result.Append("<h2>Análise de Overloading</h2>");
+
+            // Check if there are any methods with overloading
+            if (existingMethods.Values.Any(m => m.Count > 1))
+            {
+                // Add the HTML table header to the report
+                table.AppendLine("<table>");
+                table.AppendLine("<tr><th>Nome do Método</th><th>Números das linhas</th></tr>");
+
+                // Iterate through the methods with overloading and add them to the table
+                foreach (KeyValuePair<string, List<int>> method in existingMethods)
+                {
+                    if (method.Value.Count > 1)
                     {
-                        var overloadsWithDifferentSignatures = overloads
-                          .GroupBy(m => string.Join(",", m.Parameters.Select(p => p.Type)))
-                          .Where(g => g.Count() > 1)
-                          .SelectMany(g => g)
-                          .ToList();
+                        table.AppendLine($"<tr><td>{method.Key}</td><td>");
 
-                        if (overloadsWithDifferentSignatures.Count > 0)
+                        for (int i = 0; i < method.Value.Count; i++)
                         {
-                            if (overloadingMethods.ContainsKey(methodName))
-                            {
-                                overloadingMethods[methodName].Add(lineNumber);
-                            }
-                            else
-                            {
-                                overloadingMethods.Add(methodName, new List<int> { lineNumber });
-                            }
+                            table.Append($"{method.Value[i]}");
 
-                            isEmpty = false;
+                            if (i + 1 < method.Value.Count)
+                            {
+                                table.Append(", ");
+                            }
                         }
-                    }
-                }
-            }
 
-            var result = new StringBuilder();
-            var tabela = new StringBuilder();
-
-            result.AppendLine("<div id=\"overloading\" style=\"display: none;\">");
-            result.AppendLine("<h2>Análise de Overloading</h2>");
-
-            tabela.AppendLine("<table>");
-            tabela.AppendLine("<tr><th>Método</th><th>Linhas</th></tr>");
-            tabela.AppendLine("<tr>");
-
-            foreach (var kvp in overloadingMethods)
-            {
-                tabela.Append($"<td>{kvp.Key}</td><td>");
-
-                for (int i = 0; i < kvp.Value.Count; i++)
-                {
-                    tabela.Append($"<a href=\"#linha-numero{kvp.Value[i]}\">{kvp.Value[i]}</a>");
-
-                    // Marcação de linhas de Overloading no relatório
-                    linhasImportantes[kvp.Value[i]] = 4;
-
-                    if (i + 1 < kvp.Value.Count)
-                    {
-                        tabela.Append(',');
+                        table.Append("</td></tr>");
                     }
                 }
 
-                tabela.Append("</td></tr>");
-            }
+                // Add the HTML table footer to the report
+                table.AppendLine("</table>");
 
-            tabela.AppendLine("</table>");
-
-            if (isEmpty)
-            {
-                result.AppendLine("<h3>Não foi detetado Overloading!</h3>");
+                result.Append(table);
             }
             else
             {
-                result.Append(tabela);
+                // Add a message to the report indicating that there are no methods with overloading
+                result.AppendLine("<h3>Não foi encontrado nenhum método com OverLoading</h3>");
             }
 
+            // Add the HTML footer to the report
             result.AppendLine("</div>");
 
+            // Return the HTML report
             return result;
         }
 

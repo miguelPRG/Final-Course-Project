@@ -122,7 +122,6 @@
     <Compile Include="Classes\CodeAnalyzer.cs" />
     <Compile Include="Classes\ComplexidadeCiclomatica.cs" />
     <Compile Include="Classes\Concurrency.cs" />
-    <Compile Include="Classes\Padroes.cs" />
     <Compile Include="Classes\VulnerabilidadeVisitor.cs" />
     <Compile Include="MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
