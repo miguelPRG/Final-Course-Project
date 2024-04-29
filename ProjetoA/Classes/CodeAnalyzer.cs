@@ -26,7 +26,8 @@ namespace ProjetoA.Classes
 {
     public class CodeAnalyzer
     {
-        //Linhas onde forem encontradas informações importantes
+        /*Linhas onde forem encontradas descobertas importantes na análise do código. Estas linhas estarão destacadas no
+        código apresentado no relatório*/
         static ConcurrentDictionary<int, int> linhasImportantes = new ConcurrentDictionary<int, int>();
         public CodeAnalyzer()
         {
@@ -51,11 +52,13 @@ namespace ProjetoA.Classes
             // Título do relatório
             htmlBuilder.AppendLine("<h1>Relatório de Análise de Código C#</h1>");
 
+            SyntaxTree tree;
+
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
             // Verificar Sintaxe do código
-            if (EncontrouErrosSintaxe(htmlBuilder, code))
+            if (EncontrouErrosSintaxe(htmlBuilder, code, out tree))
             {
                 stopwatch.Stop();
 
@@ -81,7 +84,7 @@ namespace ProjetoA.Classes
             htmlBuilder.AppendLine($"</ul></div>");
 
             //Este é o método principal que analisa o código inteiro
-            StringBuilder analises = await AnalisarCodigo(linhas,code);
+            StringBuilder analises = await AnalisarCodigo(linhas,tree);
             stopwatch.Stop();
 
             htmlBuilder.Append(analises);
@@ -107,20 +110,17 @@ namespace ProjetoA.Classes
             return await Task.FromResult(htmlBuilder.ToString());
         }
 
-        static bool EncontrouErrosSintaxe(StringBuilder htmlBuilder, string code)
+        static bool EncontrouErrosSintaxe(StringBuilder htmlBuilder, string code, out SyntaxTree syntaxTree)
         {
-
-            SyntaxTree syntaxTree;
 
             try
             {
                 syntaxTree = CSharpSyntaxTree.ParseText(code);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                htmlBuilder.AppendLine($"<tr><td>1</td><td>{WebUtility.HtmlEncode(ex.Message)}</td></tr>");
-                htmlBuilder.AppendLine("</table>");
-                return false;
+                syntaxTree = null;
+                return true;
             }
 
             var diagnostics = syntaxTree.GetDiagnostics();
@@ -235,18 +235,16 @@ namespace ProjetoA.Classes
             return linha;
         }
 
-        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,string code)
+        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxTree tree)
         {
-            // Inicia as três tarefas em paralelo
+            // Inicia as tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
-            StringBuilder taskAnalisarOverloading = AnaliseOverloading(code); ;
-            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(code);
+            Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
+            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,/*taskAnalisarOverloading,*/taskComplexidadeCiclomatica);
-
-            int complexidadeCiclomatica = taskComplexidadeCiclomatica.Result;
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
@@ -254,11 +252,11 @@ namespace ProjetoA.Classes
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
             resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
             resultadoFinal.Append(taskAnalisarDependencias.Result);
-            resultadoFinal.Append(taskAnalisarOverloading);
+            resultadoFinal.Append(taskAnalisarOverloading.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
             resultadoFinal.AppendLine($"<div id=\"complexidade-ciclomatica\" style=\"display: none;\">");
-            resultadoFinal.AppendLine($"<h2>Complexidade Ciclomática: {complexidadeCiclomatica}</h2>");
+            resultadoFinal.AppendLine($"<h2>Complexidade Ciclomática: {taskComplexidadeCiclomatica.Result}</h2>");
             resultadoFinal.AppendLine($"</div>");
 
             // Retorna o resultado final
@@ -312,6 +310,9 @@ namespace ProjetoA.Classes
 
                     if (!linhasImportantes.ContainsKey(vul.Linhas[i]))
                     {
+                        /*O tipo de Vulnerabilidade(Baixo=0, Médio = 1 e Alto Risco = 2) é uma enumeração que vai indicar
+                         ao CSS que cor é que esta linha importante vai ter no relatório. */
+                         
                         linhasImportantes[vul.Linhas[i]] = (int)vul.Vulnerabilidade.Risco;
                     }
 
@@ -532,19 +533,13 @@ namespace ProjetoA.Classes
             return await Task.FromResult(resultado);
         }*/
 
-        public static StringBuilder AnaliseOverloading(string cSharpCode)
+        static async Task<StringBuilder> AnaliseOverloading(SyntaxTree tree)
         {
-            // Parse the C# code into a syntax tree
-            SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(cSharpCode);
-
-            // Get the root node of the syntax tree
-            SyntaxNode rootNode = syntaxTree.GetRoot();
-
             // Create a dictionary to store the existing methods with the same name
             Dictionary<string, List<int>> existingMethods = new Dictionary<string, List<int>>();
 
             // Find all the methods in the syntax tree
-            IEnumerable<MethodDeclarationSyntax> methods = rootNode.DescendantNodes().OfType<MethodDeclarationSyntax>();
+            IEnumerable<MethodDeclarationSyntax> methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
 
             // Iterate through the methods and find those with overloading
             foreach (MethodDeclarationSyntax method in methods)
@@ -553,7 +548,7 @@ namespace ProjetoA.Classes
                 string methodName = method.Identifier.ValueText;
 
                 // Get the line number where the method is defined
-                int lineNumber = method.GetLocation().GetLineSpan().StartLinePosition.Line;
+                int lineNumber = method.GetLocation().GetLineSpan().StartLinePosition.Line +1;
 
                 // Check if there are any existing methods with the same name
                 if (existingMethods.ContainsKey(methodName))
@@ -592,7 +587,13 @@ namespace ProjetoA.Classes
 
                         for (int i = 0; i < method.Value.Count; i++)
                         {
-                            table.Append($"{method.Value[i]}");
+                            table.Append($"<a href=\"#linha-numero{method.Value[i]}\" onclick=selecionar({method.Value[i]})>{method.Value[i]}</a>");
+                            //Vamos marcar esta linha como importante. Linha de Overloading
+
+                            if (!linhasImportantes.ContainsKey(method.Value[i]))
+                            {
+                                linhasImportantes[method.Value[i]] = 4;
+                            }
 
                             if (i + 1 < method.Value.Count)
                             {
@@ -619,7 +620,7 @@ namespace ProjetoA.Classes
             result.AppendLine("</div>");
 
             // Return the HTML report
-            return result;
+            return await Task.FromResult(result);
         }
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
@@ -646,6 +647,8 @@ namespace ProjetoA.Classes
         {
             foreach (var linha in linhasImportantes.Keys)
             {
+                /*Vamos pegar em todas as linhas importantes do código analisado e atribuir a cor que identifica que tipo 
+                de descoberta ela tem. Por exemplo: Cor Vermelha: Vulnerabilidade de Alto Risco, Cor Azul: Padrão de Mau Desempenho,etc*/
                 htmlBuilder.AppendLine($"modificarPadrao({linha},{linhasImportantes[linha]})");
             }
         }

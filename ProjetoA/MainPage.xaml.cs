@@ -40,7 +40,7 @@ namespace ProjetoA
 
         private void Input_KeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key == Windows.System.VirtualKey.Tab)
+            if (e.Key == VirtualKey.Tab)
             {
                 // Insira vários espaços à direita
                 var textBox = (TextBox)sender;
