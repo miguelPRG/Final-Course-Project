@@ -1,126 +1,219 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using System.Collections.Generic;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 public class DesempenhoAnalyzer
 {
-    public string Analyze(SyntaxTree syntaxTree)
+    public async Task<StringBuilder> AnalyzeCodeAsync(string code, string outputFile)
     {
-        var compilation = CSharpCompilation.Create("analysis").AddSyntaxTrees(syntaxTree);
+        // Create a syntax tree from the code
+        var syntaxTree = CSharpSyntaxTree.ParseText(code);
+
+        // Create a list to store the findings
+        var findings = new Dictionary<string, int[]>();
+
+        // Analyze the code for each pattern
+        await Task.WhenAll(
+            AnalyzeUnnecessaryObjectCreationAsync(syntaxTree, findings),
+            AnalyzeInefficientDataStructuresAsync(syntaxTree, findings),
+            AnalyzeLackOfInputValidationAsync(syntaxTree, findings),
+            AnalyzeExcessiveUseOfExceptionsAsync(syntaxTree, findings),
+            AnalyzeInefficientStringConcatenationAsync(syntaxTree, findings),
+            AnalyzeNotDisposingOfResourcesAsync(syntaxTree, findings),
+            AnalyzeNotUsingAsynchronousProgrammingAsync(syntaxTree, findings),
+            AnalyzeNotCachingDataAsync(syntaxTree, findings)
+        );
+
+        // Save the findings to an HTML table
+        StringBuilder table = new StringBuilder(null);
+
+        if (findings.Count() <= 0)
+        {
+            return await Task.FromResult(table);
+        }
+
+        table.AppendLine("<table>");
+        table.AppendLine("<tr><th>Pattern Name</th><th>Line Numbers</th></tr>");
+        table.AppendLine("<tr>");
+
+        foreach (var finding in findings)
+        {
+            table.Append($"<td>{finding.Key}</td><td>");
+
+            for (int i = 0; i < finding.Value.Count(); i++)
+            {
+                table.Append($"{finding.Value[i]}");
+
+                if (i + 1 < finding.Value.Count())
+                {
+                    table.Append(',');
+                }
+            }
+
+            table.Append("</td></tr>");
+        }
+
+        table.AppendLine("</table>");
+
+        return await Task.FromResult(table);
+    }
+
+    // Analyze for unnecessary object creation
+    private async Task AnalyzeUnnecessaryObjectCreationAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var objectCreationExpressions = syntaxTree.GetRoot().DescendantNodes().OfType<ObjectCreationExpressionSyntax>();
+        foreach (var expression in objectCreationExpressions)
+        {
+            if (IsUnnecessaryObjectCreation(expression))
+            {
+                findings["Unnecessary object creation"] = new[] { expression.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
+        }
+    }
+
+    // Analyze for inefficient data structures
+    private async Task AnalyzeInefficientDataStructuresAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var dataStructureDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<VariableDeclarationSyntax>();
+        foreach (var declaration in dataStructureDeclarations)
+        {
+            if (IsInefficientDataStructure(declaration))
+            {
+                findings["Inefficient data structure"] = new[] { declaration.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
+        }
+    }
+
+    // Analyze for lack of input validation
+    private async Task AnalyzeLackOfInputValidationAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var methodDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+        foreach (var method in methodDeclarations)
+        {
+            if (IsLackOfInputValidation(method))
+            {
+                findings["Lack of input validation"] = new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
+        }
+    }
+
+    // Analyze for excessive use of exceptions
+    private async Task AnalyzeExcessiveUseOfExceptionsAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var throwStatements = syntaxTree.GetRoot().DescendantNodes().OfType<ThrowStatementSyntax>();
+        foreach (var statement in throwStatements)
+        {
+            if (IsExcessiveUseOfExceptions(statement))
+            {
+                findings["Excessive use of exceptions"] = new[] { statement.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
+        }
+    }
+
+    // Analyze for inefficient string concatenation
+    private async Task AnalyzeInefficientStringConcatenationAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var stringConcatenations = syntaxTree.GetRoot().DescendantNodes().OfType<InterpolatedStringContentSyntax>();
+        foreach (var concatenation in stringConcatenations)
+        {
+            if (IsInefficientStringConcatenation(concatenation))
+            {
+                findings["Inefficient string concatenation"] = new[] { concatenation.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
+        }
+    }
+
+    // Analyze for not disposing of resources
+    private async Task AnalyzeNotDisposingOfResourcesAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var usingStatements = syntaxTree.GetRoot().DescendantNodes().OfType<UsingStatementSyntax>();
+        foreach (var statement in usingStatements)
+        {
+            if (IsNotDisposingOfResources(statement))
+            {
+                findings["Not disposing of resources"] = new[] { statement.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
+        }
+    }
+
+    private async Task AnalyzeNotUsingAsynchronousProgrammingAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var methodDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+        foreach (var method in methodDeclarations)
+        {
+            if (IsNotUsingAsynchronousProgramming(method))
+            {
+                findings["Not using asynchronous programming"] = new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
+        }
+    }
+
+    // Analyze for not caching data
+    private async Task AnalyzeNotCachingDataAsync(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    {
+        var compilation = CSharpCompilation.Create("DesempenhoAnalyzer");
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-        var findings = new StringBuilder();
-        findings.AppendLine("<table>");
-        findings.AppendLine("<tr><th>Pattern Name</th><th>Line numbers</th></tr>");
-
-        // Unnecessary object creation
-        var unnecessaryObjectCreationFindings = FindUnnecessaryObjectCreation(syntaxTree, semanticModel);
-        foreach (var finding in unnecessaryObjectCreationFindings)
+        var methodInvocations = syntaxTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>();
+        foreach (var invocation in methodInvocations)
         {
-            findings.AppendLine($"<tr><td>Unnecessary object creation</td><td>{finding}</td></tr>");
+            if (IsNotCachingData(invocation, semanticModel))
+            {
+                findings["Not caching data"] = new[] { invocation.GetLocation().GetLineSpan().StartLinePosition.Line };
+            }
         }
-
-        // Inefficient data structures
-        var inefficientDataStructuresFindings = FindInefficientDataStructures(syntaxTree, semanticModel);
-        foreach (var finding in inefficientDataStructuresFindings)
-        {
-            findings.AppendLine($"<tr><td>Inefficient data structures</td><td>{finding}</td></tr>");
-        }
-
-        // Lack of input validation
-        var lackOfInputValidationFindings = FindLackOfInputValidation(syntaxTree, semanticModel);
-        foreach (var finding in lackOfInputValidationFindings)
-        {
-            findings.AppendLine($"<tr><td>Lack of input validation</td><td>{finding}</td></tr>");
-        }
-
-        // Excessive use of exceptions
-        var excessiveUseOfExceptionsFindings = FindExcessiveUseOfExceptions(syntaxTree, semanticModel);
-        foreach (var finding in excessiveUseOfExceptionsFindings)
-        {
-            findings.AppendLine($"<tr><td>Excessive use of exceptions</td><td>{finding}</td></tr>");
-        }
-
-        // Inefficient string concatenation
-        var inefficientStringConcatenationFindings = FindInefficientStringConcatenation(syntaxTree, semanticModel);
-        foreach (var finding in inefficientStringConcatenationFindings)
-        {
-            findings.AppendLine($"<tr><td>Inefficient string concatenation</td><td>{finding}</td></tr>");
-        }
-
-        // Not disposing of resources
-        var notDisposingOfResourcesFindings = FindNotDisposingOfResources(syntaxTree, semanticModel);
-        foreach (var finding in notDisposingOfResourcesFindings)
-        {
-            findings.AppendLine($"<tr><td>Not disposing of resources</td><td>{finding}</td></tr>");
-        }
-
-        // Not using asynchronous programming
-        var notUsingAsynchronousProgrammingFindings = FindNotUsingAsynchronousProgramming(syntaxTree, semanticModel);
-        foreach (var finding in notUsingAsynchronousProgrammingFindings)
-        {
-            findings.AppendLine($"<tr><td>Not using asynchronous programming</td><td>{finding}</td></tr>");
-        }
-
-        // Not caching data
-        var notCachingDataFindings = FindNotCachingData(syntaxTree, semanticModel);
-        foreach (var finding in notCachingDataFindings)
-        {
-            findings.AppendLine($"<tr><td>Not caching data</td><td>{finding}</td></tr>");
-        }
-
-        findings.AppendLine("</table>");
-        return findings.ToString();
     }
 
-    // Implement the following methods to find each pattern
-    private IEnumerable<int> FindUnnecessaryObjectCreation(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    // Check if an object creation expression is unnecessary
+    private bool IsUnnecessaryObjectCreation(ObjectCreationExpressionSyntax expression)
     {
-        // TO DO: implement logic to find unnecessary object creation
-        throw new NotImplementedException();
+        return true;
     }
 
-    private IEnumerable<int> FindInefficientDataStructures(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    // Check if a data structure declaration is inefficient
+    private bool IsInefficientDataStructure(VariableDeclarationSyntax declaration)
     {
-        // TO DO: implement logic to find inefficient data structures
-        throw new NotImplementedException();
+        return true;
     }
 
-    private IEnumerable<int> FindLackOfInputValidation(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    // Check if a method declaration lacks input validation
+    private bool IsLackOfInputValidation(MethodDeclarationSyntax method)
     {
-        // TO DO: implement logic to find lack of input validation
-        throw new NotImplementedException();
+        return true;
     }
 
-    private IEnumerable<int> FindExcessiveUseOfExceptions(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    // Check if there is an excessive use of exceptions
+    private bool IsExcessiveUseOfExceptions(ThrowStatementSyntax statement)
     {
-        // TO DO: implement logic to find excessive use of exceptions
-        throw new NotImplementedException();
+        return true;
     }
 
-    private IEnumerable<int> FindInefficientStringConcatenation(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    // Check if a string concatenation is inefficient
+    private bool IsInefficientStringConcatenation(InterpolatedStringContentSyntax content)
     {
-        // TO DO: implement logic to find inefficient string concatenation
-        throw new NotImplementedException();
+      return true;
     }
 
-    private IEnumerable<int> FindNotDisposingOfResources(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    // Check if resources are not being disposed of
+    private bool IsNotDisposingOfResources(UsingStatementSyntax statement)
     {
-        // TO DO: implement logic to find not disposing of resources
-        throw new NotImplementedException();
+        return true;
     }
 
-    private IEnumerable<int> FindNotUsingAsynchronousProgramming(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    private bool IsNotUsingAsynchronousProgramming(MethodDeclarationSyntax method)
     {
-        // TO DO: implement logic to find not using asynchronous programming
-        throw new NotImplementedException();
+        return true;
     }
 
-    private IEnumerable<int> FindNotCachingData(SyntaxTree syntaxTree, SemanticModel semanticModel)
+    // Check if an invocation expression is not caching data
+    private bool IsNotCachingData(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
-        // TO DO: implement logic to find not caching data
-        throw new NotImplementedException();
+        return true;
     }
 }
