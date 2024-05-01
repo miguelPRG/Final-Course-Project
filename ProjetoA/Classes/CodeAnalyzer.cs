@@ -112,7 +112,6 @@ namespace ProjetoA.Classes
 
         static bool EncontrouErrosSintaxe(StringBuilder htmlBuilder, string code, out SyntaxTree syntaxTree)
         {
-
             try
             {
                 syntaxTree = CSharpSyntaxTree.ParseText(code);
