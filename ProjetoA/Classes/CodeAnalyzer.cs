@@ -58,7 +58,7 @@ namespace ProjetoA.Classes
             stopwatch.Start();
 
             // Verificar Sintaxe do código
-            if (EncontrouErrosSintaxe(htmlBuilder, code, out tree))
+            if (EncontrouErrosSintaxe(code, out tree))
             {
                 stopwatch.Stop();
 
@@ -110,7 +110,7 @@ namespace ProjetoA.Classes
             return await Task.FromResult(htmlBuilder.ToString());
         }
 
-        static bool EncontrouErrosSintaxe(StringBuilder htmlBuilder, string code, out SyntaxTree syntaxTree)
+        static bool EncontrouErrosSintaxe(string code, out SyntaxTree syntaxTree)
         {
             try
             {
