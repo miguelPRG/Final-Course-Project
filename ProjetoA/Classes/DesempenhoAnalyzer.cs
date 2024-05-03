@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,8 +28,7 @@ public class DesempenhoAnalyzer
             AnalyzeExcessiveUseOfExceptions,
             AnalyzeInefficientStringConcatenation,
             AnalyzeNotDisposingOfResources,
-            AnalyzeNotUsinghronousProgramming,
-            AnalyzeNotCachingData
+            AnalyzeNotUsingAsynchronousProgramming,
         };
 
         // Create a list to store the findings
@@ -150,72 +150,75 @@ public class DesempenhoAnalyzer
         {
             if (IsNotDisposingOfResources(statement))
             {
-              findings["Not disposing of resources"] = findings.TryGetValue("Not disposing of resources", out var lines)
+              findings["Não disposição de recursos"] = findings.TryGetValue("Não disposição de recursos", out var lines)
               ? lines.Concat(new[] { statement.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
               : new[] { statement.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
             }
         }
     }
-    void AnalyzeNotUsinghronousProgramming(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeNotUsingAsynchronousProgramming(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
     {
         var methodDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
         foreach (var method in methodDeclarations)
         {
             if (IsNotUsingAsynchronousProgramming(method))
             {
-                findings["Not using hronous programming"] = new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line };
-            }
-        }
-    }
-    void AnalyzeNotCachingData(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
-    {
-        var compilation = CSharpCompilation.Create("DesempenhoAnalyzer");
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-
-        var methodInvocations = syntaxTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>();
-        foreach (var invocation in methodInvocations)
-        {
-            if (IsNotCachingData(invocation, semanticModel))
-            {
-                findings["Not caching data"] = new[] { invocation.GetLocation().GetLineSpan().StartLinePosition.Line };
+              findings["Não utlização de programação assíncrona"] = findings.TryGetValue("Não utlização de programação assíncrona", out var lines)
+              ? lines.Concat(new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
+              : new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
             }
         }
     }
 
     bool IsUnnecessaryObjectCreation(ObjectCreationExpressionSyntax expression)
     {
-        // Verificar se o objeto criado é imediatamente atribuído a uma variável
+        // Check if the object is immediately assigned to a variable
         if (expression.Parent is AssignmentExpressionSyntax assignment)
         {
             var variable = assignment.Left as IdentifierNameSyntax;
             if (variable != null)
             {
-                // Verificar se a variável é usada apenas uma vez
+                // Check if the variable is used only once as a standalone statement
                 var usages = expression.SyntaxTree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
                    .Where(id => id.Identifier.ValueText == variable.Identifier.ValueText);
-                if (usages.Count() == 1)
+                var standaloneUsages = usages.Where(id => id.Parent is ExpressionStatementSyntax);
+                if (standaloneUsages.Count() == 1)
                 {
-                    return true; // Criação de objeto desnecessária
+                    return true; // Unnecessary object creation
                 }
             }
         }
-
-        // Verificar se o objeto criado é passado como parâmetro para um método
-        if (expression.Parent is ArgumentSyntax argument)
+        
+        else
         {
-            var methodCall = argument.Parent as InvocationExpressionSyntax;
-            if (methodCall != null)
+            // Check if the object is not used anywhere in the code
+            var usages = expression.SyntaxTree.GetRoot().DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
+               .Where(oc => oc == expression);
+            if (!usages.Any())
             {
-                // Verificar se o método não armazena o objeto criado em lugar algum
-                var methodSymbol = methodCall.Expression as IdentifierNameSyntax;
-                if (methodSymbol != null && methodSymbol.Identifier.ValueText == "MethodName")
+                return true; // Unnecessary object creation
+            }
+
+            // Check if the object creation occurs in unnecessary loops
+            ForStatementSyntax containingLoop = expression.Ancestors().OfType<ForStatementSyntax>().FirstOrDefault();
+            
+            if (containingLoop == null)
+            {
+               ForEachStatementSyntax containingLoop2 = expression.Ancestors().OfType<ForEachStatementSyntax>().FirstOrDefault();
+
+                if(containingLoop2 != null && (!containingLoop2.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Contains(expression)))
                 {
-                    return true; // Criação de objeto desnecessária
+                    return true;
                 }
+            }
+            
+            else if (containingLoop != null && (!containingLoop.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Contains(expression)))
+            {
+                return true; // Unnecessary object creation
             }
         }
 
-        return false; // Criação de objeto necessária
+        return false;
     }
     bool IsInefficientDataStructure(VariableDeclarationSyntax declaration)
     {
@@ -263,30 +266,28 @@ public class DesempenhoAnalyzer
             return true; // Se o método não tiver corpo, assume-se que não há validação de entrada
         }
 
-        // Verificar se há chamadas a métodos de validação de entrada (e.g. string.IsNullOrEmpty, int.TryParse, etc.)
+        // Verificar se há chamadas a métodos de validação de entrada
         var validationMethods = new[] { "string.IsNullOrEmpty", "int.TryParse", "long.TryParse", "bool.TryParse", "double.TryParse", "DateTime.TryParse" };
         var validationCalls = methodBody.DescendantNodes().OfType<InvocationExpressionSyntax>()
-           .Where(i => validationMethods.Contains(i.Expression.ToString()));
-        if (validationCalls.Any())
+            .Select(invocation => invocation.Expression.ToString())
+            .Any(expression => validationMethods.Any(m => expression.Contains(m)));
+
+        if (validationCalls)
         {
             return false; // Se há chamadas a métodos de validação de entrada, assume-se que há validação de entrada
         }
 
-        // Verificar se há verificações de condição (e.g. if (input == null) {... })
-        var conditionals = methodBody.DescendantNodes().OfType<IfStatementSyntax>();
-        foreach (var conditional in conditionals)
+        // Verificar se há verificações de condição de validação de entrada
+        var conditionals = methodBody.DescendantNodes().OfType<BinaryExpressionSyntax>()
+            .Where(binaryExpression => binaryExpression.IsKind(SyntaxKind.EqualsExpression) || binaryExpression.IsKind(SyntaxKind.NotEqualsExpression))
+            .Select(binaryExpression => (binaryExpression.Left, binaryExpression.Right))
+            .Any(pair => pair.Left is IdentifierNameSyntax identifier &&
+                         method.ParameterList.Parameters.Any(parameter => parameter.Identifier.Text == identifier.Identifier.Text) &&
+                         pair.Right.IsKind(SyntaxKind.NullLiteralExpression));
+
+        if (conditionals)
         {
-            var condition = conditional.Condition;
-            if (condition is BinaryExpressionSyntax binaryExpression)
-            {
-                var left = binaryExpression.Left;
-                var right = binaryExpression.Right;
-                if (left is IdentifierNameSyntax identifier && identifier.Identifier.Text == "input" &&
-                    right is LiteralExpressionSyntax literal && literal.Token.ValueText == "null")
-                {
-                    return false; // Se há uma verificação de condição que checa se o input é nulo, assume-se que há validação de entrada
-                }
-            }
+            return false; // Se há uma verificação de condição que checa se o input é nulo, assume-se que há validação de entrada
         }
 
         // Se não há nenhuma lógica de validação de entrada, retorna true
@@ -300,27 +301,29 @@ public class DesempenhoAnalyzer
             if (parent is TryStatementSyntax)
             {
                 var tryBlock = (TryStatementSyntax)parent;
-                if (tryBlock.Catches.Count == 0 && tryBlock.Block.Statements.Count == 1 && tryBlock.Block.Statements[0] == statement)
+                // Check for empty try block
+                if (tryBlock.Block.Statements.Count == 0)
+                {
+                    return true;
+                }
+                // Check for try blocks with no catch clauses
+                if (tryBlock.Catches.Count == 0)
                 {
                     var expression = statement.Expression;
-                    TypeSyntax exceptionType = null;
-                    
                     if (expression is ObjectCreationExpressionSyntax objectCreation)
                     {
-                        exceptionType = objectCreation.Type;
-                    }
-                    else if (expression is IdentifierNameSyntax identifierName)
-                    {
-                        exceptionType = identifierName;
-                    }
-                    
-                    if (exceptionType != null)
-                    {
-                        var typeName = exceptionType.ToString();
+                        var typeName = objectCreation.Type.ToString();
+                        // Check for specific exception types
                         if (typeName == "Exception" || typeName == "ApplicationException")
                         {
                             return true;
                         }
+                        // Add checks for more specific exception types if needed
+                    }
+                    // Check for throw statements without exception type (re-throw)
+                    else if (expression == null)
+                    {
+                        return true;
                     }
                 }
                 break;
@@ -335,7 +338,7 @@ public class DesempenhoAnalyzer
         var parent = concatenation.Parent;
         while (parent != null)
         {
-            if (parent is ForStatementSyntax || parent is WhileStatementSyntax || parent is DoStatementSyntax)
+            if (parent is ForStatementSyntax || parent is WhileStatementSyntax || parent is DoStatementSyntax || parent is ForEachStatementSyntax)
             {
                 return true;
             }
@@ -352,22 +355,78 @@ public class DesempenhoAnalyzer
                 concatenationCount++;
             }
         }
-        return concatenationCount >3; // ajuste o valor de acordo com a sua necessidade
-    }
-    bool IsNotDisposingOfResources(UsingStatementSyntax usingStatement)
-    {
-        return true;
-    }
 
+        if (concatenationCount > 3) // ajuste o valor de acordo com a sua necessidade
+        {
+            return true;
+        }
+        
+        // Verificar se a concatenação envolve uma string literal longa
+        var literals = concatenation.DescendantNodes().OfType<LiteralExpressionSyntax>();
+        foreach (var literal in literals)
+        {
+            if (literal.IsKind(SyntaxKind.StringLiteralExpression) && literal.Token.ValueText.Length > 50) // ajuste o comprimento conforme necessário
+            {
+                return true;
+            }
+        }
 
-    private bool IsNotUsingAsynchronousProgramming(MethodDeclarationSyntax method)
-    {
-        return true;
+        return false;
     }
-
-    // Check if an invocation expression is not caching data
-    private bool IsNotCachingData(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    bool IsNotDisposingOfResources(UsingStatementSyntax statement)
     {
-        return true;
+        // Verifica se há declarações de variáveis dentro do bloco using
+        var declaration = statement.Declaration;
+        if (declaration != null)
+        {
+            foreach (var variable in declaration.Variables)
+            {
+                // Verifica se a variável não está sendo inicializada com null
+                if (!variable.Initializer.Value.IsKind(SyntaxKind.NullLiteralExpression))
+                {
+                    return true; // Recurso não está sendo descartado corretamente
+                }
+            }
+        }
+
+        // Verifica se há expressões de recurso no bloco using
+        var expression = statement.Expression;
+        if (expression != null)
+        {
+            // Verifica se a expressão não é nula
+            if (!expression.IsKind(SyntaxKind.NullLiteralExpression))
+            {
+                return true; // Recurso não está sendo descartado corretamente
+            }
+
+            // Verifica se a expressão é uma chamada de método
+            if (expression is InvocationExpressionSyntax invocation)
+            {
+                // Verifica se o método chamado é um método de abertura de arquivo, como File.Open()
+                var methodName = invocation.Expression.ToString();
+                if (methodName.Equals("File.Open"))
+                {
+                    return true; // Recurso não está sendo descartado corretamente
+                }
+            }
+        }
+
+        return false; // Não foram encontrados problemas de falta de disposição de recursos
+    }
+    bool IsNotUsingAsynchronousProgramming(MethodDeclarationSyntax method)
+    {
+        var methodBody = method.Body;
+        if (methodBody == null)
+        {
+            // Se o método não tem corpo, não pode usar programação assíncrona
+            return false;
+        }
+
+        // Verifica se há chamadas assíncronas dentro do corpo do método
+        var asyncCalls = methodBody.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Any(invocation => invocation.Expression is IdentifierNameSyntax identifier &&
+                                identifier.Identifier.Text.EndsWith("Async"));
+
+        return !asyncCalls;
     }
 }

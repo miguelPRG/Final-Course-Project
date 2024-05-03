@@ -21,6 +21,7 @@ using Windows.Devices.Power;
 using System.Reflection;
 using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace ProjetoA.Classes
 {
@@ -112,28 +113,26 @@ namespace ProjetoA.Classes
 
         static bool EncontrouErrosSintaxe(string code, out SyntaxTree syntaxTree)
         {
+            syntaxTree = null;
+
             try
             {
                 syntaxTree = CSharpSyntaxTree.ParseText(code);
             }
             catch (Exception)
             {
-                syntaxTree = null;
-                return true;
+                return true; // Houve um erro ao analisar a sintaxe
             }
 
             var diagnostics = syntaxTree.GetDiagnostics();
 
-            if (diagnostics.Count() != 0)
+            // Verifica se há erros de diagnóstico na árvore de sintaxe
+            if (diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
             {
-                return true;
+                return true; // Há erros de sintaxe
             }
 
-            else
-            {
-                return false;
-            }
-
+            return false; // Não há erros de sintaxe
         }
 
         static Dictionary<string, List<int>> GuardarEmDicionario(string[] linhasSeparadas)
