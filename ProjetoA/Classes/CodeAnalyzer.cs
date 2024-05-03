@@ -23,22 +23,29 @@ using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Diagnostics;
 
+
+/*A FAZER: 
+ 
+ 1-> Para comparar o código é preferivel utilizar um ficheiro externo onde estão guardados os dados de teste
+ 2-> O Programa deve ter a capacidade de analisar uma pasta inteira que contenha ficheiros de código C#
+ 3-> A análise de precisão do programa não é feita aqui e sim no relatório final depois de ter todos os resultados da análise de vulnerabilidades
+ 4-> Implementar o código com uma SyntaxTree
+ 5-> Fazer o relatório do projeto
+ */
+
+
 namespace ProjetoA.Classes
 {
     public class CodeAnalyzer
     {
         /*Linhas onde forem encontradas descobertas importantes na análise do código. Estas linhas estarão destacadas no
         código apresentado no relatório*/
-        static ConcurrentDictionary<int, int> linhasImportantes = new ConcurrentDictionary<int, int>();
-        public CodeAnalyzer()
-        {
-            linhasImportantes = new ConcurrentDictionary<int, int>();
 
-        }
+        static ConcurrentDictionary<int, int> linhasImportantes = new ConcurrentDictionary<int, int>();
 
         public static async Task<string> GerarRelatorioHTML(string code)
         {
-            var htmlBuilder = new StringBuilder();
+            var htmlBuilder = new StringBuilder(); 
 
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -238,6 +245,7 @@ namespace ProjetoA.Classes
             // Inicia as tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
             Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
+            //Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
             Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
 
@@ -466,6 +474,33 @@ namespace ProjetoA.Classes
             }
         
         }
+        
+
+        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxTree tree)
+        {
+            StringBuilder htmlBuilder = new StringBuilder();
+
+            htmlBuilder.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
+            htmlBuilder.AppendLine($"<h2>Análise de Padrões de Mau Desempenho</h2>");
+
+            var desempenho = new DesempenhoAnalyzer();
+
+            StringBuilder tabela = await desempenho.AnalyzeCodeAsync(tree, linhasImportantes);
+
+            if(tabela.ToString() == null)
+            {
+                htmlBuilder.Append("<h3>Não foi encontrado qualquer tipo de padrão de mau desempenho!</h3>");
+            }
+
+            else
+            {
+                htmlBuilder.Append(tabela);
+            }
+
+            htmlBuilder.AppendLine("</div>");
+
+            return await Task.FromResult(htmlBuilder);
+        }*/
 
         static async Task<StringBuilder> AnaliseOverloading(SyntaxTree tree)
         {

@@ -28,7 +28,7 @@ using System.Security.Cryptography;
 
 /*A FAZER: 
  
- A função que determina a precisão entre a string e a expressão Regex não está a funcionar corretamente
+ 1->
  
  */
 

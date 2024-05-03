@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,7 +19,7 @@ public class DesempenhoAnalyzer
 {
     delegate void AnaliseDesempenho(SyntaxTree syntaxTree, Dictionary<string, int[]> findings);
 
-    public async Task<StringBuilder> AnalyzeCodeAsync(SyntaxTree syntaxTree)
+    public async Task<StringBuilder> AnalyzeCodeAsync(SyntaxTree syntaxTree, ConcurrentDictionary<int, int> linhasImportantes)
     {
         AnaliseDesempenho[] analisesDesempenho =
         {
@@ -62,7 +63,9 @@ public class DesempenhoAnalyzer
 
             for (int i = 0; i < finding.Value.Count(); i++)
             {
-                table.Append($"{finding.Value[i]}");
+                table.Append($"<a href=\"#linha-numero{finding.Value[i]}\" onclick=selecionar({finding.Value[i]})>{finding.Value[i]}</a>");
+
+                linhasImportantes[finding.Value[i]] = 3;
 
                 if (i + 1 < finding.Value.Count())
                 {
