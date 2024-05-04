@@ -19,17 +19,17 @@ public class DesempenhoAnalyzer
 {
     delegate void AnaliseDesempenho(SyntaxTree syntaxTree, Dictionary<string, int[]> findings);
 
-    public async Task<StringBuilder> AnalyzeCodeAsync(SyntaxTree syntaxTree, ConcurrentDictionary<int, int> linhasImportantes)
+    public StringBuilder AnalyzeCodeAsync(SyntaxTree syntaxTree, ConcurrentDictionary<int, int> linhasImportantes)
     {
         AnaliseDesempenho[] analisesDesempenho =
         {
-            AnalyzeUnnecessaryObjectCreation,
+            AnalyzeUnnecessaryVariableCreation,
             AnalyzeInefficientDataStructures,
             AnalyzeLackOfInputValidation,
             AnalyzeExcessiveUseOfExceptions,
             AnalyzeInefficientStringConcatenation,
             AnalyzeNotDisposingOfResources,
-            AnalyzeNotUsingAsynchronousProgramming,
+            //AnalyzeNotUsingAsynchronousProgramming,
         };
 
         // Create a list to store the findings
@@ -38,19 +38,23 @@ public class DesempenhoAnalyzer
         // Analyze the code for each pattern
         List<Task> tasks = new List<Task>();
 
-        for(int i = 0; i < analisesDesempenho.Count(); i++)
-        {
-            tasks.Add(Task.Run(() => analisesDesempenho[i](syntaxTree,findings)));
-        }
+        AnalyzeInefficientDataStructures(syntaxTree, findings);
 
-        await Task.WhenAll(tasks);
+        /*foreach (var func in analisesDesempenho)
+        {
+            tasks.Add(Task.Run(() => func(syntaxTree, findings)));   
+        }*/
+
+        //await Task.WhenAll(tasks);
 
         // Save the findings to an HTML table
         StringBuilder table = new StringBuilder(null);
 
         if (findings.Count() <= 0)
         {
-            return await Task.FromResult(table);
+            //return await Task.FromResult(table);
+
+            return table;
         }
 
         table.AppendLine("<table>");
@@ -61,13 +65,13 @@ public class DesempenhoAnalyzer
         {
             table.Append($"<td>{finding.Key}</td><td>");
 
-            for (int i = 0; i < finding.Value.Count(); i++)
+            for (int j = 0; j < finding.Value.Count(); j++)
             {
-                table.Append($"<a href=\"#linha-numero{finding.Value[i]}\" onclick=selecionar({finding.Value[i]})>{finding.Value[i]}</a>");
+                table.Append($"<a href=\"#linha-numero{finding.Value[j]}\" onclick=selecionar({finding.Value[j]})>{finding.Value[j]}</a>");
 
-                linhasImportantes[finding.Value[i]] = 3;
+                linhasImportantes[finding.Value[j]] = 3;
 
-                if (i + 1 < finding.Value.Count())
+                if (j + 1 < finding.Value.Count())
                 {
                     table.Append(',');
                 }
@@ -78,32 +82,43 @@ public class DesempenhoAnalyzer
 
         table.AppendLine("</table>");
 
-        return await Task.FromResult(table);
+        //return await Task.FromResult(table);
+        return table;
     }
 
-    void AnalyzeUnnecessaryObjectCreation(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeUnnecessaryVariableCreation(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
     {
-        var objectCreationExpressions = syntaxTree.GetRoot().DescendantNodes().OfType<ObjectCreationExpressionSyntax>();
-        foreach (var expression in objectCreationExpressions)
+        var variableDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<VariableDeclarationSyntax>();
+        foreach (var declaration in variableDeclarations)
         {
-            if (IsUnnecessaryObjectCreation(expression))
+            foreach (var variable in declaration.Variables)
             {
-                findings["Unnecessary object creation"] = findings.TryGetValue("Unnecessary object creation", out var lines)
-                ? lines.Concat(new[] { expression.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
-                : new[] { expression.GetLocation().GetLineSpan().StartLinePosition.Line +1 };
+                if (IsUnnecessaryVariableCreation(variable, syntaxTree))
+                {
+                    findings["Criação Desnecessária de Variaveis"] = findings.TryGetValue("Criação Desnecessária de Variaveis", out var lines)
+                        ? lines.Concat(new[] { variable.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
+                        : new[] { variable.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
+                }
             }
         }
     }
-    void AnalyzeInefficientDataStructures(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    static void AnalyzeInefficientDataStructures(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
     {
         var dataStructureDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<VariableDeclarationSyntax>();
         foreach (var declaration in dataStructureDeclarations)
         {
-            if (IsInefficientDataStructure(declaration))
+            var type = declaration.Type.ToString();
+            if (IsInefficientDataStructure(type))
             {
-                findings["Inefficient data structure"] = findings.TryGetValue("Inefficient data structure", out var lines)
-                ? lines.Concat(new[] { declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
-                : new[] { declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
+                var line = declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                if (findings.TryGetValue("Estrutura de Dados Ineficiente", out var lines))
+                {
+                    findings["Estrutura de Dados Ineficiente"] = lines.Concat(new[] { line }).ToArray();
+                }
+                else
+                {
+                    findings["Estrutura de Dados Ineficiente"] = new[] { line };
+                }
             }
         }
     }
@@ -114,7 +129,7 @@ public class DesempenhoAnalyzer
         {
             if (IsLackOfInputValidation(method))
             {
-               findings["Lack of input validation"] = findings.TryGetValue("Lack of input validation", out var lines)
+               findings["Falta de validação de Input"] = findings.TryGetValue("Falta de validação de Input", out var lines)
                ? lines.Concat(new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
                : new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
             }
@@ -127,7 +142,7 @@ public class DesempenhoAnalyzer
         {
             if (IsExcessiveUseOfExceptions(statement))
             {
-               findings["Excessive use of exceptions"] = findings.TryGetValue("Excessive use of exceptions", out var lines)
+               findings["Uso excessivo de exceções"] = findings.TryGetValue("Uso excessivo de exceções", out var lines)
                ? lines.Concat(new[] { statement.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
                : new[] { statement.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
             }
@@ -140,7 +155,7 @@ public class DesempenhoAnalyzer
         {
             if (IsInefficientStringConcatenation(concatenation))
             {
-               findings["Inefficient string concatenation"] = findings.TryGetValue("Inefficient string concatenation", out var lines)
+               findings["Concatenação de string ineficiente"] = findings.TryGetValue("Concatenação de string ineficiente\"", out var lines)
                ? lines.Concat(new[] { concatenation.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
                : new[] { concatenation.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
             }
@@ -159,7 +174,7 @@ public class DesempenhoAnalyzer
             }
         }
     }
-    void AnalyzeNotUsingAsynchronousProgramming(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    /*void AnalyzeNotUsingAsynchronousProgramming(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
     {
         var methodDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
         foreach (var method in methodDeclarations)
@@ -171,88 +186,45 @@ public class DesempenhoAnalyzer
               : new[] { method.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
             }
         }
-    }
+    }*/
 
-    bool IsUnnecessaryObjectCreation(ObjectCreationExpressionSyntax expression)
+    private bool IsUnnecessaryVariableCreation(VariableDeclaratorSyntax variable, SyntaxTree syntaxTree)
     {
-        // Check if the object is immediately assigned to a variable
-        if (expression.Parent is AssignmentExpressionSyntax assignment)
-        {
-            var variable = assignment.Left as IdentifierNameSyntax;
-            if (variable != null)
-            {
-                // Check if the variable is used only once as a standalone statement
-                var usages = expression.SyntaxTree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
-                   .Where(id => id.Identifier.ValueText == variable.Identifier.ValueText);
-                var standaloneUsages = usages.Where(id => id.Parent is ExpressionStatementSyntax);
-                if (standaloneUsages.Count() == 1)
-                {
-                    return true; // Unnecessary object creation
-                }
-            }
-        }
-        
-        else
-        {
-            // Check if the object is not used anywhere in the code
-            var usages = expression.SyntaxTree.GetRoot().DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
-               .Where(oc => oc == expression);
-            if (!usages.Any())
-            {
-                return true; // Unnecessary object creation
-            }
+        var initializer = variable.Initializer;
+        if (initializer == null)
+            return false;
 
-            // Check if the object creation occurs in unnecessary loops
-            ForStatementSyntax containingLoop = expression.Ancestors().OfType<ForStatementSyntax>().FirstOrDefault();
-            
-            if (containingLoop == null)
-            {
-               ForEachStatementSyntax containingLoop2 = expression.Ancestors().OfType<ForEachStatementSyntax>().FirstOrDefault();
+        var variableName = variable.Identifier.ValueText;
 
-                if(containingLoop2 != null && (!containingLoop2.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Contains(expression)))
-                {
-                    return true;
-                }
-            }
-            
-            else if (containingLoop != null && (!containingLoop.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Contains(expression)))
-            {
-                return true; // Unnecessary object creation
-            }
-        }
+        // Verifica se a variável é usada apenas uma vez como uma declaração de expressão independente
+        var usages = syntaxTree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Where(id => id.Identifier.ValueText == variableName);
+        var standaloneUsages = usages.Where(id => id.Parent is ExpressionStatementSyntax || id.Parent is ArgumentSyntax);
 
-        return false;
+        return standaloneUsages.Count() <=2;
     }
-    bool IsInefficientDataStructure(VariableDeclarationSyntax declaration)
+    static bool IsInefficientDataStructure(string typeName)
     {
-        var initializer = declaration.Parent as EqualsValueClauseSyntax;
-        if (initializer != null)
+
+        int genericStartIndex = typeName.IndexOf('<');
+        if (genericStartIndex != -1)
         {
-            var objectCreation = initializer.Parent as ObjectCreationExpressionSyntax;
-            if (objectCreation != null)
-            {
-                var type = objectCreation.Type;
-                if (type is IdentifierNameSyntax identifierName)
-                {
-                    var typeName = identifierName.Identifier.ValueText;
-                    // Check if the type is an inefficient data structure
-                    switch (typeName)
-                    {
-                        case "ArrayList":
-                        case "Hashtable":
-                        case "Queue":
-                        case "Stack":
-                        case "ConcurrentDictionary":
-                            // These are considered inefficient data structures
-                            return true;
-                        default:
-                            // Other types are not considered inefficient
-                            return false;
-                    }
-                }
-            }
+            typeName = typeName.Substring(0, genericStartIndex);
         }
-        return false;
+
+        switch (typeName)
+        {
+            case "ArrayList":
+            case "Hashtable":
+            case "Queue":
+            case "Stack":
+            case "ConcurrentDictionary":
+                // These are considered inefficient data structures
+                return true;
+            default:
+                // Other types are not considered inefficient
+                return false;
+        }
     }
     bool IsLackOfInputValidation(MethodDeclarationSyntax method)
     {
@@ -416,7 +388,7 @@ public class DesempenhoAnalyzer
 
         return false; // Não foram encontrados problemas de falta de disposição de recursos
     }
-    bool IsNotUsingAsynchronousProgramming(MethodDeclarationSyntax method)
+   /* bool IsNotUsingAsynchronousProgramming(MethodDeclarationSyntax method)
     {
         var methodBody = method.Body;
         if (methodBody == null)
@@ -431,5 +403,5 @@ public class DesempenhoAnalyzer
                                 identifier.Identifier.Text.EndsWith("Async"));
 
         return !asyncCalls;
-    }
+    }*/
 }

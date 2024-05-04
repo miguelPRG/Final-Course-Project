@@ -82,13 +82,13 @@ namespace ProjetoA.Classes
 
             //Preparamos o Menu de Navegação no Relatório
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
-                "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
+                "<li><a onclick=mostrarSecao('analise-vulnerabilidade')>Análise de Vulnerabilidade</a></li>\r\n    " +
                // "<li><a onclick=\"mostrarSecao('analise-dependencias')\">Análise de Dependências</a></li>\r\n   " +
-                "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
-                "<li><a onclick=\"mostrarSecao('overloading')\">Análise de OverLoading</a></li>\r\n    " +
-                "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
-                "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
-                "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
+                "<li><a onclick=mostrarSecao('mau-desempenho')>Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
+                "<li><a onclick=mostrarSecao('overloading')>Análise de OverLoading</a></li>\r\n    " +
+                "<li><a onclick=mostrarSecao('concorrencia')>Análise de Concorrência</a></li>\r\n    " +
+                "<li><a onclick=mostrarSecao('complexidade-ciclomatica')>Complexidade Ciclomática</a></li>\r\n   " +
+                "<li><a onclick=mostrarSecao('tempo')>Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</ul></div>");
 
             //Este é o método principal que analisa o código inteiro
@@ -244,20 +244,20 @@ namespace ProjetoA.Classes
         {
             // Inicia as tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
-            Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
-            //Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
+            //Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
+            StringBuilder taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
             Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,/*taskAnalisarDependencias,*/taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
 
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
             resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
-            resultadoFinal.Append(taskAnalisarDependencias.Result);
+            resultadoFinal.Append(taskAnalisarDependencias);
             resultadoFinal.Append(taskAnalisarOverloading.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
@@ -348,7 +348,7 @@ namespace ProjetoA.Classes
 
         }
         
-        static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
+        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
         {
             var result = new StringBuilder();
             result.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
@@ -407,7 +407,7 @@ namespace ProjetoA.Classes
             result.AppendLine("</div>");
 
             return await Task.FromResult(result);
-        }
+        }*/
         static async Task<StringBuilder> VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
         {
             var patternName = pattern.Key;
@@ -476,7 +476,7 @@ namespace ProjetoA.Classes
         }
         
 
-        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxTree tree)
+        static  StringBuilder IdentificarPraticasDesempenho(SyntaxTree tree)
         {
             StringBuilder htmlBuilder = new StringBuilder();
 
@@ -485,7 +485,7 @@ namespace ProjetoA.Classes
 
             var desempenho = new DesempenhoAnalyzer();
 
-            StringBuilder tabela = await desempenho.AnalyzeCodeAsync(tree, linhasImportantes);
+            StringBuilder tabela = desempenho.AnalyzeCodeAsync(tree, linhasImportantes);
 
             if(tabela.ToString() == null)
             {
@@ -499,8 +499,10 @@ namespace ProjetoA.Classes
 
             htmlBuilder.AppendLine("</div>");
 
-            return await Task.FromResult(htmlBuilder);
-        }*/
+            return htmlBuilder;
+        
+            //return  await Task.FromResult<StringBuilder>(htmlBuilder);
+        }
 
         static async Task<StringBuilder> AnaliseOverloading(SyntaxTree tree)
         {
