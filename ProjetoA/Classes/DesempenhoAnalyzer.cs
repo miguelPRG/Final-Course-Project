@@ -19,7 +19,7 @@ public class DesempenhoAnalyzer
 {
     delegate void AnaliseDesempenho(SyntaxTree syntaxTree, Dictionary<string, int[]> findings);
 
-    public StringBuilder AnalyzeCodeAsync(SyntaxTree syntaxTree, ConcurrentDictionary<int, int> linhasImportantes)
+    public async Task<StringBuilder> AnalyzeCodeAsync(SyntaxTree syntaxTree, ConcurrentDictionary<int, int> linhasImportantes)
     {
         AnaliseDesempenho[] analisesDesempenho =
         {
@@ -38,23 +38,19 @@ public class DesempenhoAnalyzer
         // Analyze the code for each pattern
         List<Task> tasks = new List<Task>();
 
-        AnalyzeInefficientDataStructures(syntaxTree, findings);
-
-        /*foreach (var func in analisesDesempenho)
+        foreach (var func in analisesDesempenho)
         {
             tasks.Add(Task.Run(() => func(syntaxTree, findings)));   
-        }*/
+        }
 
-        //await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks);
 
         // Save the findings to an HTML table
         StringBuilder table = new StringBuilder(null);
 
         if (findings.Count() <= 0)
         {
-            //return await Task.FromResult(table);
-
-            return table;
+            return await Task.FromResult(table); 
         }
 
         table.AppendLine("<table>");
@@ -82,8 +78,8 @@ public class DesempenhoAnalyzer
 
         table.AppendLine("</table>");
 
-        //return await Task.FromResult(table);
-        return table;
+        return await Task.FromResult(table);
+       
     }
 
     void AnalyzeUnnecessaryVariableCreation(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
@@ -102,7 +98,7 @@ public class DesempenhoAnalyzer
             }
         }
     }
-    static void AnalyzeInefficientDataStructures(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeInefficientDataStructures(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
     {
         var dataStructureDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<VariableDeclarationSyntax>();
         foreach (var declaration in dataStructureDeclarations)
@@ -155,9 +151,9 @@ public class DesempenhoAnalyzer
         {
             if (IsInefficientStringConcatenation(concatenation))
             {
-               findings["Concatenação de string ineficiente"] = findings.TryGetValue("Concatenação de string ineficiente\"", out var lines)
-               ? lines.Concat(new[] { concatenation.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
-               : new[] { concatenation.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
+                findings["Concatenação de string ineficiente"] = findings.TryGetValue("Concatenação de string ineficiente\"", out var lines)
+                ? lines.Concat(new[] { concatenation.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
+                : new[] { concatenation.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
             }
         }
     }
@@ -188,7 +184,7 @@ public class DesempenhoAnalyzer
         }
     }*/
 
-    private bool IsUnnecessaryVariableCreation(VariableDeclaratorSyntax variable, SyntaxTree syntaxTree)
+    bool IsUnnecessaryVariableCreation(VariableDeclaratorSyntax variable, SyntaxTree syntaxTree)
     {
         var initializer = variable.Initializer;
         if (initializer == null)
@@ -203,7 +199,7 @@ public class DesempenhoAnalyzer
 
         return standaloneUsages.Count() <=2;
     }
-    static bool IsInefficientDataStructure(string typeName)
+    bool IsInefficientDataStructure(string typeName)
     {
 
         int genericStartIndex = typeName.IndexOf('<');
@@ -265,6 +261,17 @@ public class DesempenhoAnalyzer
             return false; // Se há uma verificação de condição que checa se o input é nulo, assume-se que há validação de entrada
         }
 
+        var fileOperations = methodBody.DescendantNodes().OfType<InvocationExpressionSyntax>()
+        .Where(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                          (memberAccess.Name.ToString().Equals("ReadAllText") || memberAccess.Name.ToString().Equals("WriteAllText")
+                          || memberAccess.Name.ToString().Equals("IsNullOrEmpty")));
+
+
+        if (fileOperations.Any())
+        {
+            return false; // Se houver operações de leitura/escrita de arquivos sem validação de entrada, retorna falso
+        }
+
         // Se não há nenhuma lógica de validação de entrada, retorna true
         return true;
     }
@@ -273,34 +280,20 @@ public class DesempenhoAnalyzer
         var parent = statement.Parent;
         while (parent != null)
         {
-            if (parent is TryStatementSyntax)
+            if (parent is TryStatementSyntax tryStatement)
             {
-                var tryBlock = (TryStatementSyntax)parent;
-                // Check for empty try block
-                if (tryBlock.Block.Statements.Count == 0)
+                // Verifica se há apenas um bloco catch
+                if (tryStatement.Catches.Count > 1)
                 {
                     return true;
                 }
-                // Check for try blocks with no catch clauses
-                if (tryBlock.Catches.Count == 0)
+
+                // Verifica se o bloco try está vazio
+                if (tryStatement.Block.Statements.Count == 0)
                 {
-                    var expression = statement.Expression;
-                    if (expression is ObjectCreationExpressionSyntax objectCreation)
-                    {
-                        var typeName = objectCreation.Type.ToString();
-                        // Check for specific exception types
-                        if (typeName == "Exception" || typeName == "ApplicationException")
-                        {
-                            return true;
-                        }
-                        // Add checks for more specific exception types if needed
-                    }
-                    // Check for throw statements without exception type (re-throw)
-                    else if (expression == null)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
+
                 break;
             }
             parent = parent.Parent;
@@ -335,7 +328,7 @@ public class DesempenhoAnalyzer
         {
             return true;
         }
-        
+
         // Verificar se a concatenação envolve uma string literal longa
         var literals = concatenation.DescendantNodes().OfType<LiteralExpressionSyntax>();
         foreach (var literal in literals)

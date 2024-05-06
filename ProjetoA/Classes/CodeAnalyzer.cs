@@ -244,13 +244,13 @@ namespace ProjetoA.Classes
         {
             // Inicia as tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
-            //Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(lines);
-            StringBuilder taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
+            Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
+            //StringBuilder taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
             Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,/*taskAnalisarDependencias,*/taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
@@ -476,7 +476,7 @@ namespace ProjetoA.Classes
         }
         
 
-        static  StringBuilder IdentificarPraticasDesempenho(SyntaxTree tree)
+        static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxTree tree)
         {
             StringBuilder htmlBuilder = new StringBuilder();
 
@@ -485,7 +485,7 @@ namespace ProjetoA.Classes
 
             var desempenho = new DesempenhoAnalyzer();
 
-            StringBuilder tabela = desempenho.AnalyzeCodeAsync(tree, linhasImportantes);
+            StringBuilder tabela = await desempenho.AnalyzeCodeAsync(tree, linhasImportantes);
 
             if(tabela.ToString() == null)
             {
@@ -499,9 +499,8 @@ namespace ProjetoA.Classes
 
             htmlBuilder.AppendLine("</div>");
 
-            return htmlBuilder;
         
-            //return  await Task.FromResult<StringBuilder>(htmlBuilder);
+            return  await Task.FromResult<StringBuilder>(htmlBuilder);
         }
 
         static async Task<StringBuilder> AnaliseOverloading(SyntaxTree tree)
