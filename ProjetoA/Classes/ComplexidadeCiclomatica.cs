@@ -7,11 +7,11 @@ namespace ProjetoA.Classes
 {
     class ComplexidadeCiclomatica
     {
-        public static async Task<int> CalcularComplexidadeCiclomatica(SyntaxTree tree)
+        public static async Task<int> CalcularComplexidadeCiclomatica(SyntaxNode root)
         {
             // Aguarda por 100 milissegundos de forma assíncrona
             var complexityWalker = new ComplexityWalker();
-            complexityWalker.Visit(tree.GetRoot());
+            complexityWalker.Visit(root);
             return await Task.FromResult(complexityWalker.Complexity);
         }
 

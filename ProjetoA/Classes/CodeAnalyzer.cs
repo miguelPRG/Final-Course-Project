@@ -91,8 +91,10 @@ namespace ProjetoA.Classes
                 "<li><a onclick=mostrarSecao('tempo')>Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</ul></div>");
 
+            var root = tree.GetRoot();
+
             //Este é o método principal que analisa o código inteiro
-            StringBuilder analises = await AnalisarCodigo(linhas,tree);
+            StringBuilder analises = await AnalisarCodigo(linhas,root);
             stopwatch.Stop();
 
             htmlBuilder.Append(analises);
@@ -240,17 +242,17 @@ namespace ProjetoA.Classes
             return linha;
         }
 
-        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxTree tree)
+        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxNode root)
         {
             // Inicia as tarefas em paralelo
-            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(lines);
-            Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
+            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(root);
+            //Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
             //StringBuilder taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
-            Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
-            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
+            //Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
+            //Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            /*await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
@@ -266,10 +268,17 @@ namespace ProjetoA.Classes
             resultadoFinal.AppendLine($"</div>");
 
             // Retorna o resultado final
-            return  await Task.FromResult(resultadoFinal);
+            return  await Task.FromResult(resultadoFinal);*/
         }
         
-        static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
+        static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxNode root)
+        {
+            var analisador = new VulnerabilidadeAnalyser();
+
+            analisador.Initialize(root);
+        }
+
+        /*static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
         {
             StringBuilder htmlBuilder = new StringBuilder();
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
@@ -316,8 +325,7 @@ namespace ProjetoA.Classes
 
                     if (!linhasImportantes.ContainsKey(vul.Linhas[i]))
                     {
-                        /*O tipo de Vulnerabilidade(Baixo=0, Médio = 1 e Alto Risco = 2) é uma enumeração que vai indicar
-                         ao CSS que cor é que esta linha importante vai ter no relatório. */
+                        
                          
                         linhasImportantes[vul.Linhas[i]] = (int)vul.Vulnerabilidade.Risco;
                     }
@@ -346,7 +354,7 @@ namespace ProjetoA.Classes
 
             return await Task.FromResult(htmlBuilder);
 
-        }
+        }*/
         
         /*static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
         {
