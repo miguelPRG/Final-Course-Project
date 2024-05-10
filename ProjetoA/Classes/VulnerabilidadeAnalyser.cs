@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Projeto.Classes;
 using System.Collections.Concurrent;
+using System.Text;
 
 namespace ProjetoA.Analyzers
 {
@@ -37,10 +38,13 @@ namespace ProjetoA.Analyzers
     {
         delegate bool Analyzer(SyntaxNode node, out string Nome);
         delegate NivelRisco Risco(SyntaxNode node);
+        Analyzer[] analyzers;
+        Risco[] riscos;
+        
 
-        public async Task<IEnumerable<Vulnerabilidade>> VulnerabilidadeAnalyze(SyntaxNode root)
+        public VulnerabilidadeAnalyzer()
         {
-            Analyzer[] analyzers =
+            analyzers = new Analyzer[]
             {
                 IsSqlInjectionVulnerable,
                 IsXSSVulnerable,
@@ -51,7 +55,7 @@ namespace ProjetoA.Analyzers
                 isCORSVulnerable
             };
 
-            Risco[] riscos =
+            riscos = new Risco[]
             {
                 GetRiscoLevelSqlInjection,
                 GetRiscoLevelXSS,
@@ -61,34 +65,33 @@ namespace ProjetoA.Analyzers
                 GetRiscoLevelExceptionHandeling,
                 GetRiscoLevelCORS
             };
+        }
 
-            // List to store results of vulnerability checks
-            List<Vulnerabilidade> vulnerabilidades = new List<Vulnerabilidade>();
-            object lockObject = new object(); // Lock object
+        public async Task<List<StringBuilder>> VulnerabilidadeAnalyze(SyntaxNode root)
+        {
+            List<StringBuilder> tables = new List<StringBuilder>();
 
             for (int i = 0; i < analyzers.Length; i++)
             {
-                foreach (var node in root.DescendantNodes())
+                StringBuilder table = new StringBuilder();
+                table.AppendLine($"Vulnerabilidade {i + 1}");
+                table.AppendLine("Tipo | Código | Risco");
+
+                if (analyzers[i](root, out string nomeVulnerabilidade))
                 {
-                    string nomeVulnerabilidade;
-
-                    if (analyzers[i](node, out nomeVulnerabilidade))
-                    {
-                        Vulnerabilidade vul = new Vulnerabilidade(nomeVulnerabilidade, node.ToString(), riscos[i](node));
-
-                        // Acquire lock before modifying the list
-                        lock (lockObject)
-                        {
-                            vulnerabilidades.Add(vul);
-                        }
-                    }
+                    Vulnerabilidade vul = new Vulnerabilidade(nomeVulnerabilidade, root.ToString(), riscos[i](root));
+                    table.AppendLine($"{vul.Tipo} | {vul.Codigo} | {vul.Risco}");
                 }
+                else
+                {
+                    table.AppendLine("Nenhuma vulnerabilidade encontrada.");
+                }
+
+                tables.Add(table);
             }
 
-            // Return the list after all vulnerability checks are done
-            return await Task.FromResult(vulnerabilidades);
+            return tables;
         }
-
 
 
         bool IsSqlInjectionVulnerable(SyntaxNode node, out string Nome)
@@ -142,70 +145,70 @@ namespace ProjetoA.Analyzers
             return NivelRisco.Baixo;
         }
 
-        bool IsXSSVulnerable(SyntaxNode node, out string Nome) 
+        bool IsXSSVulnerable(SyntaxNode node, out string Nome)
         {
             Nome = "Vulnerabilidade XSS";
 
-            return true; 
+            return true;
         }
-        NivelRisco GetRiscoLevelXSS(SyntaxNode node) 
-        {  
+        NivelRisco GetRiscoLevelXSS(SyntaxNode node)
+        {
             return NivelRisco.Alto;
         }
- 
-        bool isCSRFVulnerable(SyntaxNode node, out string Nome) 
+
+        bool isCSRFVulnerable(SyntaxNode node, out string Nome)
         {
             Nome = "Vulnerabilidade CSRF";
 
-            return true; 
+            return true;
         }
-        NivelRisco GetRiscoLevelCSRF(SyntaxNode node) 
-        { 
+        NivelRisco GetRiscoLevelCSRF(SyntaxNode node)
+        {
             return NivelRisco.Alto;
         }
 
-        bool isAuthenticationVulnerable(SyntaxNode node, out string Nome) 
+        bool isAuthenticationVulnerable(SyntaxNode node, out string Nome)
         {
             Nome = "Vulnerabilidade de Autenticação";
 
-            return true; 
+            return true;
         }
-        NivelRisco GetRiscoLevelAuthentication(SyntaxNode node) 
+        NivelRisco GetRiscoLevelAuthentication(SyntaxNode node)
         {
             return NivelRisco.Alto;
         }
 
-        bool isDeserializationVulnerable(SyntaxNode node, out string Nome) 
+        bool isDeserializationVulnerable(SyntaxNode node, out string Nome)
         {
             Nome = "Vulnerabilidade de Deserialização";
-            
-            return true; 
+
+            return true;
         }
-        NivelRisco GetRiscoLevelDeserializacao(SyntaxNode node) 
-        { 
-            return NivelRisco.Alto; 
+        NivelRisco GetRiscoLevelDeserializacao(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
         }
 
-        bool isLackExceptionHandelingVulnerable(SyntaxNode node, out string Nome) 
+        bool isLackExceptionHandelingVulnerable(SyntaxNode node, out string Nome)
         {
             Nome = "Vulnerabilidade de Falta de Tratamento de Exceções";
 
-            return true; 
+            return true;
         }
-        NivelRisco GetRiscoLevelExceptionHandeling(SyntaxNode node) 
+        NivelRisco GetRiscoLevelExceptionHandeling(SyntaxNode node)
         {
-            return NivelRisco.Alto; 
+            return NivelRisco.Alto;
         }
 
-        bool isCORSVulnerable(SyntaxNode node, out string Nome) 
+        bool isCORSVulnerable(SyntaxNode node, out string Nome)
         {
             Nome = "Vulnerabilidade de CORS";
-            
-            return true; 
+
+            return true;
         }
-        NivelRisco GetRiscoLevelCORS(SyntaxNode node) 
-        {   
-            return NivelRisco.Alto; 
+        NivelRisco GetRiscoLevelCORS(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
         }
 
     }
