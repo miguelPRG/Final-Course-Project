@@ -33,12 +33,12 @@ namespace ProjetoA.Analyzers
         }
     }
 
-    internal class VulnerabilidadeAnalyzer
+    public class VulnerabilidadeAnalyzer
     {
         delegate bool Analyzer(SyntaxNode node, out string Nome);
         delegate NivelRisco Risco(SyntaxNode node);
 
-        public async Task<List<Vulnerabilidade>> VulnerabilidadeAnalyze(SyntaxNode root)
+        public async Task<IEnumerable<Vulnerabilidade>> VulnerabilidadeAnalyze(SyntaxNode root)
         {
             Analyzer[] analyzers =
             {
@@ -47,7 +47,6 @@ namespace ProjetoA.Analyzers
                 isCSRFVulnerable,
                 isAuthenticationVulnerable,
                 isDeserializationVulnerable,
-                isLackExceptionHandelingVulnerable,
                 isLackExceptionHandelingVulnerable,
                 isCORSVulnerable
             };
@@ -63,45 +62,34 @@ namespace ProjetoA.Analyzers
                 GetRiscoLevelCORS
             };
 
-            // List to store tasks for each vulnerability check
-            List<Task<Vulnerabilidade>> tasks = new List<Task<Vulnerabilidade>>();
+            // List to store results of vulnerability checks
+            List<Vulnerabilidade> vulnerabilidades = new List<Vulnerabilidade>();
+            object lockObject = new object(); // Lock object
 
-            string nomeVulnerabilidade;
-            
-            foreach (var node in root.DescendantNodes())
+            for (int i = 0; i < analyzers.Length; i++)
             {
-                var currentNode = node; // Store the current node in a local variable
-
-                for(int i =0; i < analyzers.Count(); i++)
+                foreach (var node in root.DescendantNodes())
                 {
-                    tasks.Add(Task.Run(() =>
+                    string nomeVulnerabilidade;
+
+                    if (analyzers[i](node, out nomeVulnerabilidade))
                     {
-                        // Check for SQL Injection vulnerabilities
-                        if (analyzers[i](currentNode,out nomeVulnerabilidade))
+                        Vulnerabilidade vul = new Vulnerabilidade(nomeVulnerabilidade, node.ToString(), riscos[i](node));
+
+                        // Acquire lock before modifying the list
+                        lock (lockObject)
                         {
-                            // Create a new Vulnerabilidade object
-                            return new Vulnerabilidade
-                            (
-                                nomeVulnerabilidade,
-                                currentNode.ToString(),
-                                riscos[i](currentNode) // implement this method to determine the risk level
-                            );
+                            vulnerabilidades.Add(vul);
                         }
-                            // If no vulnerability found, return null
-                            return null;
-                        }));
                     }
                 }
-      
+            }
 
-            // Wait for all tasks to complete
-            await Task.WhenAll(tasks);
-
-            // Extract results from completed tasks
-            List<Vulnerabilidade> vulnerabilities = tasks.Where(t => t.Result != null).Select(t => t.Result).ToList();
-
-            return vulnerabilities;
+            // Return the list after all vulnerability checks are done
+            return await Task.FromResult(vulnerabilidades);
         }
+
+
 
         bool IsSqlInjectionVulnerable(SyntaxNode node, out string Nome)
         {

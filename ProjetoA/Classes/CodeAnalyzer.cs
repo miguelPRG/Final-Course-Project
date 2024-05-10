@@ -242,7 +242,7 @@ namespace ProjetoA.Classes
             return linha;
         }
 
-        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxNode root)
+        /*static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxNode root)
         {
             // Inicia as tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(root);
@@ -252,7 +252,7 @@ namespace ProjetoA.Classes
             //Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
 
             // Espera até que todas as tarefas estejam concluídas
-            /*await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
@@ -268,15 +268,15 @@ namespace ProjetoA.Classes
             resultadoFinal.AppendLine($"</div>");
 
             // Retorna o resultado final
-            return  await Task.FromResult(resultadoFinal);*/
-        }
+            return  await Task.FromResult(resultadoFinal);
+        }*/
         
-        static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxNode root)
+        /*static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxNode root)
         {
             var analisador = new VulnerabilidadeAnalyser();
 
             analisador.Initialize(root);
-        }
+        }*/
 
         /*static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
         {
