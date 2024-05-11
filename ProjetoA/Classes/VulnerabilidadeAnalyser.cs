@@ -7,9 +7,10 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Projeto.Classes;
+using ProjetoA.Classes;
 using System.Collections.Concurrent;
 using System.Text;
+using System.Reflection;
 
 namespace ProjetoA.Analyzers
 {
@@ -20,196 +21,116 @@ namespace ProjetoA.Analyzers
         Baixo
     }
 
-    internal class Vulnerabilidade
+    internal class Vulnerability
     {
-        public string Tipo { get; set; }
-        public string Codigo { get; set; }
-        public NivelRisco Risco { get; set; }
+        public string Tipo { get; }
+        public string Codigo { get; }
+        public List<int> Linhas { get; }
+        public NivelRisco Risco { get; }
 
-        public Vulnerabilidade(string tipo, string codigo, NivelRisco risco)
+        public Vulnerability(string type, string code, NivelRisco riskLevel, List<int> linhas)
         {
-            this.Tipo = tipo;
-            this.Codigo = codigo;
-            this.Risco = risco;
+            Tipo = type;
+            Codigo = code;
+            Risco = riskLevel;
+            Linhas = linhas;
         }
     }
 
-    public class VulnerabilidadeAnalyzer
+    internal class VulnerabilityAnalyzer
     {
-        delegate bool Analyzer(SyntaxNode node, out string Nome);
-        delegate NivelRisco Risco(SyntaxNode node);
-        Analyzer[] analyzers;
-        Risco[] riscos;
-        
+        private readonly object _lock = new object();
 
-        public VulnerabilidadeAnalyzer()
+        public async Task<List<Vulnerability>> Analyze(SyntaxTree tree)
         {
-            analyzers = new Analyzer[]
-            {
-                IsSqlInjectionVulnerable,
-                IsXSSVulnerable,
-                isCSRFVulnerable,
-                isAuthenticationVulnerable,
-                isDeserializationVulnerable,
-                isLackExceptionHandelingVulnerable,
-                isCORSVulnerable
-            };
+            var vulnerabilities = new List<Vulnerability>();
 
-            riscos = new Risco[]
+            var compilation = CSharpCompilation.Create("MyCompilation", new[] { tree }, new[]
             {
-                GetRiscoLevelSqlInjection,
-                GetRiscoLevelXSS,
-                GetRiscoLevelCSRF,
-                GetRiscoLevelAuthentication,
-                GetRiscoLevelDeserializacao,
-                GetRiscoLevelExceptionHandeling,
-                GetRiscoLevelCORS
-            };
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location)
+            });
+
+            var model = compilation.GetSemanticModel(tree);
+
+            await Task.WhenAll(
+                AnalyzeSqlInjection(tree, model, vulnerabilities),
+                AnalyzeXss(tree, model, vulnerabilities)
+            );
+
+            return vulnerabilities;
         }
 
-        public async Task<List<StringBuilder>> VulnerabilidadeAnalyze(SyntaxNode root)
+        private async Task AnalyzeSqlInjection(SyntaxTree tree, SemanticModel model, List<Vulnerability> vulnerabilities)
         {
-            List<StringBuilder> tables = new List<StringBuilder>();
-
-            for (int i = 0; i < analyzers.Length; i++)
+            await Task.Run(() =>
             {
-                StringBuilder table = new StringBuilder();
-                table.AppendLine($"Vulnerabilidade {i + 1}");
-                table.AppendLine("Tipo | Código | Risco");
+                var root = tree.GetRoot();
 
-                if (analyzers[i](root, out string nomeVulnerabilidade))
+                var invocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
+                foreach (var invocation in invocations)
                 {
-                    Vulnerabilidade vul = new Vulnerabilidade(nomeVulnerabilidade, root.ToString(), riscos[i](root));
-                    table.AppendLine($"{vul.Tipo} | {vul.Codigo} | {vul.Risco}");
-                }
-                else
-                {
-                    table.AppendLine("Nenhuma vulnerabilidade encontrada.");
-                }
-
-                tables.Add(table);
-            }
-
-            return tables;
-        }
-
-
-        bool IsSqlInjectionVulnerable(SyntaxNode node, out string Nome)
-        {
-            // Check for SQL Injection vulnerabilities
-            // For example, check for string concatenation with user input
-
-            Nome = "Vulnerabilidade SQL Injection";
-
-            if (node is InvocationExpressionSyntax invocationExpression)
-            {
-                var methodSymbol = (IMethodSymbol)invocationExpression.Expression;
-                if (methodSymbol.Name == "ExecuteNonQuery" || methodSymbol.Name == "ExecuteScalar")
-                {
-                    foreach (var argument in invocationExpression.ArgumentList.Arguments)
+                    var symbolInfo = model.GetSymbolInfo(invocation);
+                    if (symbolInfo.Symbol != null)
                     {
-                        if (argument.Expression is BinaryExpressionSyntax binaryExpression)
+                        if (symbolInfo.Symbol.ToString().StartsWith("System.Data.SqlClient.SqlCommand.ExecuteNonQuery"))
                         {
-                            if (binaryExpression.Left is LiteralExpressionSyntax literalExpression)
+                            var argumentList = invocation.ArgumentList.Arguments;
+                            if (argumentList.Count > 0 && argumentList[0].Expression is LiteralExpressionSyntax)
                             {
-                                // Check if the literal expression contains user input
-                                if (literalExpression.Token.ValueText.Contains("$"))
+                                var lineNumber = ((LiteralExpressionSyntax)argumentList[0].Expression).GetLocation().GetLineSpan().StartLinePosition.Line +1;
+                                lock (_lock)
                                 {
-                                    return true;
+                                    var existingVulnerability = vulnerabilities.FirstOrDefault(v => v.Tipo == "SQL Injection" && v.Codigo == invocation.ToString());
+                                    if (existingVulnerability != null)
+                                    {
+                                        existingVulnerability.Linhas.Add(lineNumber);
+                                    }
+                                    else
+                                    {
+                                        vulnerabilities.Add(new Vulnerability("SQL Injection", invocation.ToString(), NivelRisco.Alto, new List<int> { lineNumber }));
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-
-            return false;
+            });
         }
-        NivelRisco GetRiscoLevelSqlInjection(SyntaxNode node)
+
+        private async Task AnalyzeXss(SyntaxTree tree, SemanticModel model, List<Vulnerability> vulnerabilities)
         {
-            // Determine the risk level based on the node
-            // For example, check the method it's in, the variables involved, etc.
-            if (node is InvocationExpressionSyntax invocationExpression)
+            await Task.Run(() =>
             {
-                var methodSymbol = (IMethodSymbol)invocationExpression.Expression;
-                if (methodSymbol.Name == "ExecuteNonQuery")
+                var root = tree.GetRoot();
+
+                var assignments = root.DescendantNodes().OfType<AssignmentExpressionSyntax>();
+                foreach (var assignment in assignments)
                 {
-                    return NivelRisco.Alto;
+                    var symbolInfo = model.GetSymbolInfo(assignment.Left);
+                    if (symbolInfo.Symbol != null)
+                    {
+                        if (symbolInfo.Symbol.ToString().StartsWith("System.Web.UI.WebControls.Literal.Text"))
+                        {
+                            if (assignment.Right is LiteralExpressionSyntax)
+                            {
+                                var lineNumber = ((LiteralExpressionSyntax)assignment.Right).GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                                lock (_lock)
+                                {
+                                    var existingVulnerability = vulnerabilities.FirstOrDefault(v => v.Tipo == "XSS" && v.Codigo == assignment.ToString());
+                                    if (existingVulnerability != null)
+                                    {
+                                        existingVulnerability.Linhas.Add(lineNumber);
+                                    }
+                                    else
+                                    {
+                                        vulnerabilities.Add(new Vulnerability("XSS", assignment.ToString(), NivelRisco.Alto, new List<int> { lineNumber }));
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                else if (methodSymbol.Name == "ExecuteScalar")
-                {
-                    return NivelRisco.Medio;
-                }
-            }
-
-            return NivelRisco.Baixo;
+            });
         }
-
-        bool IsXSSVulnerable(SyntaxNode node, out string Nome)
-        {
-            Nome = "Vulnerabilidade XSS";
-
-            return true;
-        }
-        NivelRisco GetRiscoLevelXSS(SyntaxNode node)
-        {
-            return NivelRisco.Alto;
-        }
-
-        bool isCSRFVulnerable(SyntaxNode node, out string Nome)
-        {
-            Nome = "Vulnerabilidade CSRF";
-
-            return true;
-        }
-        NivelRisco GetRiscoLevelCSRF(SyntaxNode node)
-        {
-            return NivelRisco.Alto;
-        }
-
-        bool isAuthenticationVulnerable(SyntaxNode node, out string Nome)
-        {
-            Nome = "Vulnerabilidade de Autenticação";
-
-            return true;
-        }
-        NivelRisco GetRiscoLevelAuthentication(SyntaxNode node)
-        {
-            return NivelRisco.Alto;
-        }
-
-        bool isDeserializationVulnerable(SyntaxNode node, out string Nome)
-        {
-            Nome = "Vulnerabilidade de Deserialização";
-
-            return true;
-        }
-        NivelRisco GetRiscoLevelDeserializacao(SyntaxNode node)
-        {
-            return NivelRisco.Alto;
-        }
-
-        bool isLackExceptionHandelingVulnerable(SyntaxNode node, out string Nome)
-        {
-            Nome = "Vulnerabilidade de Falta de Tratamento de Exceções";
-
-            return true;
-        }
-        NivelRisco GetRiscoLevelExceptionHandeling(SyntaxNode node)
-        {
-            return NivelRisco.Alto;
-        }
-
-        bool isCORSVulnerable(SyntaxNode node, out string Nome)
-        {
-            Nome = "Vulnerabilidade de CORS";
-
-            return true;
-        }
-        NivelRisco GetRiscoLevelCORS(SyntaxNode node)
-        {
-            return NivelRisco.Alto;
-        }
-
     }
 }

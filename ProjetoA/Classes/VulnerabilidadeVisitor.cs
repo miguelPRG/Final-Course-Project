@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
+﻿/*using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CSharp;
 using System;
 using System.Collections.Generic;
@@ -29,11 +29,11 @@ using System.Security.Cryptography;
 /*A FAZER: 
  
  1->
+*/
  
- */
 
 
-namespace Projeto.Classes
+/*namespace Projeto.Classes
 {
     public enum NivelRisco
     {
@@ -153,7 +153,7 @@ namespace Projeto.Classes
             };
 
             //Hardcoded Password
-            /*palavrasReservadas["Possível Password Fraca"] =new string[]
+            palavrasReservadas["Possível Password Fraca"] =new string[]
         {
             {"123456", 0},
             {"password", 0},
@@ -171,7 +171,7 @@ namespace Projeto.Classes
             dados_teste["Possível Password Fraca"] = new string[]
             {
 
-            };*/
+            };
 
             //Target Blank
             padroes["Possível Target Blank"] = new Dictionary<string, int>
@@ -227,10 +227,10 @@ namespace Projeto.Classes
                "",
                "response.setcookie(new httpcookie(\"meucookie\", \"valor\") { httponly = true });",
                "cookie.SameSite = samesitemode.strict;"
-            };*/
+            };
 
             //CSP Header
-            /*padroes["Possivel CSP Header"] = new Dictionary<string, int>
+            padroes["Possivel CSP Header"] = new Dictionary<string, int>
             {
                 {"style-src",0 },
                 {"default-src",1 },
@@ -272,10 +272,10 @@ namespace Projeto.Classes
                 "response.addheader(\"content-security-policy\", \"child-src 'self'\");",
                 "response.addheader(\"content-security-policy\",\"form-action 'self'\");",
                 "response.addheader(\"content-security-policy\", \"plugin-types application/pdf\");"
-            };*/
+            };
 
             // Iframe 
-            /*padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
+            padroes["Possivel Uso de Iframe sem SandBox"] = new Dictionary<string, int>
             {
                 {"iframe",0},
             };
@@ -292,10 +292,10 @@ namespace Projeto.Classes
             dados_teste["Possivel Uso de Iframe sem SandBox"][(int)NivelRisco.Baixo] = new string[]
             {
                 "string userInput = \"<iframe src=\\\"https://www.example.com\\\"></iframe>\";"
-            };*/    
+            };
 
             // JQuery
-            /*padroes["Possivel JQuery"] = new Dictionary<string, int>
+            padroes["Possivel JQuery"] = new Dictionary<string, int>
             {
                 {"document",0},
                 {"function",1},
@@ -320,10 +320,10 @@ namespace Projeto.Classes
                 @"\bfunction\b",
                 @"\bajax\b",
                 @"\bpost\b",
-            };*/
+            };
 
             // Domain
-            /*palavrasReservadas["Possivel Domínio Fraco"] = new string[]
+            palavrasReservadas["Possivel Domínio Fraco"] = new string[]
             {
                 "localhost",
                 "127.0.0.1",
@@ -336,10 +336,10 @@ namespace Projeto.Classes
             dados_teste["Possivel Domínio Fraco"] = new string[]
             {
 
-            };*/
+            };
 
             //DOM Open Redirect
-            /*padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
+            padroes["Possivel Redirecionamento de Domínio"] = new Dictionary<string, int>
             {
                 {"http://example.com",0},
                 {"response.redirect(url);",0 }
@@ -358,7 +358,7 @@ namespace Projeto.Classes
             dados_teste["Possivel Redirecionamento de Domínio"][(int)NivelRisco.Baixo] = new string[]
             {
                ""
-            };*/
+            };
             
             //Chaves de Criptografia
             padroes["Possivel Fragilidade de Chave de Criptografia"] = new Dictionary<string, int>
@@ -389,7 +389,7 @@ namespace Projeto.Classes
             };
 
             //Privacy Violation
-            /*padroes["Possivel Violação de Privacidade"] = new Dictionary<string, int>
+            padroes["Possivel Violação de Privacidade"] = new Dictionary<string, int>
             {
                 { "breach",0 },
                 {"leak",1},
@@ -416,7 +416,7 @@ namespace Projeto.Classes
             dados_teste["Possivel Violação de Privacidade"][(int)NivelRisco.Baixo] = new string[]
             {
 
-            };*/
+            };
             
 
             //Path
@@ -469,7 +469,7 @@ namespace Projeto.Classes
             };
 
             //CSRF
-            /*padroes["Possivel Vulnerabilidade CSRF"] = new string[]
+            padroes["Possivel Vulnerabilidade CSRF"] = new string[]
              {
              "csrf_token",
              "csrftoken",
@@ -482,10 +482,10 @@ namespace Projeto.Classes
              dados_teste["Possivel Vulnerabilidade CSRF"] = new string[] 
              {
 
-             }*/
+             }
 
             //Heap Inspection
-            /*padroes["Possivel Heap Inspection"] = new Dictionary<string, int>
+            padroes["Possivel Heap Inspection"] = new Dictionary<string, int>
             {
                 {"new",0 },
                 {"weakreference",1},
@@ -513,7 +513,7 @@ namespace Projeto.Classes
                 "var obj = new object();",
                 "",
                 "intptr buffer = marshal.allochglobal(1024);"
-            };*/
+            };
         }
 
         public List<(Vulnerabilidade Vulnerabilidade, List<int> Linhas)> VulnerabilidadesEncontradas
@@ -612,7 +612,7 @@ namespace Projeto.Classes
                         foreach(int i in Linhas[line])
                         {
                             linhasVulneraveis.Add(i);
-                        }*/
+                        }
 
                         AdicionarVulnerabilidade(vul, Linhas[line]);
                         verdadeiros_positivos += precisao[index];
@@ -624,7 +624,7 @@ namespace Projeto.Classes
 
         }
 
-        /*private void AnalisarVulnerabilidade(string code, List<int> Linhas ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
+        private void AnalisarVulnerabilidade(string code, List<int> Linhas ,Dictionary<string, int> palavras, string nomeVulnerabilidade)
         {
             if (ContemUmaPalavra(code, palavras, out int value))
             {
@@ -654,7 +654,7 @@ namespace Projeto.Classes
                 else falsos_positivos+= precisao[index];
 
             }
-        }*/
+        }
 
         static bool isEndOfSubString(string s,char a,char b, char c)
         {
@@ -750,4 +750,4 @@ namespace Projeto.Classes
             return d[n, m];
         }
     }
-}
+}*/

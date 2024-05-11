@@ -17,9 +17,9 @@ using Windows.Foundation.Metadata;
 
 public class DesempenhoAnalyzer
 {
-    delegate void AnaliseDesempenho(SyntaxTree syntaxTree, Dictionary<string, int[]> findings);
+    delegate void AnaliseDesempenho(SyntaxNode root, Dictionary<string, int[]> findings);
 
-    public async Task<StringBuilder> AnalyzeCodeAsync(SyntaxTree syntaxTree, ConcurrentDictionary<int, int> linhasImportantes)
+    public async Task<StringBuilder> AnalyzeCodeAsync(SyntaxNode root, ConcurrentDictionary<int, int> linhasImportantes)
     {
         AnaliseDesempenho[] analisesDesempenho =
         {
@@ -40,7 +40,7 @@ public class DesempenhoAnalyzer
 
         foreach (var func in analisesDesempenho)
         {
-            tasks.Add(Task.Run(() => func(syntaxTree, findings)));   
+            tasks.Add(Task.Run(() => func(root, findings)));   
         }
 
         await Task.WhenAll(tasks);
@@ -82,14 +82,14 @@ public class DesempenhoAnalyzer
        
     }
 
-    void AnalyzeUnnecessaryVariableCreation(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeUnnecessaryVariableCreation(SyntaxNode root, Dictionary<string, int[]> findings)
     {
-        var variableDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<VariableDeclarationSyntax>();
+        var variableDeclarations = root.DescendantNodes().OfType<VariableDeclarationSyntax>();
         foreach (var declaration in variableDeclarations)
         {
             foreach (var variable in declaration.Variables)
             {
-                if (IsUnnecessaryVariableCreation(variable, syntaxTree))
+                if (IsUnnecessaryVariableCreation(variable, root))
                 {
                     findings["Criação Desnecessária de Variaveis"] = findings.TryGetValue("Criação Desnecessária de Variaveis", out var lines)
                         ? lines.Concat(new[] { variable.GetLocation().GetLineSpan().StartLinePosition.Line + 1 }).ToArray()
@@ -98,9 +98,9 @@ public class DesempenhoAnalyzer
             }
         }
     }
-    void AnalyzeInefficientDataStructures(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeInefficientDataStructures(SyntaxNode root, Dictionary<string, int[]> findings)
     {
-        var dataStructureDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<VariableDeclarationSyntax>();
+        var dataStructureDeclarations = root.DescendantNodes().OfType<VariableDeclarationSyntax>();
         foreach (var declaration in dataStructureDeclarations)
         {
             var type = declaration.Type.ToString();
@@ -118,9 +118,9 @@ public class DesempenhoAnalyzer
             }
         }
     }
-    void AnalyzeLackOfInputValidation(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeLackOfInputValidation(SyntaxNode root, Dictionary<string, int[]> findings)
     {
-        var methodDeclarations = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+        var methodDeclarations = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
         foreach (var method in methodDeclarations)
         {
             if (IsLackOfInputValidation(method))
@@ -131,9 +131,9 @@ public class DesempenhoAnalyzer
             }
         }
     }
-    void AnalyzeExcessiveUseOfExceptions(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeExcessiveUseOfExceptions(SyntaxNode root, Dictionary<string, int[]> findings)
     {
-        var throwStatements = syntaxTree.GetRoot().DescendantNodes().OfType<ThrowStatementSyntax>();
+        var throwStatements = root.DescendantNodes().OfType<ThrowStatementSyntax>();
         foreach (var statement in throwStatements)
         {
             if (IsExcessiveUseOfExceptions(statement))
@@ -144,9 +144,9 @@ public class DesempenhoAnalyzer
             }
         }
     }
-    void AnalyzeInefficientStringConcatenation(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeInefficientStringConcatenation(SyntaxNode root, Dictionary<string, int[]> findings)
     {
-        var stringConcatenations = syntaxTree.GetRoot().DescendantNodes().OfType<InterpolatedStringContentSyntax>();
+        var stringConcatenations = root.DescendantNodes().OfType<InterpolatedStringContentSyntax>();
         foreach (var concatenation in stringConcatenations)
         {
             if (IsInefficientStringConcatenation(concatenation))
@@ -157,9 +157,9 @@ public class DesempenhoAnalyzer
             }
         }
     }
-    void AnalyzeNotDisposingOfResources(SyntaxTree syntaxTree, Dictionary<string, int[]> findings)
+    void AnalyzeNotDisposingOfResources(SyntaxNode root, Dictionary<string, int[]> findings)
     {
-        var usingStatements = syntaxTree.GetRoot().DescendantNodes().OfType<UsingStatementSyntax>();
+        var usingStatements = root.DescendantNodes().OfType<UsingStatementSyntax>();
         foreach (var statement in usingStatements)
         {
             if (IsNotDisposingOfResources(statement))
@@ -184,7 +184,7 @@ public class DesempenhoAnalyzer
         }
     }*/
 
-    bool IsUnnecessaryVariableCreation(VariableDeclaratorSyntax variable, SyntaxTree syntaxTree)
+    bool IsUnnecessaryVariableCreation(VariableDeclaratorSyntax variable, SyntaxNode root)
     {
         var initializer = variable.Initializer;
         if (initializer == null)
@@ -193,7 +193,7 @@ public class DesempenhoAnalyzer
         var variableName = variable.Identifier.ValueText;
 
         // Verifica se a variável é usada apenas uma vez como uma declaração de expressão independente
-        var usages = syntaxTree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+        var usages = root.DescendantNodes().OfType<IdentifierNameSyntax>()
             .Where(id => id.Identifier.ValueText == variableName);
         var standaloneUsages = usages.Where(id => id.Parent is ExpressionStatementSyntax || id.Parent is ArgumentSyntax);
 
