@@ -38,16 +38,15 @@ namespace ProjetoA.Analyzers
         }
     }
 
-    internal class VulnerabilityAnalyzer
+    internal static class VulnerabilityAnalyzer
     {
-        private readonly object _lock = new object();
+        private static readonly object _lock = new object();
         delegate Task Analyze(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model);
-        public List<Vulnerability> Vulnerabilidades { get; } = new List<Vulnerability>();
+        static List<Vulnerability> Vulnerabilidades = new List<Vulnerability>();
 
-        Analyze[] analises;
+        static Analyze[] analises;
 
-
-        public async Task<List<Vulnerability>> AnalyzeVulnerabilities(SyntaxTree tree)
+        public static async Task<List<Vulnerability>> AnalyzeVulnerabilities(SyntaxTree tree)
         {
             var vulnerabilities = new List<Vulnerability>();
 
@@ -64,7 +63,6 @@ namespace ProjetoA.Analyzers
                 AnalyzeDirectoryTraversal
             };
 
-
             var compilation = CSharpCompilation.Create("MyCompilation", new[] { tree }, new[]
             {
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location)
@@ -76,19 +74,17 @@ namespace ProjetoA.Analyzers
 
             List<Task> tasks = new List<Task>();
 
-            foreach(var a in analises)
+            foreach (var a in analises)
             {
-                tasks.Add(a(assignments,model));
+                tasks.Add(a(assignments, model));
             }
 
             await Task.WhenAll(tasks);
 
-            vulnerabilities.Sort((a,b) => string.Compare(a.Tipo, b.Tipo));
-
             return vulnerabilities;
         }
 
-        private async Task AnalyzeSqlInjection(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeSqlInjection(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -99,9 +95,28 @@ namespace ProjetoA.Analyzers
                     {
                         if (symbolInfo.Symbol.ToString().StartsWith("System.Data.SqlClient.SqlCommand.CommandText"))
                         {
+                            var lineNumber = assignment.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                            bool isVulnerable = false;
+
+                            // Check for literal expression
                             if (assignment.Right is LiteralExpressionSyntax)
                             {
-                                var lineNumber = ((LiteralExpressionSyntax)assignment.Right).GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                                isVulnerable = true;
+                            }
+                            // Check for string concatenation
+                            else if (assignment.Right is BinaryExpressionSyntax binaryExpr &&
+                                     binaryExpr.IsKind(SyntaxKind.AddExpression))
+                            {
+                                isVulnerable = ContainsUserInput(binaryExpr, model);
+                            }
+                            // Check for string interpolation
+                            else if (assignment.Right is InterpolatedStringExpressionSyntax)
+                            {
+                                isVulnerable = ContainsUserInput(assignment.Right, model);
+                            }
+
+                            if (isVulnerable)
+                            {
                                 lock (_lock)
                                 {
                                     var existingVulnerability = Vulnerabilidades.FirstOrDefault(v => v.Tipo == "SQL Injection" && v.Codigo == assignment.ToString());
@@ -122,7 +137,33 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco AvaliarNivelDeRiscoSQLInjection(string codigo)
+        private static bool ContainsUserInput(SyntaxNode node, SemanticModel model)
+        {
+            if (node is LiteralExpressionSyntax)
+            {
+                return false;
+            }
+
+            if (node is IdentifierNameSyntax identifier)
+            {
+                var symbol = model.GetSymbolInfo(identifier).Symbol as ILocalSymbol;
+                if (symbol != null && symbol.Type.SpecialType == SpecialType.System_String)
+                {
+                    return true;
+                }
+            }
+
+            foreach (var child in node.ChildNodes())
+            {
+                if (ContainsUserInput(child, model))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        private static NivelRisco AvaliarNivelDeRiscoSQLInjection(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -140,7 +181,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeXss(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeXss(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -174,7 +215,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineNivelRisco(string codigo)
+        private static NivelRisco DetermineNivelRisco(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -196,7 +237,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeXxe(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeXxe(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -229,7 +270,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineXxeRiskLevel(string codigo)
+        private static NivelRisco DetermineXxeRiskLevel(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -251,7 +292,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeInsecureDeserialization(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeInsecureDeserialization(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -286,7 +327,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineInsecureDeserializationNivelRisco(string codigo)
+        private static NivelRisco DetermineInsecureDeserializationNivelRisco(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -308,7 +349,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeRemoteCodeExecution(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeRemoteCodeExecution(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -340,7 +381,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineRemoteCodeExecutionNivelRisco(string codigo)
+        private static NivelRisco DetermineRemoteCodeExecutionNivelRisco(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -358,7 +399,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeNoSqlInjection(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeNoSqlInjection(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -392,7 +433,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineNoSqlInjectionNivelRisco(string codigo)
+        private static NivelRisco DetermineNoSqlInjectionNivelRisco(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -410,7 +451,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeCsrf(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeCsrf(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -444,7 +485,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineNivelRiscoCsrf(string codigo)
+        private static NivelRisco DetermineNivelRiscoCsrf(string codigo)
         {
             // Implemente suas regras de determinação de risco para CSRF aqui.
             // Este é apenas um exemplo simplificado.
@@ -462,7 +503,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeEncryption(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeEncryption(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -495,7 +536,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineEncryptionNivelRisco(string codigo)
+        private static NivelRisco DetermineEncryptionNivelRisco(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -513,7 +554,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeArbitraryFileWrites(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeArbitraryFileWrites(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -549,7 +590,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineArbitraryFileWritesNivelRisco(string codigo)
+        private static NivelRisco DetermineArbitraryFileWritesNivelRisco(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -567,7 +608,7 @@ namespace ProjetoA.Analyzers
             }
         }
 
-        private async Task AnalyzeDirectoryTraversal(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
+        private static async Task AnalyzeDirectoryTraversal(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model)
         {
             await Task.Run(() =>
             {
@@ -601,7 +642,7 @@ namespace ProjetoA.Analyzers
                 }
             });
         }
-        private NivelRisco DetermineDirectoryTraversalNivelRisco(string codigo)
+        private static NivelRisco DetermineDirectoryTraversalNivelRisco(string codigo)
         {
             // Implemente suas regras de determinação de risco aqui.
             // Este é apenas um exemplo simplificado.
@@ -618,7 +659,6 @@ namespace ProjetoA.Analyzers
                 return NivelRisco.Baixo;
             }
         }
-
 
     }
 }

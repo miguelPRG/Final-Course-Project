@@ -10,7 +10,7 @@ using System.Threading;
 using System.Net;
 using Windows.UI.Xaml.Shapes;
 using System.IO;
-using Projeto.Classes;
+using ProjetoA.Classes;
 using System.Diagnostics;
 using Windows.UI.Xaml.Documents;
 using Windows.Globalization.DateTimeFormatting;
@@ -22,6 +22,7 @@ using System.Reflection;
 using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Diagnostics;
+using ProjetoA.Analyzers;
 
 
 /*A FAZER: 
@@ -36,7 +37,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace ProjetoA.Classes
 {
-    public class CodeAnalyzer
+    public static class CodeAnalyzer
     {
         /*Linhas onde forem encontradas descobertas importantes na análise do código. Estas linhas estarão destacadas no
         código apresentado no relatório*/
@@ -82,19 +83,17 @@ namespace ProjetoA.Classes
 
             //Preparamos o Menu de Navegação no Relatório
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
-                "<li><a onclick=mostrarSecao('analise-vulnerabilidade')>Análise de Vulnerabilidade</a></li>\r\n    " +
+                "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
                // "<li><a onclick=\"mostrarSecao('analise-dependencias')\">Análise de Dependências</a></li>\r\n   " +
-                "<li><a onclick=mostrarSecao('mau-desempenho')>Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
-                "<li><a onclick=mostrarSecao('overloading')>Análise de OverLoading</a></li>\r\n    " +
-                "<li><a onclick=mostrarSecao('concorrencia')>Análise de Concorrência</a></li>\r\n    " +
-                "<li><a onclick=mostrarSecao('complexidade-ciclomatica')>Complexidade Ciclomática</a></li>\r\n   " +
-                "<li><a onclick=mostrarSecao('tempo')>Tempo Total de Análise</a></li>");
+                "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
+                "<li><a onclick=\"mostrarSecao('overloading')\">Análise de OverLoading</a></li>\r\n    " +
+                "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
+                "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
+                "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</ul></div>");
 
-            var root = tree.GetRoot();
-
             //Este é o método principal que analisa o código inteiro
-            StringBuilder analises = await AnalisarCodigo(linhas,root);
+            StringBuilder analises = await AnalisarCodigo(linhas,tree);
             stopwatch.Stop();
 
             htmlBuilder.Append(analises);
@@ -242,24 +241,24 @@ namespace ProjetoA.Classes
             return linha;
         }
 
-        /*static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxNode root)
+        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxTree tree)
         {
             // Inicia as tarefas em paralelo
-            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(root);
+            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(tree);
             //Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
             //StringBuilder taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
-            //Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
-            //Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree);
+            Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
+            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree.GetRoot());
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,/*taskAnalisarDependencias,*/taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
 
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
             resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
-            resultadoFinal.Append(taskAnalisarDependencias);
+            //resultadoFinal.Append(taskAnalisarDependencias);
             resultadoFinal.Append(taskAnalisarOverloading.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
@@ -269,14 +268,59 @@ namespace ProjetoA.Classes
 
             // Retorna o resultado final
             return  await Task.FromResult(resultadoFinal);
-        }*/
+        }
         
-        /*static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxNode root)
+        static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxTree tree)
         {
-            var analisador = new VulnerabilidadeAnalyser();
+            StringBuilder htmlBuilder = new StringBuilder();
 
-            analisador.Initialize(root);
-        }*/
+            htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
+            htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades</h2>");
+
+            var listaVulnerabilidades = await VulnerabilityAnalyzer.AnalyzeVulnerabilities(tree);
+
+            if (listaVulnerabilidades.Count() <= 1)
+            {
+                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma vulnerabilidade</h3>");
+            }
+
+            else
+            {
+                var vulnerabilidadesPorTipo = listaVulnerabilidades
+                .GroupBy(v => v.Tipo)
+                .OrderBy(g => g.Key);
+
+                foreach (var tipo in vulnerabilidadesPorTipo)
+                {
+                    htmlBuilder.AppendLine($"<h3>Vulnerabilidades de: {tipo.Key}</h3>");
+                    htmlBuilder.AppendLine("<table>");
+                    htmlBuilder.AppendLine("<tr><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
+
+                    foreach (var v in tipo)
+                    {
+                        htmlBuilder.AppendLine($"<tr><td>{v.Codigo}</td><td>");
+
+                        for (int i = 0; i < v.Linhas.Count(); i++)
+                        {
+                            htmlBuilder.Append(v.Linhas[i]);
+
+                            linhasImportantes[v.Linhas[i]] = (int)v.Risco;
+
+                            if (i + 1 < v.Linhas.Count())
+                            {
+                                htmlBuilder.Append(',');
+                            }
+                        }
+
+                        htmlBuilder.Append($"</td><td>{v.Risco}</td><tr>");
+                    }
+                }
+            }
+
+            htmlBuilder.AppendLine("</div>");
+            return htmlBuilder;
+
+        }
 
         /*static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
         {
@@ -484,7 +528,7 @@ namespace ProjetoA.Classes
         }
         
 
-        static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxTree tree)
+        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxTree tree)
         {
             StringBuilder htmlBuilder = new StringBuilder();
 
@@ -509,7 +553,7 @@ namespace ProjetoA.Classes
 
         
             return  await Task.FromResult<StringBuilder>(htmlBuilder);
-        }
+        }*/
 
         static async Task<StringBuilder> AnaliseOverloading(SyntaxTree tree)
         {
