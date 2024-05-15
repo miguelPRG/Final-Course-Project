@@ -85,7 +85,7 @@ namespace ProjetoA.Analyzers
 
             return vulnerabilities;
         }
-
+        //dasdk
         public static void AnalyzeSqlInjection(SyntaxNode root)
         {
             // Procura por strings concatenadas em comandos SQL
