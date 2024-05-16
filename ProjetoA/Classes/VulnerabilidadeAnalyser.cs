@@ -22,6 +22,7 @@ namespace ProjetoA.Analyzers
         Baixo
     }
 
+
     internal class Vulnerability
     {
         public string Tipo { get; }
@@ -41,125 +42,66 @@ namespace ProjetoA.Analyzers
     internal static class VulnerabilityAnalyzer
     {
         private static readonly object _lock = new object();
-        /*delegate Task Analyze(IEnumerable<AssignmentExpressionSyntax> assignments, SemanticModel model);*/
-        static List<Vulnerability> Vulnerabilidades = new List<Vulnerability>();
-
-        //static Analyze[] analises;
+        static List<Vulnerability> vulnerabilidades;
 
         public static async Task<List<Vulnerability>> AnalyzeVulnerabilities(SyntaxTree tree)
         {
-            var vulnerabilities = new List<Vulnerability>();
-
-            /* analises = new Analyze[] {
-                 AnalyzeSqlInjection,
-                 AnalyzeXss,
-                 AnalyzeXxe,
-                 AnalyzeInsecureDeserialization,
-                 AnalyzeRemoteCodeExecution,
-                 AnalyzeNoSqlInjection,
-                 AnalyzeCsrf,
-                 AnalyzeEncryption,
-                 AnalyzeArbitraryFileWrites,
-                 AnalyzeDirectoryTraversal
-             };*/
-
-            /*var compilation = CSharpCompilation.Create("MyCompilation", new[] { tree }, new[]
-            {
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location)
-            });
-
-            var model = compilation.GetSemanticModel(tree);
-            var root = tree.GetRoot();
-            var assignments = root.DescendantNodes().OfType<AssignmentExpressionSyntax>();*/
+            vulnerabilidades = new List<Vulnerability>();
 
             List<Task> tasks = new List<Task>();
 
             AnalyzeSqlInjection(tree.GetRoot());
 
-            /*foreach (var a in analises)
-            {
-                tasks.Add(a(assignments, model));
-            }*/
+            await Task.WhenAll(tasks);
 
-            //await Task.WhenAll(tasks);
-
-            return vulnerabilities;
+            return vulnerabilidades;
         }
-        //dasdk
+
         public static void AnalyzeSqlInjection(SyntaxNode root)
         {
-            // Procura por strings concatenadas em comandos SQL
-            var invocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
-            foreach (var invocation in invocations)
+            var variableDeclarations = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                .Where(v => v.Initializer?.Value is ObjectCreationExpressionSyntax);
+
+            foreach (var variableDeclaration in variableDeclarations)
             {
-                var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
-                if (memberAccess == null) continue;
+                var objectCreation = (ObjectCreationExpressionSyntax)variableDeclaration.Initializer.Value;
+                var type = objectCreation.Type.ToString();
 
-                var identifier = memberAccess.Name.Identifier.Text;
-                if (identifier.Contains("Execute") || identifier.Contains("Query"))
+                if (type == "SqlCommand")
                 {
-                    var argumentList = invocation.ArgumentList.Arguments;
-                    foreach (var argument in argumentList)
+                    var argumentList = objectCreation.ArgumentList;
+                    if (argumentList != null && argumentList.Arguments.Count > 0)
                     {
-                        if (argument.Expression is BinaryExpressionSyntax binaryExpression &&
-                            binaryExpression.IsKind(SyntaxKind.AddExpression))
-                        {
-                            var riskLevel = DetermineRiskLevel(argument.Expression);
-                            var lineSpan = binaryExpression.SyntaxTree.GetLineSpan(binaryExpression.Span);
-                            var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
+                        var queryArgument = argumentList.Arguments[0].ToString();
+                        var lines = new List<int> { variableDeclaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1 };
+                        var riskLevel = DetermineRiskLevel(queryArgument);
 
-                            Vulnerabilidades.Add(new Vulnerability(
-                                "SQL Injection",
-                                binaryExpression.ToString(),
-                                riskLevel,
-                                lines));
-                        }
-                    }
-                }
-                else if (invocation.ArgumentList != null)
-                {
-                    foreach (var argument in invocation.ArgumentList.Arguments)
-                    {
-                        if (argument.Expression is IdentifierNameSyntax identifierName)
+                        var vulnerability = new Vulnerability("SQL Injection", queryArgument, riskLevel, lines);
+                            
+                        lock (_lock)
                         {
-                            var riskLevel = DetermineRiskLevel(argument.Expression);
-                            var lineSpan = identifierName.SyntaxTree.GetLineSpan(identifierName.Span);
-                            var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
-
-                            if (riskLevel != NivelRisco.Baixo)
-                            {
-                                Vulnerabilidades.Add(new Vulnerability(
-                                    "SQL Injection",
-                                    identifierName.ToString(),
-                                    riskLevel,
-                                    lines));
-                            }
+                           vulnerabilidades.Add(vulnerability);
                         }
+                       
                     }
                 }
             }
         }
 
-        private static NivelRisco DetermineRiskLevel(ExpressionSyntax expression)
-        {
-            // Obtém a representação da expressão em texto
-            var expressionString = expression.ToString().ToLower();
 
-            // Verifica se a expressão sugere uma possível vulnerabilidade
-            if (expressionString.Contains("password") || expressionString.Contains("secret") || expressionString.Contains("auth"))
+        private static NivelRisco DetermineRiskLevel(string queryArgument)
+        {
+            // Simplified risk determination logic based on presence of string literals and variable concatenation
+            if (queryArgument.Contains("\" +") || queryArgument.Contains("\' +"))
             {
-                // Se a expressão contiver palavras-chave comuns relacionadas a entrada de usuário,
-                // consideramos um risco alto
                 return NivelRisco.Alto;
             }
-            else if (expressionString.Contains("userinput") || expressionString.Contains("input") || expressionString.Contains("request"))
+            
+            if (queryArgument.Contains("\""))
             {
-                // Se a expressão contiver palavras-chave relacionadas a senhas ou autenticação,
-                // consideramos um risco médio
                 return NivelRisco.Medio;
             }
-
-            // Se não houver indícios de vulnerabilidade, consideramos um risco baixo
+            
             return NivelRisco.Baixo;
         }
 
@@ -216,7 +158,7 @@ namespace ProjetoA.Analyzers
 
                     lock (_lock)
                     {
-                        Vulnerabilidades.Add(vulnerability);
+                        vulnerabilidades.Add(vulnerability);
                     }
                 }
             }
