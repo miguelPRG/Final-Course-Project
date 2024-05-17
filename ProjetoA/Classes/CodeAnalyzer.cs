@@ -22,7 +22,6 @@ using System.Reflection;
 using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Diagnostics;
-using ProjetoA.Analyzers;
 
 
 /*A FAZER: 
@@ -277,9 +276,9 @@ namespace ProjetoA.Classes
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades</h2>");
 
-            var listaVulnerabilidades = await VulnerabilityAnalyzer.AnalyzeVulnerabilities(tree);
+            var listaVulnerabilidades = VulnerabilityAnalyzer.AnalizarVulnerabilidades(tree.GetRoot());
 
-            if (listaVulnerabilidades.Count() <= 1)
+            if (listaVulnerabilidades.Count() <= 0)
             {
                 htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma vulnerabilidade</h3>");
             }
@@ -312,8 +311,18 @@ namespace ProjetoA.Classes
                             }
                         }
 
-                        htmlBuilder.Append($"</td><td>{v.Risco}</td><tr>");
+                        htmlBuilder.Append("</td>");
+
+                        switch ((int)v.Risco)
+                        {
+                            case 0: htmlBuilder.Append("<td class=\"alto\">Alto</td></tr>"); break;
+                            case 1: htmlBuilder.Append("<td class=\"medio\">Médio</td></tr>"); break;
+                            case 2: htmlBuilder.Append("<td class=\"baixo\">Baixo</td></tr>"); break;
+                        }
+                        
                     }
+                
+                    htmlBuilder.Append("</table>");
                 }
             }
 

@@ -26,14 +26,9 @@ using Windows.Services.Maps;
 using Windows.ApplicationModel.Contacts;
 using System.Security.Cryptography;
 
-/*A FAZER: 
- 
- 1->
-*/
  
 
-
-/*namespace Projeto.Classes
+namespace Projeto.Classes
 {
     public enum NivelRisco
     {
@@ -196,7 +191,7 @@ using System.Security.Cryptography;
             };
 
             //Cookies
-            /*padroes["Possiveis Cookies não Protegidos"] = new Dictionary<string, int>
+            padroes["Possiveis Cookies não Protegidos"] = new Dictionary<string, int>
             {
                 {"httpcookie",0 },
                 {"httpcontext",1 },
@@ -750,4 +745,5 @@ using System.Security.Cryptography;
             return d[n, m];
         }
     }
-}*/
+}
+*/
