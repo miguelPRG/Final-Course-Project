@@ -276,7 +276,7 @@ namespace ProjetoA.Classes
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades</h2>");
 
-            var listaVulnerabilidades = VulnerabilityAnalyzer.AnalizarVulnerabilidades(tree.GetRoot());
+            var listaVulnerabilidades = VulnerabilidadeAnalyzer.AnalisarVulnerabilidades(tree.GetRoot());
 
             if (listaVulnerabilidades.Count() <= 0)
             {

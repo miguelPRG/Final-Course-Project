@@ -1,120 +1,205 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-internal enum NivelRisco
+public class Vulnerability
 {
-    Alto,
+    public string Tipo { get; set; }
+    public string Codigo { get; set; }
+    public NivelRisco Risco { get; set; }
+    public List<int> Linhas { get; set; }
+
+    public Vulnerability(string type, string node, NivelRisco riskLevel, List<int> lineNumbers)
+    {
+        Tipo = type;
+        Codigo = node;
+        Risco = riskLevel;
+        Linhas = lineNumbers;
+    }
+}
+
+public enum NivelRisco
+{
+    Baixo,
     Medio,
-    Baixo
+    Alto
 }
 
-internal class Vulnerability
+public static class VulnerabilidadeAnalyzer
 {
-    public string Tipo { get; }
-    public string Codigo { get; }
-    public List<int> Linhas { get; }
-    public NivelRisco Risco { get; }
+    static List<Vulnerability> Vulnerabilidades = new List<Vulnerability>();
 
-    public Vulnerability(string tipo, string codigo, NivelRisco risco, List<int> linhas)
-    {
-        Tipo = tipo;
-        Codigo = codigo;
-        Risco = risco;
-        Linhas = linhas;
-    }
-}
-
-internal class VulnerabilityAnalyzer
-{
-    private static List<Vulnerability> _vulnerabilities;
-
-    public static List<Vulnerability> AnalizarVulnerabilidades(SyntaxNode root)
-    {
-        _vulnerabilities = new List<Vulnerability>();
-
-        DetectSqlInjection(root);
-
-        return _vulnerabilities;
-    }
-
-    public static void DetectSqlInjection(SyntaxNode root)
+    public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
     {
         var type = "SQL Injection";
 
-        // Find all invocations in the syntax tree
-        var suspiciousNodes = root.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Where(node => IsSqlRelated(node));
-
-        foreach (var node in suspiciousNodes)
+        foreach (var node in root.DescendantNodes())
         {
-            var riskLevel = DetermineSqlInjectionRisk(node);
-            var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-            var vulnerability = new Vulnerability(type, node.ToString(), riskLevel, new List<int> { lineSpan });
-
-            _vulnerabilities.Add(vulnerability);
+            if (IsSqlRelated(node))
+            {
+                var riskLevel = DetermineSqlInjectionRisk(node);
+                var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                var vulnerability = new Vulnerability(type, node.ToString(), riskLevel, new List<int> { lineSpan });
+                Vulnerabilidades.Add(vulnerability);
+            }
         }
+
+        return Vulnerabilidades;
     }
 
-    private static bool IsSqlRelated(InvocationExpressionSyntax node)
+    private static bool IsSqlRelated(SyntaxNode node)
     {
-        // Check if the node contains SQL-related method names
-        var sqlMethodNames = new List<string>
+        // Check for SQL-related method invocations
+        if (node is InvocationExpressionSyntax invocation)
         {
-            "SqlCommand",
-            "SqlDataAdapter",
-            "SqlConnection",
-            "SqlDataReader",
-            "SqlDataSource",
-            "ExecuteNonQuery",
-            "ExecuteReader",
-            "ExecuteScalar",
-            "ExecuteDbDataReader"
-        };
+            var sqlMethodNames = new List<string>
+            {
+                "ExecuteNonQuery",
+                "ExecuteReader",
+                "ExecuteScalar",
+                "ExecuteDbDataReader"
+            };
 
-        foreach (var methodName in sqlMethodNames)
+            var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
+            if (memberAccess != null)
+            {
+                var methodName = memberAccess.Name.Identifier.Text;
+                if (sqlMethodNames.Contains(methodName))
+                {
+                    return true;
+                }
+            }
+        }
+
+        // Check for SQL-related variable declarations
+        if (node is VariableDeclarationSyntax variableDeclaration)
         {
-            if (node.ToString().Contains(methodName))
+            var sqlTypes = new List<string>
+            {
+                "SqlCommand",
+                "SqlDataAdapter",
+                "SqlConnection",
+                "SqlDataReader",
+                "SqlDataSource"
+            };
+
+            var variableType = variableDeclaration.Type.ToString();
+            if (sqlTypes.Contains(variableType))
             {
                 return true;
+            }
+        }
+
+        // Check for object creation inside using statements
+        if (node is UsingStatementSyntax usingStatement)
+        {
+            var descendants = usingStatement.DescendantNodes();
+            foreach (var descendant in descendants)
+            {
+                if (descendant is ObjectCreationExpressionSyntax objectCreation)
+                {
+                    var type = objectCreation.Type.ToString();
+                    var sqlTypes = new List<string>
+                    {
+                        "SqlCommand",
+                        "SqlDataAdapter",
+                        "SqlConnection",
+                        "SqlDataReader",
+                        "SqlDataSource"
+                    };
+
+                    if (sqlTypes.Contains(type))
+                    {
+                        return true;
+                    }
+                }
             }
         }
 
         return false;
     }
 
-    private static NivelRisco DetermineSqlInjectionRisk(InvocationExpressionSyntax node)
+    private static NivelRisco DetermineSqlInjectionRisk(SyntaxNode node)
     {
-        // Analisar os argumentos passados para o método SQL
-        var argumentList = node.ArgumentList.Arguments;
-        foreach (var argument in argumentList)
-        {
-            var argumentExpression = argument.Expression;
+        NivelRisco riskLevel = NivelRisco.Baixo;
 
-            // Verificar se o argumento é uma string literal
-            if (argumentExpression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+        if (node is InvocationExpressionSyntax invocation)
+        {
+            // Analyze the arguments passed to the SQL method
+            var argumentList = invocation.ArgumentList.Arguments;
+            foreach (var argument in argumentList)
             {
-                // Verificar se a string literal contém concatenação
-                if (literal.Token.ValueText.Contains("\" +") || literal.Token.ValueText.Contains("+ \""))
+                var argumentExpression = argument.Expression;
+
+                // Check if the argument is a string literal
+                if (argumentExpression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
                 {
-                    return NivelRisco.Alto;
+                    // Check if the string literal contains concatenation
+                    if (literal.Token.ValueText.Contains("\" +") || literal.Token.ValueText.Contains("+ \""))
+                    {
+                        riskLevel = NivelRisco.Alto;
+                    }
+                }
+
+                // Check if the argument is a variable or method return (potentially insecure)
+                if (argumentExpression is IdentifierNameSyntax || argumentExpression is MemberAccessExpressionSyntax)
+                {
+                    // Additional analysis can be done here to check if the identifier comes from user input
+                    // Example: check if the variable is related to a user input field
+                    riskLevel = NivelRisco.Medio;
                 }
             }
-
-            // Verificar se o argumento é uma variável ou retorno de método (potencialmente inseguro)
-            if (argumentExpression is IdentifierNameSyntax || argumentExpression is MemberAccessExpressionSyntax)
+        }
+        else if (node is UsingStatementSyntax usingStatement)
+        {
+            var descendants = usingStatement.DescendantNodes();
+            foreach (var descendant in descendants)
             {
-                // Análise adicional pode ser feita aqui para verificar se o identificador vem de input do usuário
-                // Exemplo: verificar se a variável está relacionada a um campo de entrada de usuário
-                return NivelRisco.Medio;
+                if (descendant is VariableDeclaratorSyntax variableDeclaratorDesc && variableDeclaratorDesc.Initializer?.Value is ObjectCreationExpressionSyntax creationExpression)
+                {
+                    var argumentList = creationExpression.ArgumentList.Arguments;
+
+                    foreach (var argument in argumentList)
+                    {
+                        var argumentExpression = argument.Expression;
+
+                        // Check if the argument is a string literal with concatenation
+                        if (argumentExpression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+                        {
+                            if (literal.Token.ValueText.Contains("\" +") || literal.Token.ValueText.Contains("+ \""))
+                            {
+                                riskLevel = NivelRisco.Alto;
+                            }
+                        }
+
+                        // Check if the argument is a variable or method return (potentially insecure)
+                        else if (argumentExpression is IdentifierNameSyntax || argumentExpression is MemberAccessExpressionSyntax)
+                        {
+                            riskLevel = NivelRisco.Medio;
+                        }
+                    }
+                }
+            }
+        }
+        else if (node is VariableDeclaratorSyntax variableDeclaratorDesc)
+        {
+            // Check if the variable's initializer is a string literal with concatenation
+            if (variableDeclaratorDesc.Initializer?.Value is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+            {
+                if (literal.Token.ValueText.Contains("\" +") || literal.Token.ValueText.Contains("+ \""))
+                {
+                    riskLevel = NivelRisco.Alto;
+                }
+            }
+            else if (variableDeclaratorDesc.Initializer?.Value is IdentifierNameSyntax || variableDeclaratorDesc.Initializer?.Value is MemberAccessExpressionSyntax)
+            {
+                riskLevel = NivelRisco.Medio;
             }
         }
 
-        // Se nenhum risco direto for encontrado, classificar como risco baixo
-        return NivelRisco.Baixo;
+        return riskLevel;
     }
+
 }
