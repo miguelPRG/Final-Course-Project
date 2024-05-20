@@ -31,7 +31,7 @@ public enum NivelRisco
 public static class VulnerabilidadeAnalyzer
 {
     static List<Vulnerability> Vulnerabilidades = new List<Vulnerability>();
-    
+
 
     public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
     {
@@ -41,7 +41,7 @@ public static class VulnerabilidadeAnalyzer
 
         foreach (var node in root.DescendantNodes())
         {
-            if (IsSqlRelated(node))
+            if (isSQLRelated(node))
             {
                 var riskLevel = DetermineSqlInjectionRisk(node);
                 var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
@@ -53,7 +53,7 @@ public static class VulnerabilidadeAnalyzer
         return Vulnerabilidades;
     }
 
-    private static bool IsSqlRelated(SyntaxNode node)
+    private static bool isSQLRelated(SyntaxNode node)
     {
         // Check for SQL-related method invocations
         if (node is InvocationExpressionSyntax invocation)
@@ -97,7 +97,7 @@ public static class VulnerabilidadeAnalyzer
         }
 
         // Check for object creation inside using statements
-        
+
         /*else if (node is UsingStatementSyntax usingStatement)
         {
             var descendants = usingStatement.DescendantNodes();
@@ -125,7 +125,6 @@ public static class VulnerabilidadeAnalyzer
 
         return false;
     }
-
     private static NivelRisco DetermineSqlInjectionRisk(SyntaxNode node)
     {
         NivelRisco riskLevel = NivelRisco.Baixo;
@@ -234,3 +233,86 @@ public static class VulnerabilidadeAnalyzer
         return riskLevel;
 
     }
+
+    private static bool isDoSRelated(SyntaxNode node)
+    {
+        return true;
+    }
+    private static NivelRisco DetermineDoSRisk(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isXSSRelated(SyntaxNode node)
+    {
+        return true;
+    }
+    static NivelRisco DetermineXSSRisk(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isCSRFRelated(SyntaxNode node)
+    {
+        return true;
+    }
+    static NivelRisco DetermineCSRFRisk(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isOpenRedirectRelated(SyntaxNode node)
+    {
+        return true;
+    }
+    static NivelRisco DetermineOpenRedirectAtack(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isHTTPSEnforcementRelated(SyntaxNode node)
+    {
+        return true;
+    }
+    static NivelRisco DetermineHTTPSEnforcement(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isCORSRelated(SyntaxNode node)
+    {
+        return true;
+    }
+    static NivelRisco DetermineCORSRisk(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isEncryptionRelated(SyntaxNode node)
+    {
+        return true ;
+    }
+    static NivelRisco DetermineEncryptionRisk(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isSSRFRelated(SyntaxNode node)
+    {
+        return true ;
+    }
+    static NivelRisco DetermineSSRFRisk(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+    static bool isTLSRelated(SyntaxNode node)
+    {
+        return true ;
+    }
+    static NivelRisco DetermineTLSRisk(SyntaxNode node)
+    {
+        return NivelRisco.Alto;
+    }
+
+}
