@@ -301,7 +301,7 @@ namespace ProjetoA.Classes
 
                         for (int i = 0; i < v.Linhas.Count(); i++)
                         {
-                            htmlBuilder.Append(v.Linhas[i]);
+                            htmlBuilder.Append($"<a href=\"#linhas-numero{v.Linhas[i]}\">{v.Linhas[i]}</a>");
 
                             linhasImportantes[v.Linhas[i]] = (int)v.Risco;
 

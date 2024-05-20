@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -30,9 +31,12 @@ public enum NivelRisco
 public static class VulnerabilidadeAnalyzer
 {
     static List<Vulnerability> Vulnerabilidades = new List<Vulnerability>();
+    
 
     public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
     {
+        Vulnerabilidades = new List<Vulnerability>();
+
         var type = "SQL Injection";
 
         foreach (var node in root.DescendantNodes())
@@ -74,7 +78,7 @@ public static class VulnerabilidadeAnalyzer
         }
 
         // Check for SQL-related variable declarations
-        if (node is VariableDeclarationSyntax variableDeclaration)
+        else if (node is VariableDeclarationSyntax variableDeclaration)
         {
             var sqlTypes = new List<string>
             {
@@ -93,7 +97,8 @@ public static class VulnerabilidadeAnalyzer
         }
 
         // Check for object creation inside using statements
-        if (node is UsingStatementSyntax usingStatement)
+        
+        /*else if (node is UsingStatementSyntax usingStatement)
         {
             var descendants = usingStatement.DescendantNodes();
             foreach (var descendant in descendants)
@@ -116,7 +121,7 @@ public static class VulnerabilidadeAnalyzer
                     }
                 }
             }
-        }
+        }*/
 
         return false;
     }
@@ -152,7 +157,7 @@ public static class VulnerabilidadeAnalyzer
                 }
             }
         }
-        else if (node is UsingStatementSyntax usingStatement)
+        /*else if (node is UsingStatementSyntax usingStatement)
         {
             var descendants = usingStatement.DescendantNodes();
             foreach (var descendant in descendants)
@@ -182,24 +187,50 @@ public static class VulnerabilidadeAnalyzer
                     }
                 }
             }
-        }
-        else if (node is VariableDeclaratorSyntax variableDeclaratorDesc)
+        }*/
+        else if (node is VariableDeclarationSyntax variableDeclaration)
         {
-            // Check if the variable's initializer is a string literal with concatenation
-            if (variableDeclaratorDesc.Initializer?.Value is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
+            foreach (var variable in variableDeclaration.Variables)
             {
-                if (literal.Token.ValueText.Contains("\" +") || literal.Token.ValueText.Contains("+ \""))
+                if (variable.Initializer?.Value is ObjectCreationExpressionSyntax objectCreation)
                 {
-                    riskLevel = NivelRisco.Alto;
+                    foreach (var argument in objectCreation.ArgumentList.Arguments)
+                    {
+                        if (argument.Expression is BinaryExpressionSyntax binaryExpression &&
+                            (binaryExpression.Left is LiteralExpressionSyntax leftLiteral && leftLiteral.IsKind(SyntaxKind.StringLiteralExpression) ||
+                             binaryExpression.Right is LiteralExpressionSyntax rightLiteral && rightLiteral.IsKind(SyntaxKind.StringLiteralExpression)))
+                        {
+                            riskLevel = NivelRisco.Alto;
+                            break;
+                        }
+                        else if (argument.Expression is IdentifierNameSyntax identifierName)
+                        {
+                            // Verifique se o IdentifierName aponta para uma variável string no mesmo escopo
+                            var variableSymbol = semanticModel.GetSymbolInfo(identifierName).Symbol as ILocalSymbol;
+                            if (variableSymbol != null && variableSymbol.Type.SpecialType == SpecialType.System_String)
+                            {
+                                // Verificar se o valor da variável é uma string concatenada
+                                var variableDeclarationNode = variableSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+                                if (variableDeclarationNode?.Initializer?.Value is BinaryExpressionSyntax binaryInitializer &&
+                                    (binaryInitializer.Left is LiteralExpressionSyntax || binaryInitializer.Right is LiteralExpressionSyntax))
+                                {
+                                    riskLevel = NivelRisco.Alto;
+                                    break;
+                                }
+                                else
+                                {
+                                    riskLevel = NivelRisco.Medio;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-            else if (variableDeclaratorDesc.Initializer?.Value is IdentifierNameSyntax || variableDeclaratorDesc.Initializer?.Value is MemberAccessExpressionSyntax)
-            {
-                riskLevel = NivelRisco.Medio;
+                if (riskLevel != NivelRisco.Medio)
+                    break; // Se o risco for alto, não precisamos verificar outras variáveis, podemos sair do loop.
             }
         }
 
         return riskLevel;
-    }
 
-}
+    }
