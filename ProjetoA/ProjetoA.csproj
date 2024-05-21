@@ -125,7 +125,6 @@
     <Compile Include="Classes\DesempenhoAnalyzer.cs" />
     <Compile Include="Classes\VulnerabilidadeAnalyser.cs" />
     <Compile Include="Classes\VulnerabilidadeVisitor.cs" />
-    <Compile Include="Classes\WebForm.cs" />
     <Compile Include="MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
