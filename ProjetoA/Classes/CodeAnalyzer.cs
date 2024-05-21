@@ -318,8 +318,7 @@ namespace ProjetoA.Classes
                             case 0: htmlBuilder.Append("<td class=\"alto\">Alto</td></tr>"); break;
                             case 1: htmlBuilder.Append("<td class=\"medio\">Médio</td></tr>"); break;
                             case 2: htmlBuilder.Append("<td class=\"baixo\">Baixo</td></tr>"); break;
-                        }
-                        
+                        }                   
                     }
                 
                     htmlBuilder.Append("</table>");

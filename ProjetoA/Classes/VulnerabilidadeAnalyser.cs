@@ -23,42 +23,86 @@ public class Vulnerability
 
 public enum NivelRisco
 {
-    Baixo,
+    Alto,
     Medio,
-    Alto
+    Baixo
 }
 
 public static class VulnerabilidadeAnalyzer
 {
-    static List<Vulnerability> Vulnerabilidades = new List<Vulnerability>();
-
-
-    public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
+    private class SQLRelatedSyntaxWalker : CSharpSyntaxWalker
     {
-        Vulnerabilidades = new List<Vulnerability>();
+        public List<SyntaxNode> SQLNodes { get; } = new List<SyntaxNode>();
 
-        var type = "SQL Injection";
-
-        foreach (var node in root.DescendantNodes())
+        public override void VisitInvocationExpression(InvocationExpressionSyntax node)
         {
             if (isSQLRelated(node))
             {
-                var riskLevel = DetermineSqlInjectionRisk(node);
-                var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                var vulnerability = new Vulnerability(type, node.ToString(), riskLevel, new List<int> { lineSpan });
-                Vulnerabilidades.Add(vulnerability);
+                SQLNodes.Add(node);
             }
+            base.VisitInvocationExpression(node);
         }
 
-        return Vulnerabilidades;
+        public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+        {
+            if (isSQLRelated(node))
+            {
+                SQLNodes.Add(node);
+            }
+            base.VisitObjectCreationExpression(node);
+        }
     }
 
-    private static bool isSQLRelated(SyntaxNode node)
+    private class XSSRelatedSyntaxWalker : CSharpSyntaxWalker
     {
-        // Check for SQL-related method invocations
-        if (node is InvocationExpressionSyntax invocation)
+        public List<SyntaxNode> XSSNodes { get; } = new List<SyntaxNode>();
+
+        public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
         {
-            var sqlMethodNames = new List<string>
+            if (isXSSRelated(node))
+            {
+                XSSNodes.Add(node);
+            }
+            
+            base.VisitMemberAccessExpression(node);
+        }
+
+    }
+
+
+        public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
+        {
+            var vulnerabilities = new List<Vulnerability>();
+
+            var visitorSQL = new SQLRelatedSyntaxWalker();
+            visitorSQL.Visit(root);
+
+            var visitorXSS = new XSSRelatedSyntaxWalker();
+
+            /*foreach (var node in visitorSQL.SQLNodes)
+            {
+                var riskLevel = NivelRisco.Alto;
+                var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                var vulnerability = new Vulnerability("SQL Injection", node.ToString(), riskLevel, new List<int> { lineSpan });
+                vulnerabilities.Add(vulnerability);
+            }*/
+
+            foreach (var node in visitorXSS.XSSNodes)
+            {
+                var riskLevel = NivelRisco.Alto;
+                var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                var vulnerability = new Vulnerability("XSS Atack", node.ToString(), riskLevel, new List<int> { lineSpan });
+                vulnerabilities.Add(vulnerability);
+            }
+
+        return vulnerabilities;
+        }
+
+        private static bool isSQLRelated(SyntaxNode node)
+        {
+            if (node is InvocationExpressionSyntax invocation)
+            {
+                var sqlMethodNames = new List<string>
             {
                 "ExecuteNonQuery",
                 "ExecuteReader",
@@ -66,21 +110,18 @@ public static class VulnerabilidadeAnalyzer
                 "ExecuteDbDataReader"
             };
 
-            var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
-            if (memberAccess != null)
-            {
-                var methodName = memberAccess.Name.Identifier.Text;
-                if (sqlMethodNames.Contains(methodName))
+                if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
                 {
-                    return true;
+                    var methodName = memberAccess.Name.Identifier.Text;
+                    if (sqlMethodNames.Contains(methodName))
+                    {
+                        return true;
+                    }
                 }
             }
-        }
-
-        // Check for SQL-related variable declarations
-        else if (node is VariableDeclarationSyntax variableDeclaration)
-        {
-            var sqlTypes = new List<string>
+            else if (node is ObjectCreationExpressionSyntax objectExpression)
+            {
+                var sqlTypes = new List<string>
             {
                 "SqlCommand",
                 "SqlDataAdapter",
@@ -89,43 +130,16 @@ public static class VulnerabilidadeAnalyzer
                 "SqlDataSource"
             };
 
-            var variableType = variableDeclaration.Type.ToString();
-            if (sqlTypes.Contains(variableType))
-            {
-                return true;
-            }
-        }
-
-        // Check for object creation inside using statements
-
-        /*else if (node is UsingStatementSyntax usingStatement)
-        {
-            var descendants = usingStatement.DescendantNodes();
-            foreach (var descendant in descendants)
-            {
-                if (descendant is ObjectCreationExpressionSyntax objectCreation)
+                var typeName = objectExpression.Type.ToString();
+                if (sqlTypes.Contains(typeName))
                 {
-                    var type = objectCreation.Type.ToString();
-                    var sqlTypes = new List<string>
-                    {
-                        "SqlCommand",
-                        "SqlDataAdapter",
-                        "SqlConnection",
-                        "SqlDataReader",
-                        "SqlDataSource"
-                    };
-
-                    if (sqlTypes.Contains(type))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
-        }*/
 
-        return false;
-    }
-    private static NivelRisco DetermineSqlInjectionRisk(SyntaxNode node)
+            return false;
+        }
+        /*private static NivelRisco DetermineSqlInjectionRisk(SyntaxNode node)
     {
         NivelRisco riskLevel = NivelRisco.Baixo;
 
@@ -156,37 +170,7 @@ public static class VulnerabilidadeAnalyzer
                 }
             }
         }
-        /*else if (node is UsingStatementSyntax usingStatement)
-        {
-            var descendants = usingStatement.DescendantNodes();
-            foreach (var descendant in descendants)
-            {
-                if (descendant is VariableDeclaratorSyntax variableDeclaratorDesc && variableDeclaratorDesc.Initializer?.Value is ObjectCreationExpressionSyntax creationExpression)
-                {
-                    var argumentList = creationExpression.ArgumentList.Arguments;
 
-                    foreach (var argument in argumentList)
-                    {
-                        var argumentExpression = argument.Expression;
-
-                        // Check if the argument is a string literal with concatenation
-                        if (argumentExpression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
-                        {
-                            if (literal.Token.ValueText.Contains("\" +") || literal.Token.ValueText.Contains("+ \""))
-                            {
-                                riskLevel = NivelRisco.Alto;
-                            }
-                        }
-
-                        // Check if the argument is a variable or method return (potentially insecure)
-                        else if (argumentExpression is IdentifierNameSyntax || argumentExpression is MemberAccessExpressionSyntax)
-                        {
-                            riskLevel = NivelRisco.Medio;
-                        }
-                    }
-                }
-            }
-        }*/
         else if (node is VariableDeclarationSyntax variableDeclaration)
         {
             foreach (var variable in variableDeclaration.Variables)
@@ -232,87 +216,121 @@ public static class VulnerabilidadeAnalyzer
 
         return riskLevel;
 
-    }
+    }*/
 
-    private static bool isDoSRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    private static NivelRisco DetermineDoSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
 
-    static bool isXSSRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineXSSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+        public static bool IsXSSRelated(SyntaxNode node)
+        {
+            if (node is InvocationExpressionSyntax invocation)
+            {
+                var xssMethodNames = new List<string>
+                {
+                    "Write",
+                    "WriteLine",
+                    "Append"
+                    // Adicione aqui outros métodos que possam ser usados para inserir conteúdo não escapado em uma página da web
+                };
 
-    static bool isCSRFRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineCSRFRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+                if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+                {
+                    var methodName = memberAccess.Name.Identifier.Text;
+                    if (xssMethodNames.Contains(methodName))
+                    {
+                        return true;
+                    }
+                }
+            }
+            else if (node is ObjectCreationExpressionSyntax objectExpression)
+            {
+                var xssTypes = new List<string>
+                {
+                    "StringBuilder"
+                    // Adicione aqui outros tipos que possam ser usados para construir conteúdo não escapado em uma página da web
+                };
 
-    static bool isOpenRedirectRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineOpenRedirectAtack(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+                var typeName = objectExpression.Type.ToString();
+                if (xssTypes.Contains(typeName))
+                {
+                    return true;
+                }
+            }
 
-    static bool isHTTPSEnforcementRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineHTTPSEnforcement(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+            return false;
+        }
+        static NivelRisco DetermineXSSRisk(SyntaxNode node)
+            {
+                return NivelRisco.Alto;
+            }
 
-    static bool isCORSRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineCORSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+        static bool isCSRFRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        static NivelRisco DetermineCSRFRisk(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
 
-    static bool isEncryptionRelated(SyntaxNode node)
-    {
-        return true ;
-    }
-    static NivelRisco DetermineEncryptionRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+        static bool isOpenRedirectRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        static NivelRisco DetermineOpenRedirectAtack(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
 
-    static bool isSSRFRelated(SyntaxNode node)
-    {
-        return true ;
-    }
-    static NivelRisco DetermineSSRFRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+        static bool isHTTPSEnforcementRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        static NivelRisco DetermineHTTPSEnforcement(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
 
-    static bool isTLSRelated(SyntaxNode node)
-    {
-        return true ;
-    }
-    static NivelRisco DetermineTLSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
+        static bool isCORSRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        static NivelRisco DetermineCORSRisk(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
+
+        static bool isEncryptionRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        static NivelRisco DetermineEncryptionRisk(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
+
+        static bool isSSRFRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        static NivelRisco DetermineSSRFRisk(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
+
+        static bool isTLSRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        static NivelRisco DetermineTLSRisk(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
+        private static bool isDoSRelated(SyntaxNode node)
+        {
+            return true;
+        }
+        private static NivelRisco DetermineDoSRisk(SyntaxNode node)
+        {
+            return NivelRisco.Alto;
+        }
 
 }
