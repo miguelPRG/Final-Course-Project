@@ -27,234 +27,140 @@ public enum NivelRisco
     Medio,
     Baixo
 }
-
 public static class VulnerabilidadeAnalyzer
 {
-    private class SQLRelatedSyntaxWalker : CSharpSyntaxWalker
-    {
-        public List<SyntaxNode> SQLNodes { get; } = new List<SyntaxNode>();
-
-        public override void VisitInvocationExpression(InvocationExpressionSyntax node)
-        {
-            if (isSQLRelated(node))
-            {
-                SQLNodes.Add(node);
-            }
-            base.VisitInvocationExpression(node);
-        }
-
-        public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
-        {
-            if (isSQLRelated(node))
-            {
-                SQLNodes.Add(node);
-            }
-            base.VisitObjectCreationExpression(node);
-        }
-    }
-
-    private class XSSRelatedSyntaxWalker : CSharpSyntaxWalker
-    {
-        public List<SyntaxNode> XSSNodes { get; } = new List<SyntaxNode>();
-
-        public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
-        {
-            if (isXSSRelated(node))
-            {
-                XSSNodes.Add(node);
-            }
-
-            base.VisitMemberAccessExpression(node);
-        }
-
-    }
-
-
     public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
     {
         var vulnerabilities = new List<Vulnerability>();
 
-        var visitorSQL = new SQLRelatedSyntaxWalker();
-        visitorSQL.Visit(root);
+        // Analisar vulnerabilidades de XSS
+        //var xssVulnerabilities = AnalyzeForXSS(root);
+        //vulnerabilities.AddRange(xssVulnerabilities);
 
-        var visitorXSS = new XSSRelatedSyntaxWalker();
+        // Analisar vulnerabilidades de SQL Injection
+        var sqlVulnerabilities = AnalyzeSQLInjection(root);
+        vulnerabilities.AddRange(sqlVulnerabilities);
 
-        /*foreach (var node in visitorSQL.SQLNodes)
+        return vulnerabilities;
+    }
+    
+    private static VariableDeclarationSyntax FindVariableDeclaration(IdentifierNameSyntax identifierName, SyntaxNode root)
+    {
+        // Find all variable declarations with the same identifier name
+        var variableDeclarations = root.DescendantNodes()
+            .OfType<VariableDeclarationSyntax>()
+            .Where(v => v.Variables.Any(var => var.Identifier.Text == identifierName.Identifier.Text));
+
+        // Traverse up the syntax tree to find the nearest variable declaration
+        foreach (var variableDeclaration in variableDeclarations)
         {
-            var riskLevel = NivelRisco.Alto;
-            var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-            var vulnerability = new Vulnerability("SQL Injection", node.ToString(), riskLevel, new List<int> { lineSpan });
-            vulnerabilities.Add(vulnerability);
-        }*/
+            var node = variableDeclaration.Parent;
+            while (node != null)
+            {
+                if (node is BlockSyntax || node is MethodDeclarationSyntax)
+                {
+                    return variableDeclaration;
+                }
+                node = node.Parent;
+            }
+        }
 
-        foreach (var node in visitorXSS.XSSNodes)
+        return null;
+    }
+
+
+    private static List<Vulnerability> AnalyzeSQLInjection(SyntaxNode root)
+    {
+        var vulnerabilities = new List<Vulnerability>();
+
+        var objectCreations = root.DescendantNodes()
+            .OfType<ObjectCreationExpressionSyntax>();
+
+        foreach (var objectCreation in objectCreations)
         {
-            var riskLevel = NivelRisco.Alto;
-            var lineSpan = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-            var vulnerability = new Vulnerability("XSS Atack", node.ToString(), riskLevel, new List<int> { lineSpan });
-            vulnerabilities.Add(vulnerability);
+            // Check if the object being created is a SqlCommand
+            if (objectCreation.Type.ToString() == "SqlCommand")
+            {
+                var arguments = objectCreation.ArgumentList.Arguments;
+                if (arguments.Count > 0)
+                {
+                    var firstArgument = arguments[0].Expression;
+                    if (firstArgument is IdentifierNameSyntax identifierName)
+                    {
+                        // Find the variable declaration for the identifier
+                        var variableDeclaration = FindVariableDeclaration(identifierName, root);
+                        if (variableDeclaration != null)
+                        {
+                            // Check if the variable is initialized with a concatenation
+                            var initializer = variableDeclaration.Variables.First().Initializer;
+                            if (initializer?.Value is BinaryExpressionSyntax binaryExpression &&
+                                binaryExpression.IsKind(SyntaxKind.AddExpression))
+                            {
+                                var lineSpan = objectCreation.GetLocation().GetLineSpan();
+                                var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
+
+                                vulnerabilities.Add(new Vulnerability(
+                                    "SQL Injection",
+                                    objectCreation.ToString(),
+                                    NivelRisco.Alto,
+                                    lines
+                                ));
+                            }
+                        }
+                    }
+                    else if (firstArgument is LiteralExpressionSyntax ||
+                             firstArgument is InterpolatedStringExpressionSyntax)
+                    {
+                        // Detect if the SQL command string is a literal or interpolated string
+                        var lineSpan = objectCreation.GetLocation().GetLineSpan();
+                        var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
+
+                        vulnerabilities.Add(new Vulnerability(
+                            "SQL Injection",
+                            objectCreation.ToString(),
+                            NivelRisco.Alto,
+                            lines
+                        ));
+                    }
+                }
+            }
         }
 
         return vulnerabilities;
     }
-    private static bool isSQLRelated(SyntaxNode node)
-    {
-        if (node is InvocationExpressionSyntax invocation)
-        {
-            var sqlMethodNames = new List<string>
-            {
-                "ExecuteNonQuery",
-                "ExecuteReader",
-                "ExecuteScalar",
-                "ExecuteDbDataReader"
-            };
 
-            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+    static List<Vulnerability> AnalyzeForXSS(SyntaxNode root)
+    {
+        var vulnerabilities = new List<Vulnerability>();
+
+        var assignments = root.DescendantNodes()
+            .OfType<AssignmentExpressionSyntax>();
+
+        foreach (var assignment in assignments)
+        {
+            if (assignment.Left is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.Text == "Text")
             {
-                var methodName = memberAccess.Name.Identifier.Text;
-                if (sqlMethodNames.Contains(methodName))
+                if (assignment.Right is InvocationExpressionSyntax invocation &&
+                    invocation.Expression is MemberAccessExpressionSyntax invocationMemberAccess &&
+                    invocationMemberAccess.Name.Identifier.Text == "Form")
                 {
-                    return true;
+                    var lineSpan = assignment.GetLocation().GetLineSpan();
+                    var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
+
+                    vulnerabilities.Add(new Vulnerability(
+                        "XSS",
+                        assignment.ToString(),
+                        NivelRisco.Alto,
+                        lines
+                    ));
                 }
             }
         }
-        else if (node is ObjectCreationExpressionSyntax objectExpression)
-        {
-            var sqlTypes = new List<string>
-            {
-                "SqlCommand",
-                "SqlDataAdapter",
-                "SqlConnection",
-                "SqlDataReader",
-                "SqlDataSource"
-            };
 
-            var typeName = objectExpression.Type.ToString();
-            if (sqlTypes.Contains(typeName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-    /*private static NivelRisco DetermineSqlInjectionRisk(SyntaxNode node)
-{
-    NivelRisco riskLevel = NivelRisco.Baixo;
-
-    if (node is InvocationExpressionSyntax invocation)
-    {
-        // Analyze the arguments passed to the SQL method
-        var argumentList = invocation.ArgumentList.Arguments;
-        foreach (var argument in argumentList)
-        {
-            var argumentExpression = argument.Expression;
-
-            // Check if the argument is a string literal
-            if (argumentExpression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
-            {
-                // Check if the string literal contains concatenation
-                if (literal.Token.ValueText.Contains("\" +") || literal.Token.ValueText.Contains("+ \""))
-                {
-                    riskLevel = NivelRisco.Alto;
-                }
-            }
-
-            // Check if the argument is a variable or method return (potentially insecure)
-            if (argumentExpression is IdentifierNameSyntax || argumentExpression is MemberAccessExpressionSyntax)
-            {
-                // Additional analysis can be done here to check if the identifier comes from user input
-                // Example: check if the variable is related to a user input field
-                riskLevel = NivelRisco.Medio;
-            }
-        }
+        return vulnerabilities;
     }
 
-    else if (node is VariableDeclarationSyntax variableDeclaration)
-    {
-        foreach (var variable in variableDeclaration.Variables)
-        {
-            if (variable.Initializer?.Value is ObjectCreationExpressionSyntax objectCreation)
-            {
-                foreach (var argument in objectCreation.ArgumentList.Arguments)
-                {
-                    if (argument.Expression is BinaryExpressionSyntax binaryExpression &&
-                        (binaryExpression.Left is LiteralExpressionSyntax leftLiteral && leftLiteral.IsKind(SyntaxKind.StringLiteralExpression) ||
-                         binaryExpression.Right is LiteralExpressionSyntax rightLiteral && rightLiteral.IsKind(SyntaxKind.StringLiteralExpression)))
-                    {
-                        riskLevel = NivelRisco.Alto;
-                        break;
-                    }
-                    else if (argument.Expression is IdentifierNameSyntax identifierName)
-                    {
-                        // Verifique se o IdentifierName aponta para uma variável string no mesmo escopo
-                        var variableSymbol = semanticModel.GetSymbolInfo(identifierName).Symbol as ILocalSymbol;
-                        if (variableSymbol != null && variableSymbol.Type.SpecialType == SpecialType.System_String)
-                        {
-                            // Verificar se o valor da variável é uma string concatenada
-                            var variableDeclarationNode = variableSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
-                            if (variableDeclarationNode?.Initializer?.Value is BinaryExpressionSyntax binaryInitializer &&
-                                (binaryInitializer.Left is LiteralExpressionSyntax || binaryInitializer.Right is LiteralExpressionSyntax))
-                            {
-                                riskLevel = NivelRisco.Alto;
-                                break;
-                            }
-                            else
-                            {
-                                riskLevel = NivelRisco.Medio;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (riskLevel != NivelRisco.Medio)
-                break; // Se o risco for alto, não precisamos verificar outras variáveis, podemos sair do loop.
-        }
-    }
-
-    return riskLevel;
-
-}*/
-
-    public static bool isXSSRelated(SyntaxNode node)
-    {
-        if (node is InvocationExpressionSyntax invocation)
-        {
-            var xssMethodNames = new List<string>
-                {
-                    "Write",
-                    "WriteLine",
-                    "Append"
-                    // Adicione aqui outros métodos que possam ser usados para inserir conteúdo não escapado em uma página da web
-                };
-
-            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-            {
-                var methodName = memberAccess.Name.Identifier.Text;
-                if (xssMethodNames.Contains(methodName))
-                {
-                    return true;
-                }
-            }
-        }
-        else if (node is ObjectCreationExpressionSyntax objectExpression)
-        {
-            var xssTypes = new List<string>
-                {
-                    "StringBuilder"
-                    // Adicione aqui outros tipos que possam ser usados para construir conteúdo não escapado em uma página da web
-                };
-
-            var typeName = objectExpression.Type.ToString();
-            if (xssTypes.Contains(typeName))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
     static NivelRisco DetermineXSSRisk(SyntaxNode node)
     {
         return NivelRisco.Alto;
@@ -322,6 +228,7 @@ public static class VulnerabilidadeAnalyzer
     {
         return NivelRisco.Alto;
     }
+
     private static bool isDoSRelated(SyntaxNode node)
     {
         return true;
@@ -330,4 +237,5 @@ public static class VulnerabilidadeAnalyzer
     {
         return NivelRisco.Alto;
     }
+
 }
