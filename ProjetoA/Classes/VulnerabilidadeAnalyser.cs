@@ -29,39 +29,35 @@ public enum NivelRisco
 }
 public static class VulnerabilidadeAnalyzer
 {
+    static List<Vulnerability> vulnerabilities;
+
     public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
     {
-        var vulnerabilities = new List<Vulnerability>();
+        vulnerabilities = new List<Vulnerability>();
 
         // Analisar vulnerabilidades de XSS
-        //var xssVulnerabilities = AnalyzeForXSS(root);
-        //vulnerabilities.AddRange(xssVulnerabilities);
+        AnalyzeForXSS(root);
 
         // Analisar vulnerabilidades de SQL Injection
-        var sqlVulnerabilities = AnalyzeSQLInjection(root);
-        vulnerabilities.AddRange(sqlVulnerabilities);
+        //var sqlVulnerabilities = AnalyzeSQLInjection(root);
+        //vulnerabilities.AddRange(sqlVulnerabilities);
 
         return vulnerabilities;
     }
-    
+
     private static VariableDeclarationSyntax FindVariableDeclaration(IdentifierNameSyntax identifierName, SyntaxNode root)
     {
-        // Find all variable declarations with the same identifier name
         var variableDeclarations = root.DescendantNodes()
-            .OfType<VariableDeclarationSyntax>()
-            .Where(v => v.Variables.Any(var => var.Identifier.Text == identifierName.Identifier.Text));
+            .OfType<VariableDeclarationSyntax>();
 
-        // Traverse up the syntax tree to find the nearest variable declaration
         foreach (var variableDeclaration in variableDeclarations)
         {
-            var node = variableDeclaration.Parent;
-            while (node != null)
+            foreach (var variable in variableDeclaration.Variables)
             {
-                if (node is BlockSyntax || node is MethodDeclarationSyntax)
+                if (variable.Identifier.Text == identifierName.Identifier.Text)
                 {
                     return variableDeclaration;
                 }
-                node = node.Parent;
             }
         }
 
@@ -69,10 +65,8 @@ public static class VulnerabilidadeAnalyzer
     }
 
 
-    private static List<Vulnerability> AnalyzeSQLInjection(SyntaxNode root)
+    private static void AnalyzeSQLInjection(SyntaxNode root)
     {
-        var vulnerabilities = new List<Vulnerability>();
-
         var objectCreations = root.DescendantNodes()
             .OfType<ObjectCreationExpressionSyntax>();
 
@@ -82,10 +76,11 @@ public static class VulnerabilidadeAnalyzer
             if (objectCreation.Type.ToString() == "SqlCommand")
             {
                 var arguments = objectCreation.ArgumentList.Arguments;
-                if (arguments.Count > 0)
+                foreach (var argument in arguments)
                 {
-                    var firstArgument = arguments[0].Expression;
-                    if (firstArgument is IdentifierNameSyntax identifierName)
+                    var expression = argument.Expression;
+
+                    if (expression is IdentifierNameSyntax identifierName)
                     {
                         // Find the variable declaration for the identifier
                         var variableDeclaration = FindVariableDeclaration(identifierName, root);
@@ -108,8 +103,8 @@ public static class VulnerabilidadeAnalyzer
                             }
                         }
                     }
-                    else if (firstArgument is LiteralExpressionSyntax ||
-                             firstArgument is InterpolatedStringExpressionSyntax)
+                    else if (expression is LiteralExpressionSyntax ||
+                             expression is InterpolatedStringExpressionSyntax)
                     {
                         // Detect if the SQL command string is a literal or interpolated string
                         var lineSpan = objectCreation.GetLocation().GetLineSpan();
@@ -122,44 +117,120 @@ public static class VulnerabilidadeAnalyzer
                             lines
                         ));
                     }
+                    else if (expression is BinaryExpressionSyntax binaryExpression)
+                    {
+                        // Check if the argument is a concatenated string
+                        if (binaryExpression.IsKind(SyntaxKind.AddExpression))
+                        {
+                            var lineSpan = objectCreation.GetLocation().GetLineSpan();
+                            var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
+
+                            vulnerabilities.Add(new Vulnerability(
+                                "SQL Injection",
+                                objectCreation.ToString(),
+                                NivelRisco.Alto,
+                                lines
+                            ));
+                        }
+                    }
+                    else if (expression is InvocationExpressionSyntax)
+                    {
+                        // Handle complex cases like method invocations
+                        var lineSpan = objectCreation.GetLocation().GetLineSpan();
+                        var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
+
+                        vulnerabilities.Add(new Vulnerability(
+                            "Potential SQL Injection",
+                            objectCreation.ToString(),
+                            NivelRisco.Medio,
+                            lines
+                        ));
+                    }
                 }
             }
         }
-
-        return vulnerabilities;
     }
 
-    static List<Vulnerability> AnalyzeForXSS(SyntaxNode root)
+    static void AnalyzeForXSS(SyntaxNode root)
     {
-        var vulnerabilities = new List<Vulnerability>();
+        var methodInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
-        var assignments = root.DescendantNodes()
-            .OfType<AssignmentExpressionSyntax>();
-
-        foreach (var assignment in assignments)
+        foreach (var invocation in methodInvocations)
         {
-            if (assignment.Left is MemberAccessExpressionSyntax memberAccess &&
-                memberAccess.Name.Identifier.Text == "Text")
+            // Verificar se o método invocado é Request.QueryString
+            if (invocation.ToString().Contains("Request.QueryString"))
             {
-                if (assignment.Right is InvocationExpressionSyntax invocation &&
-                    invocation.Expression is MemberAccessExpressionSyntax invocationMemberAccess &&
-                    invocationMemberAccess.Name.Identifier.Text == "Form")
-                {
-                    var lineSpan = assignment.GetLocation().GetLineSpan();
-                    var lines = new List<int> { lineSpan.StartLinePosition.Line + 1 };
+                // Verificar se há uma invocação de Server.HtmlEncode com o valor de Request.QueryString
+                var htmlEncodeInvocations = invocation.Ancestors().OfType<InvocationExpressionSyntax>()
+                    .Where(inv => inv.ToString().Contains("Server.HtmlEncode"));
 
-                    vulnerabilities.Add(new Vulnerability(
-                        "XSS",
-                        assignment.ToString(),
-                        NivelRisco.Alto,
-                        lines
-                    ));
+                if (!htmlEncodeInvocations.Any())
+                {
+                    // Se não houver Server.HtmlEncode para o valor de Request.QueryString, adicionar vulnerabilidade
+                    var tipo = "XSS";
+                    var codigo = "Vulnerabilidade de XSS detectada: Falha ao codificar valor do QueryString.";
+                    var risco = NivelRisco.Alto; // Ajuste conforme necessário
+                    var linha = invocation.GetLocation().GetLineSpan().StartLinePosition.Line +1;
+                    var lineNumbers = new List<int>() { linha };
+                    vulnerabilities.Add(new Vulnerability(tipo, codigo, risco, lineNumbers));
+                }
+            }
+        }
+    }
+
+    static bool ContainsDangerousInput(BinaryExpressionSyntax expression, SyntaxNode root)
+    {
+        // Check if the binary expression contains any potentially dangerous inputs
+        // Specifically, check if it contains a variable that invokes Request.QueryString
+        // and if that variable is not passed through Server.HtmlEncode
+
+        var variables = expression.DescendantNodes().OfType<IdentifierNameSyntax>();
+        foreach (var variable in variables)
+        {
+            // Check if the variable is invoking Request.QueryString
+            if (variable.Identifier.Text == "QueryString" &&
+                variable.Ancestors().OfType<MemberAccessExpressionSyntax>().Any(access =>
+                    access.Name.Identifier.Text == "Request" &&
+                    access.Expression is IdentifierNameSyntax identifier &&
+                    identifier.Identifier.Text == "Request"))
+            {
+                // Check if this variable is passed to Server.HtmlEncode
+                var variableSymbol = ModelExtensions.GetSymbolInfo(root.GetSemanticModel().GetTypeInfo(variable)).Symbol;
+                var usages = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                    .Where(invocation =>
+                        invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                        memberAccess.Name.Identifier.Text == "HtmlEncode" &&
+                        memberAccess.Expression is IdentifierNameSyntax identifier &&
+                        identifier.Identifier.Text == "Server" &&
+                        invocation.ArgumentList.Arguments.Any(arg =>
+                            arg.Expression is IdentifierNameSyntax argIdentifier &&
+                            ModelExtensions.GetSymbolInfo(root.GetSemanticModel().GetTypeInfo(argIdentifier)).Symbol == variableSymbol));
+
+                if (!usages.Any())
+                {
+                    // The variable invoking Request.QueryString is not passed to Server.HtmlEncode
+                    return true;
                 }
             }
         }
 
-        return vulnerabilities;
+        return false;
     }
+
+
+    static bool IsUserInput(InvocationExpressionSyntax invocation)
+    {
+        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            var text = memberAccess.ToString();
+            return text.StartsWith("Request.Form") ||
+                   text.StartsWith("Request.QueryString") ||
+                   text.StartsWith("Request.Params");
+        }
+
+        return false;
+    }
+    
 
     static NivelRisco DetermineXSSRisk(SyntaxNode node)
     {
