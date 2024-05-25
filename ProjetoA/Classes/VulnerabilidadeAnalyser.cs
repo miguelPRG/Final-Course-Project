@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Windows.UI.Xaml.Shapes;
 
 public class Vulnerability
 {
@@ -36,7 +37,7 @@ public static class VulnerabilidadeAnalyzer
         vulnerabilities = new List<Vulnerability>();
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForXSS(root);
+        AnalyzeSQLInjection(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -63,9 +64,7 @@ public static class VulnerabilidadeAnalyzer
 
         return null;
     }
-
-
-    static void AnalyzeSQLInjection(SyntaxNode root)
+    /*static void AnalyzeSQLInjection(SyntaxNode root)
     {
         var objectCreations = root.DescendantNodes()
             .OfType<ObjectCreationExpressionSyntax>();
@@ -143,9 +142,80 @@ public static class VulnerabilidadeAnalyzer
                 }
             }
         }
+    }*/
+    static void AdicionarVulnerabilidade(string tipo, string codigo, NivelRisco risco, int linha)
+    {
+        object obj = new object();
+
+        var existingVulnerability = vulnerabilities
+                       .FirstOrDefault(v => v.Codigo == codigo && v.Tipo == tipo);
+
+        lock (obj)
+        {
+            if (existingVulnerability != null)
+            {
+                // Adicionar a nova linha à lista de linhas da vulnerabilidade existente
+                existingVulnerability.Linhas.Add(linha);
+                existingVulnerability.Linhas = existingVulnerability.Linhas.Distinct().ToList();
+            }
+            else
+            {
+                // Adicionar nova vulnerabilidade
+                var lineNumbers = new List<int> { linha };
+                vulnerabilities.Add(new Vulnerability(tipo, codigo, risco, lineNumbers));
+            }
+        }
+    }
+
+
+    static void AnalyzeSQLInjection(SyntaxNode root)
+    {
+        var declarations = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>();
+        var tipo = "SQL Injection";
+        var risco = NivelRisco.Alto;
+
+        foreach (var obj in declarations)
+        {
+            // Verificar se é uma declaração de SqlCommand
+            if (obj.Type.ToString() == "SqlCommand")
+            {
+                // Iterar pelos argumentos do SqlCommand
+                foreach (var arg in obj.ArgumentList.Arguments)
+                {
+                    // Verificar se o argumento é uma concatenação de strings
+                    if (arg.Expression is BinaryExpressionSyntax binaryExpression &&
+                        binaryExpression.OperatorToken.IsKind(SyntaxKind.PlusToken))
+                    {
+                        // Adicionar a vulnerabilidade
+                       
+                        var codigo = obj.ToString().Substring(0, 20);
+                         // Ajuste conforme necessário
+                        var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                        AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                    }
+                    // Verificar se o argumento é um identificador de variável que contenha uma string concatenada
+                    else if (arg.Expression is IdentifierNameSyntax identifier)
+                    {
+                        var variable = root.DescendantNodes()
+                                           .OfType<VariableDeclarationSyntax>()
+                                           .FirstOrDefault(v => v.Variables.Any(var => var.Identifier.Text == identifier.Identifier.Text));
+
+                        if (variable != null && variable.Variables.Any(v => v.Initializer.Value is BinaryExpressionSyntax))
+                        {
+                            var codigo = arg.ToString().Substring(0, 10);
+                            var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                            AdicionarVulnerabilidade(tipo,codigo, risco, linha);
+                        }
+                    }
+                }
+            }
+        }
     }
     static void AnalyzeForXSS(SyntaxNode root)
     {
+        var tipo = "XSS";
+        var risco = NivelRisco.Alto; // Ajuste conforme necessário
+
         var declarations = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>();
 
         foreach (var invocation in declarations)
@@ -160,32 +230,36 @@ public static class VulnerabilidadeAnalyzer
                 if (!htmlEncodeInvocations.Any())
                 {
                     // Se não houver Server.HtmlEncode para o valor de Request.QueryString, adicionar vulnerabilidade
-                    var tipo = "XSS";
-                    var codigo = invocation.ToString();
-                    var risco = NivelRisco.Alto; // Ajuste conforme necessário
+                   
+                    var codigo = invocation.ToString().Substring(0,20);
                     var linha = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
-                    // Verificar se uma vulnerabilidade semelhante já existe
-                    var existingVulnerability = vulnerabilities
-                        .FirstOrDefault(v => v.Codigo == codigo && v.Tipo == tipo);
-
-                    if (existingVulnerability != null)
-                    {
-                        // Adicionar a nova linha à lista de linhas da vulnerabilidade existente
-                        existingVulnerability.Linhas.Add(linha);
-                        existingVulnerability.Linhas = existingVulnerability.Linhas.Distinct().ToList();
-                    }
-                    else
-                    {
-                        // Adicionar nova vulnerabilidade
-                        var lineNumbers = new List<int> { linha };
-                        vulnerabilities.Add(new Vulnerability(tipo, codigo, risco, lineNumbers));
-                    }
+                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
                 }
             }
         }
     }
+    static void AnalyzeForInsecureObject(SyntaxNode root)
+    {
+        var Listas= root.DescendantNodes().OfType<ParameterListSyntax>();
+        var tipo = "Objeto Inseguro";
+        var risco = NivelRisco.Alto; // Ajuste conforme necessário
 
+        foreach (var paramList in Listas) 
+        {
+            foreach (var param in paramList.Parameters) 
+            {
+                if (param.ToString().Contains("object"))
+                {
+                    var codigo = paramList.Parent.ToString().Substring(0,20);
+                    var linha = paramList.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                }
+            }
+
+        }
+    }
 
     static bool IsUserInput(InvocationExpressionSyntax invocation)
     {
