@@ -37,7 +37,7 @@ public static class VulnerabilidadeAnalyzer
         vulnerabilities = new List<Vulnerability>();
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeSQLInjection(root);
+        AnalyzeForCSRF(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -167,7 +167,6 @@ public static class VulnerabilidadeAnalyzer
         }
     }
 
-
     static void AnalyzeSQLInjection(SyntaxNode root)
     {
         var declarations = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>();
@@ -202,7 +201,10 @@ public static class VulnerabilidadeAnalyzer
 
                         if (variable != null && variable.Variables.Any(v => v.Initializer.Value is BinaryExpressionSyntax))
                         {
-                            var codigo = arg.ToString().Substring(0, 10);
+                            var codigo = arg.ToString();
+                            int index = codigo.IndexOfAny(new char[] { '\n', '\r' });
+                            codigo = codigo.Substring(0, index);
+
                             var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
                             AdicionarVulnerabilidade(tipo,codigo, risco, linha);
                         }
@@ -231,7 +233,10 @@ public static class VulnerabilidadeAnalyzer
                 {
                     // Se não houver Server.HtmlEncode para o valor de Request.QueryString, adicionar vulnerabilidade
                    
-                    var codigo = invocation.ToString().Substring(0,20);
+                    var codigo = invocation.ToString();
+                    int index = codigo.IndexOfAny(new char[] { '\n', '\r' });
+                    codigo = codigo.Substring(0, index);
+
                     var linha = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
                     AdicionarVulnerabilidade(tipo, codigo, risco, linha);
@@ -239,27 +244,88 @@ public static class VulnerabilidadeAnalyzer
             }
         }
     }
-    static void AnalyzeForInsecureObject(SyntaxNode root)
+    static void AnalyzeForCSRF(SyntaxNode root)
     {
-        var Listas= root.DescendantNodes().OfType<ParameterListSyntax>();
-        var tipo = "Objeto Inseguro";
-        var risco = NivelRisco.Alto; // Ajuste conforme necessário
+        var tipo = "CSRF";
+        var risco = NivelRisco.Alto;
 
-        foreach (var paramList in Listas) 
+        var methods = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
+
+        foreach(var m in methods)
         {
-            foreach (var param in paramList.Parameters) 
-            {
-                if (param.ToString().Contains("object"))
-                {
-                    var codigo = paramList.Parent.ToString().Substring(0,20);
-                    var linha = paramList.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+            var listaAtributos = m.AttributeLists;
 
-                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+            int httpPost = 0;
+            int antiForgery = 0;
+
+            foreach (var a in listaAtributos)
+            {
+                if(a.ToString() == "[HttpPost]")
+                {
+                    httpPost++;
+                }
+
+                else if(a.ToString() == "[ValidateAntiForgeryToken]")
+                {
+                    antiForgery++;
                 }
             }
 
+            if(httpPost > antiForgery)
+            {
+                var codigo = m.ToString();
+                int index = codigo.IndexOfAny(new char[] { '\n', '\r' });
+                codigo = codigo.Substring(0, index);
+
+                var linha = m.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+                AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+            }
+        }
+
+
+    }
+    static void AnalyzeForInsecureDeserialization(SyntaxNode root) 
+    {
+        var tipo = "Deserialização Insegura";
+        var risco = NivelRisco.Alto;
+
+        var declarators = root.DescendantNodes().OfType<VariableDeclaratorSyntax>();
+        var expression = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
+
+        string nome;
+
+        foreach (var v in declarators)
+        {
+            if (v.Initializer.ToString().Contains("BinaryFormatter"))
+            {
+                nome = v.Identifier.ToString();
+
+                foreach(var e in expression)
+                {
+                    if(e.Expression.ToString().Contains( nome + ".Deserialize"))
+                    {
+                        var codigo = e.Expression.ToString();
+                        int index = codigo.IndexOfAny(new char[] { '\n', '\r' });
+                        codigo = codigo.Substring(0, index);
+
+                        var linha = m.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+                        AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+
+                    }
+                }
+                
+            }
         }
     }
+    
+    static void AnalyzeForInsecureRedirects(SyntaxNode root) { }
+    static void AnalyzForNoSQLInjection(SyntaxNode root) { }
+    static void AnalyzeForInsecureEncryption(SyntaxNode root) { }
+    static void AnalyzeForLDAPInjection(SyntaxNode root) { }
+
+
 
     static bool IsUserInput(InvocationExpressionSyntax invocation)
     {
