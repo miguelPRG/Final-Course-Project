@@ -37,7 +37,7 @@ public static class VulnerabilidadeAnalyzer
         vulnerabilities = new List<Vulnerability>();
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForCSRF(root);
+        AnalyzeForInsecureDeserialization(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -64,85 +64,7 @@ public static class VulnerabilidadeAnalyzer
 
         return null;
     }
-    /*static void AnalyzeSQLInjection(SyntaxNode root)
-    {
-        var objectCreations = root.DescendantNodes()
-            .OfType<ObjectCreationExpressionSyntax>();
-
-        foreach (var objectCreation in objectCreations)
-        {
-            // Check if the object being created is a SqlCommand
-            if (objectCreation.Type.ToString() == "SqlCommand")
-            {
-                var arguments = objectCreation.ArgumentList.Arguments;
-                foreach (var argument in arguments)
-                {
-                    var expression = argument.Expression;
-                    List<int> lines = new List<int>();
-
-                    // Detect if the SQL command string is a literal, interpolated string or concatenated string
-                    if (expression is IdentifierNameSyntax identifierName)
-                    {
-                        // Find the variable declaration for the identifier
-                        var variableDeclaration = FindVariableDeclaration(identifierName, root);
-                        if (variableDeclaration != null)
-                        {
-                            // Check if the variable is initialized with a concatenation
-                            var initializer = variableDeclaration.Variables.First().Initializer;
-                            if (initializer?.Value is BinaryExpressionSyntax binaryExpression &&
-                                binaryExpression.IsKind(SyntaxKind.AddExpression))
-                            {
-                                var lineSpan = objectCreation.GetLocation().GetLineSpan();
-                                lines.Add(lineSpan.StartLinePosition.Line + 1);
-                            }
-                        }
-                    }
-                    
-                    else if (expression is LiteralExpressionSyntax ||
-                             expression is InterpolatedStringExpressionSyntax ||
-                             (expression is BinaryExpressionSyntax binaryExpression &&
-                              binaryExpression.IsKind(SyntaxKind.AddExpression)))
-                    {
-                        var lineSpan = objectCreation.GetLocation().GetLineSpan();
-                        lines.Add(lineSpan.StartLinePosition.Line + 1);
-                    }
-                    
-                    else if (expression is InvocationExpressionSyntax)
-                    {
-                        var lineSpan = objectCreation.GetLocation().GetLineSpan();
-                        lines.Add(lineSpan.StartLinePosition.Line + 1);
-                    }
-
-                    // Check if lines list is not empty and process vulnerabilities
-                    if (lines.Any())
-                    {
-                        var riskLevel = (expression is InvocationExpressionSyntax) ? NivelRisco.Medio : NivelRisco.Alto;
-
-                        // Check if a similar vulnerability already exists
-                        var existingVulnerability = vulnerabilities
-                            .FirstOrDefault(v => v.Codigo == objectCreation.ToString() && v.Tipo == "SQL Injection");
-
-                        if (existingVulnerability != null)
-                        {
-                            // Add the new lines to the existing vulnerability
-                            existingVulnerability.Linhas.AddRange(lines);
-                            existingVulnerability.Linhas = existingVulnerability.Linhas.Distinct().ToList();
-                        }
-                        else
-                        {
-                            // Add new vulnerability
-                            vulnerabilities.Add(new Vulnerability(
-                                "SQL Injection",
-                                objectCreation.ToString(),
-                                riskLevel,
-                                lines
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-    }*/
+   
     static void AdicionarVulnerabilidade(string tipo, string codigo, NivelRisco risco, int linha)
     {
         object obj = new object();
@@ -285,41 +207,47 @@ public static class VulnerabilidadeAnalyzer
 
 
     }
-    static void AnalyzeForInsecureDeserialization(SyntaxNode root) 
+    static void AnalyzeForInsecureDeserialization(SyntaxNode root)
     {
         var tipo = "Deserialização Insegura";
         var risco = NivelRisco.Alto;
 
-        var declarators = root.DescendantNodes().OfType<VariableDeclaratorSyntax>();
-        var expression = root.DescendantNodes().OfType<InvocationExpressionSyntax>();
+        var blocos = root.DescendantNodes().OfType<BlockSyntax>();
+       
 
-        string nome;
-
-        foreach (var v in declarators)
+        foreach(var b in blocos)
         {
-            if (v.Initializer.ToString().Contains("BinaryFormatter"))
+            var variaveis = b.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                              .Where(v => v.Initializer != null &&
+                                    v.Initializer.Value.ToString().Contains("BinaryFormatter"));
+
+            IEnumerable<InvocationExpressionSyntax> metodos = null;
+
+            if (variaveis != null)
             {
-                nome = v.Identifier.ToString();
-
-                foreach(var e in expression)
+                foreach(var v in variaveis)
                 {
-                    if(e.Expression.ToString().Contains( nome + ".Deserialize"))
+                    metodos = b.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                           .Where(m => m.Expression.ToString().Contains(v.Identifier + ".Deserialize"));
+
+                    if (metodos != null)
                     {
-                        var codigo = e.Expression.ToString();
-                        int index = codigo.IndexOfAny(new char[] { '\n', '\r' });
-                        codigo = codigo.Substring(0, index);
+                        foreach(var m in metodos)
+                        {
+                            var linha = m.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
-                        var linha = m.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-
-                        AdicionarVulnerabilidade(tipo, codigo, risco, linha);
-
+                            AdicionarVulnerabilidade(tipo, m.Parent.ToString(), risco, linha);
+                        }
                     }
                 }
-                
             }
+
+            else continue;
+            
         }
+
     }
-    
+
     static void AnalyzeForInsecureRedirects(SyntaxNode root) { }
     static void AnalyzForNoSQLInjection(SyntaxNode root) { }
     static void AnalyzeForInsecureEncryption(SyntaxNode root) { }

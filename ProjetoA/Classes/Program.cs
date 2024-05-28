@@ -1,43 +1,46 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 
 [Serializable]
-class UserProfile
+public class User
 {
-    public string Username { get; set; }
-    public string Password { get; set; }
+    public string Name { get; set; }
+    public int Age { get; set; }
 }
 
-class Program
+public class Program
 {
-    static void Main(string[] args)
+    public static void Main() 
     {
-        // Serialize the UserProfile object
-        var userProfile = new UserProfile
-        {
-            Username = "admin",
-            Password = "admin123" 
-        };
+        // Exemplo de serialização insegura
+        byte[] serializedData = GetSerializedDataFromUntrustedSource();
+        User user = (User)Deserialize(serializedData);
+        Console.WriteLine($"User Name: {user.Name}, Age: {user.Age}");
+    }
 
-        byte[] serializedData;
-        using (MemoryStream ms = new MemoryStream())
-        {
-            BinaryFormatter bf = new BinaryFormatter();
-            bf.Serialize(ms, userProfile);
-            serializedData = ms.ToArray();
+    // Método que simula a obtenção de dados serializados de uma fonte não confiável
+    private static byte[] GetSerializedDataFromUntrustedSource()
+    {
+        // Em um cenário real, esses dados poderiam vir de um arquivo, rede, etc.
+        // Aqui, apenas como exemplo, serializamos um objeto User confiável
+        User user = new User { Name = "Alice", Age = 30 };
+        IFormatter formatter = new BinaryFormatter();  
+        using (MemoryStream stream = new MemoryStream())  
+        { 
+            formatter.Serialize(stream, user); 
+            return stream.ToArray();
         }
+    }
 
-        // Deserialize the serializedData (simulating potential attacker action) 
-        UserProfile deserializedProfile; 
-        using  (MemoryStream ms = new MemoryStream(serializedData))  
-        {
-            BinaryFormatter bf  = new BinaryFormatter();      
-            deserializedProfile = (UserProfile)bf.Deserialize(ms);    
-        } 
-
-        // Access the deserialized data
-        Console.WriteLine("Deserialized Username: " + deserializedProfile.Username);
-        Console.WriteLine("Deserialized Password: " + deserializedProfile.Password);
+    // Método de desserialização insegura 
+    private static object Deserialize(byte[] data)  
+    {
+        IFormatter formatter = new BinaryFormatter(); 
+        using (MemoryStream stream = new MemoryStream(data)) 
+        { 
+            return  formatter.Deserialize(stream);         
+        }  
     }
 }
