@@ -1,44 +1,47 @@
-﻿/*using System;
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
-
-[Serializable]
-public class User
-{
-    public string Name { get; set; }
-}
+﻿using System;
+using System.Data.SqlClient;
 
 class Program
 {
-    static void Main() 
-    {
-        // Dados binários de entrada (potencialmente maliciosos)
-        byte[] serializedData = GetSerializedDataFromUntrustedSource();
+    int g; 
 
-        // Deserialização insegura
-        User user = (User)Deserialize(serializedData);
-        Console.WriteLine($"Nome do usuário: {user.Name}");
-    }
-
-    static byte[] GetSerializedDataFromUntrustedSource()
+    static void Main(string[] args) 
     {
-        // Simulação de dados binários que poderiam vir de uma fonte não confiável
-        // Em um cenário real, isso poderia vir de uma rede, arquivo ou banco de dados.
-        using (MemoryStream ms = new MemoryStream())
-        {
-            BinaryFormatter formatter = new BinaryFormatter();
-            formatter.Serialize(ms, new User { Name = "Usuário Malicioso" });
-            return ms.ToArray();
+        int g; 
+
+        // Simulação de entrada do usuário 
+        Console.WriteLine("Digite o nome do usuário:");
+        string nomeUsuario = Console.ReadLine();
+
+        // Conexão com o banco de dados (apenas para fins de exemplo)
+        string connectionString = "Data Source=seuserver;Initial Catalog=suabasededados;Integrated Security=True";
+        SqlConnection connection = new SqlConnection(connectionString);
+         
+        // Comando SQL vulnerável 
+        string query = "SELECT * FROM Usuarios WHERE Nome = '" + nomeUsuario + "'";  
+           
+        try
+        {    
+            connection.Open();   
+            SqlCommand command = new SqlCommand(query, connection);    
+            SqlDataReader reader = command.ExecuteReader();
+
+            while (reader.Read()) 
+            {
+                Console.WriteLine("ID: " + reader["ID"] + ", Nome: " + reader["Nome"]);
+            }
+
+            reader.Close();
         }
-    }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erro: " + ex.Message);
+        }
+        finally
+        {
+            connection.Close();
+        }
 
-    static object Deserialize(byte[] data)
-    {
-        using (MemoryStream ms = new MemoryStream(data))
-        { 
-            BinaryFormatter formatter = new BinaryFormatter();   
-            return formatter.Deserialize(ms);    // Ponto de vulnerabilidade
-        } 
-    }    
+        Console.ReadLine();
+    }
 }
-`*/

@@ -29,17 +29,26 @@ public enum NivelRisco
     Medio,
     Baixo
 }
+
 public static class VulnerabilidadeAnalyzer
 {
     static List<Vulnerability> vulnerabilities;
     static char[] mudanca = new char[] { '\n', '\r' };
 
-    public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
+    public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxTree tree)
     {
         vulnerabilities = new List<Vulnerability>();
 
+        SyntaxNode root = tree.GetRoot();
+
+        var compilation = CSharpCompilation.Create("MyCompilation")
+                                            .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
+                                            .AddSyntaxTrees(tree);
+        
+        var semanticModel = compilation.GetSemanticModel(tree);
+
         // Analisar vulnerabilidades de XSS
-        AnalyzeForInsecureDeserialization(root);
+        AnalyzeSQLInjection(root,semanticModel);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -66,85 +75,7 @@ public static class VulnerabilidadeAnalyzer
 
         return null;
     }
-    /*static void AnalyzeSQLInjection(SyntaxNode root)
-    {
-        var objectCreations = root.DescendantNodes()
-            .OfType<ObjectCreationExpressionSyntax>();
 
-        foreach (var objectCreation in objectCreations)
-        {
-            // Check if the object being created is a SqlCommand
-            if (objectCreation.Type.ToString() == "SqlCommand")
-            {
-                var arguments = objectCreation.ArgumentList.Arguments;
-                foreach (var argument in arguments)
-                {
-                    var expression = argument.Expression;
-                    List<int> lines = new List<int>();
-
-                    // Detect if the SQL command string is a literal, interpolated string or concatenated string
-                    if (expression is IdentifierNameSyntax identifierName)
-                    {
-                        // Find the variable declaration for the identifier
-                        var variableDeclaration = FindVariableDeclaration(identifierName, root);
-                        if (variableDeclaration != null)
-                        {
-                            // Check if the variable is initialized with a concatenation
-                            var initializer = variableDeclaration.Variables.First().Initializer;
-                            if (initializer?.Value is BinaryExpressionSyntax binaryExpression &&
-                                binaryExpression.IsKind(SyntaxKind.AddExpression))
-                            {
-                                var lineSpan = objectCreation.GetLocation().GetLineSpan();
-                                lines.Add(lineSpan.StartLinePosition.Line + 1);
-                            }
-                        }
-                    }
-                    
-                    else if (expression is LiteralExpressionSyntax ||
-                             expression is InterpolatedStringExpressionSyntax ||
-                             (expression is BinaryExpressionSyntax binaryExpression &&
-                              binaryExpression.IsKind(SyntaxKind.AddExpression)))
-                    {
-                        var lineSpan = objectCreation.GetLocation().GetLineSpan();
-                        lines.Add(lineSpan.StartLinePosition.Line + 1);
-                    }
-                    
-                    else if (expression is InvocationExpressionSyntax)
-                    {
-                        var lineSpan = objectCreation.GetLocation().GetLineSpan();
-                        lines.Add(lineSpan.StartLinePosition.Line + 1);
-                    }
-
-                    // Check if lines list is not empty and process vulnerabilities
-                    if (lines.Any())
-                    {
-                        var riskLevel = (expression is InvocationExpressionSyntax) ? NivelRisco.Medio : NivelRisco.Alto;
-
-                        // Check if a similar vulnerability already exists
-                        var existingVulnerability = vulnerabilities
-                            .FirstOrDefault(v => v.Codigo == objectCreation.ToString() && v.Tipo == "SQL Injection");
-
-                        if (existingVulnerability != null)
-                        {
-                            // Add the new lines to the existing vulnerability
-                            existingVulnerability.Linhas.AddRange(lines);
-                            existingVulnerability.Linhas = existingVulnerability.Linhas.Distinct().ToList();
-                        }
-                        else
-                        {
-                            // Add new vulnerability
-                            vulnerabilities.Add(new Vulnerability(
-                                "SQL Injection",
-                                objectCreation.ToString(),
-                                riskLevel,
-                                lines
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-    }*/
     static void AdicionarVulnerabilidade(string tipo, string codigo, NivelRisco risco, int linha)
     {
         object obj = new object();
@@ -171,52 +102,95 @@ public static class VulnerabilidadeAnalyzer
         }
     }
 
-    static void AnalyzeSQLInjection(SyntaxNode root)
+    static void AnalyzeSQLInjection(SyntaxNode root, SemanticModel semanticModel)
     {
-        var declarations = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>();
-        var tipo = "SQL Injection";
+        var objetos = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
+                          .Where(i => i.Type.ToString() == "SqlCommand");
+
         var risco = NivelRisco.Alto;
+        var tipo = "SQL Injection";
 
-        foreach (var obj in declarations)
+        foreach (var obj in objetos)
         {
-            // Verificar se é uma declaração de SqlCommand
-            if (obj.Type.ToString() == "SqlCommand")
+            // Iterar pelos argumentos do SqlCommand
+            foreach (var arg in obj.ArgumentList.Arguments)
             {
-                // Iterar pelos argumentos do SqlCommand
-                foreach (var arg in obj.ArgumentList.Arguments)
+                // Verificar se o argumento é uma concatenação de strings
+                if (IsConcatenatedString(arg.Expression))
                 {
-                    // Verificar se o argumento é uma concatenação de strings
-                    if (arg.Expression is BinaryExpressionSyntax binaryExpression &&
-                        binaryExpression.OperatorToken.IsKind(SyntaxKind.PlusToken))
-                    {
-                        // Adicionar a vulnerabilidade
-                       
-                        var codigo = obj.ToString().Substring(0, 20);
-                         // Ajuste conforme necessário
-                        var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                        AdicionarVulnerabilidade(tipo, codigo, risco, linha);
-                    }
-                    // Verificar se o argumento é um identificador de variável que contenha uma string concatenada
-                    else if (arg.Expression is IdentifierNameSyntax identifier)
-                    {
-                        var variable = root.DescendantNodes()
-                                           .OfType<VariableDeclarationSyntax>()
-                                           .FirstOrDefault(v => v.Variables.Any(var => var.Identifier.Text == identifier.Identifier.Text));
+                    int index = obj.ToString().IndexOfAny(mudanca);
+                    string codigo;
 
-                        if (variable != null && variable.Variables.Any(v => v.Initializer.Value is BinaryExpressionSyntax))
-                        {
-                            var codigo = arg.ToString();
-                            int index = codigo.IndexOfAny(mudanca);
-                            codigo = codigo.Substring(0, index);
-
-                            var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                            AdicionarVulnerabilidade(tipo,codigo, risco, linha);
-                        }
+                    try
+                    {
+                        codigo = obj.ToString().Substring(0, index);
                     }
+
+                    catch (ArgumentOutOfRangeException)
+                    {
+                        codigo = obj.ToString();
+                    }
+
+                    // Ajuste conforme necessário
+                    var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                }
+                // Verificar se o argumento é um identificador de variável que contenha uma string concatenada
+                else if (IsVariableContainingConcatenatedString(arg.Expression, semanticModel))
+                {
+                    int index = obj.ToString().IndexOfAny(mudanca);
+                    string codigo;
+
+                    try
+                    {
+                        codigo = obj.ToString().Substring(0, index);
+                    }
+
+                    catch (ArgumentOutOfRangeException)
+                    {
+                        codigo = obj.ToString();
+                    }
+
+                    var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
                 }
             }
         }
     }
+
+    // Função para verificar se uma expressão é uma concatenação de strings
+    static bool IsConcatenatedString(ExpressionSyntax expression)
+    {
+        if (expression is BinaryExpressionSyntax binaryExpression &&
+            binaryExpression.OperatorToken.IsKind(SyntaxKind.PlusToken))
+        {
+            // Aqui você pode adicionar lógica adicional para validar se a concatenação envolve strings inseguras
+            return true;
+        }
+        return false;
+    }
+
+    // Função para verificar se uma expressão é uma variável que contenha uma string concatenada
+    static bool IsVariableContainingConcatenatedString(ExpressionSyntax expression, SemanticModel semanticModel)
+    {
+        if (expression is IdentifierNameSyntax identifier)
+        {
+            // Encontrar a declaração da variável no mesmo escopo
+            var symbol = semanticModel.GetSymbolInfo(identifier).Symbol;
+            var declaration = symbol?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            if (declaration is VariableDeclaratorSyntax variableDeclarator)
+            {
+                // Verificar se a variável é inicializada com uma concatenação de strings
+                if (variableDeclarator.Initializer != null && IsConcatenatedString(variableDeclarator.Initializer.Value))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
     static void AnalyzeForXSS(SyntaxNode root)
     {
         var tipo = "XSS";
