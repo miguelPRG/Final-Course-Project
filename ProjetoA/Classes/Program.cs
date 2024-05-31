@@ -1,47 +1,15 @@
-﻿using System;
-using System.Data.SqlClient;
+﻿/*using System;
+using System.Web;
 
-class Program
+public partial class XSSExample : System.Web.UI.Page
 {
-    int g; 
+    string userInput = Request.QueryString["input"];
 
-    static void Main(string[] args) 
+    protected void Page_Load(object sender, EventArgs e) 
     {
-        int g; 
-
-        // Simulação de entrada do usuário 
-        Console.WriteLine("Digite o nome do usuário:");
-        string nomeUsuario = Console.ReadLine();
-
-        // Conexão com o banco de dados (apenas para fins de exemplo)
-        string connectionString = "Data Source=seuserver;Initial Catalog=suabasededados;Integrated Security=True";
-        SqlConnection connection = new SqlConnection(connectionString);
-         
-        // Comando SQL vulnerável 
-        string query = "SELECT * FROM Usuarios WHERE Nome = '" + nomeUsuario + "'";  
-           
-        try
-        {    
-            connection.Open();   
-            SqlCommand command = new SqlCommand(query, connection);    
-            SqlDataReader reader = command.ExecuteReader();
-
-            while (reader.Read()) 
-            {
-                Console.WriteLine("ID: " + reader["ID"] + ", Nome: " + reader["Nome"]);
-            }
-
-            reader.Close();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Erro: " + ex.Message);
-        }
-        finally
-        {
-            connection.Close();
-        }
-
-        Console.ReadLine();
+        string userInput = "asdfj";   
+        string encodedInput = HttpUtility.HtmlEncode(userInput);        
+        Response.Write("<h1>Bem-vindo, " + encodedInput + "</h1>");
     }
-}
+} 
+  */

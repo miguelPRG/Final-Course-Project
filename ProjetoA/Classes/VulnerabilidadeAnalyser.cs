@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -33,7 +34,7 @@ public enum NivelRisco
 public static class VulnerabilidadeAnalyzer
 {
     static List<Vulnerability> vulnerabilities;
-    static char[] mudanca = new char[] { '\n', '\r' };
+    static char[] mudanca = new char[] { ';', '\n', '\r' };
 
     public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxTree tree)
     {
@@ -48,7 +49,7 @@ public static class VulnerabilidadeAnalyzer
         var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeSQLInjection(root,semanticModel);
+        AnalyzeForSQLInjection(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -57,23 +58,14 @@ public static class VulnerabilidadeAnalyzer
         return vulnerabilities;
     }
 
-    private static VariableDeclarationSyntax FindVariableDeclaration(IdentifierNameSyntax identifierName, SyntaxNode root)
+    static SyntaxNode GetScope(SyntaxNode node)
     {
-        var variableDeclarations = root.DescendantNodes()
-            .OfType<VariableDeclarationSyntax>();
-
-        foreach (var variableDeclaration in variableDeclarations)
+        // Obter o escopo em que o nó está (método, lambda, etc.)
+        while (node != null && !(node is MethodDeclarationSyntax || node is LocalFunctionStatementSyntax || node is LambdaExpressionSyntax))
         {
-            foreach (var variable in variableDeclaration.Variables)
-            {
-                if (variable.Identifier.Text == identifierName.Identifier.Text)
-                {
-                    return variableDeclaration;
-                }
-            }
+            node = node.Parent;
         }
-
-        return null;
+        return node;
     }
 
     static void AdicionarVulnerabilidade(string tipo, string codigo, NivelRisco risco, int linha)
@@ -93,6 +85,7 @@ public static class VulnerabilidadeAnalyzer
                 vulnerabilities[index].Linhas.Add(linha);
 
             }
+            
             else
             {
                 // Adicionar nova vulnerabilidade
@@ -102,135 +95,147 @@ public static class VulnerabilidadeAnalyzer
         }
     }
 
-    static void AnalyzeSQLInjection(SyntaxNode root, SemanticModel semanticModel)
+    public static void AnalyzeForSQLInjection(SyntaxNode root)
     {
-        var objetos = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
-                          .Where(i => i.Type.ToString() == "SqlCommand");
-
-        var risco = NivelRisco.Alto;
         var tipo = "SQL Injection";
+        var risco = NivelRisco.Alto; // Ajuste conforme necessário
 
-        foreach (var obj in objetos)
+        // Encontrar variáveis inicializadas com strings concatenadas
+        var variaveis = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                        .Where(v => v.Initializer != null &&
+                                    (v.Initializer.Value is BinaryExpressionSyntax binaryExpression && binaryExpression.IsKind(SyntaxKind.AddExpression)));
+
+        // Encontrar todas as instâncias de SqlCommand
+        var sqlCommands = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
+                          .Where(o => o.Type.ToString().Contains("SqlCommand"));
+
+        foreach (var command in sqlCommands)
         {
-            // Iterar pelos argumentos do SqlCommand
-            foreach (var arg in obj.ArgumentList.Arguments)
+            bool isVulnerable = false;
+
+            foreach (var arg in command.ArgumentList.Arguments)
             {
-                // Verificar se o argumento é uma concatenação de strings
-                if (IsConcatenatedString(arg.Expression))
+                if (arg.Expression is BinaryExpressionSyntax binaryExpression && binaryExpression.IsKind(SyntaxKind.AddExpression))
                 {
-                    int index = obj.ToString().IndexOfAny(mudanca);
-                    string codigo;
-
-                    try
-                    {
-                        codigo = obj.ToString().Substring(0, index);
-                    }
-
-                    catch (ArgumentOutOfRangeException)
-                    {
-                        codigo = obj.ToString();
-                    }
-
-                    // Ajuste conforme necessário
-                    var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                    isVulnerable = true;
                 }
-                // Verificar se o argumento é um identificador de variável que contenha uma string concatenada
-                else if (IsVariableContainingConcatenatedString(arg.Expression, semanticModel))
+                else if (arg.Expression is IdentifierNameSyntax identifier)
                 {
-                    int index = obj.ToString().IndexOfAny(mudanca);
-                    string codigo;
-
-                    try
+                    var variable = variaveis.FirstOrDefault(v => v.Identifier.Text == identifier.Identifier.Text);
+                    if (variable != null)
                     {
-                        codigo = obj.ToString().Substring(0, index);
+                        var scope = GetScope(command);
+                        if (scope != null && scope.Contains(variable))
+                        {
+                            isVulnerable = true;
+                        }
                     }
-
-                    catch (ArgumentOutOfRangeException)
-                    {
-                        codigo = obj.ToString();
-                    }
-
-                    var linha = arg.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
                 }
+            }
+
+            if (isVulnerable)
+            {
+                string codigo;
+                int index = command.Parent.ToString().IndexOfAny(mudanca);
+
+                try
+                {
+                    codigo = command.Parent.ToString().Substring(0, index);
+                }
+                catch (Exception ex)
+                {
+                    codigo = command.Parent.ToString();
+                }
+
+                var linha = command.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+                AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+
             }
         }
     }
-
-    // Função para verificar se uma expressão é uma concatenação de strings
-    static bool IsConcatenatedString(ExpressionSyntax expression)
-    {
-        if (expression is BinaryExpressionSyntax binaryExpression &&
-            binaryExpression.OperatorToken.IsKind(SyntaxKind.PlusToken))
-        {
-            // Aqui você pode adicionar lógica adicional para validar se a concatenação envolve strings inseguras
-            return true;
-        }
-        return false;
-    }
-
-    // Função para verificar se uma expressão é uma variável que contenha uma string concatenada
-    static bool IsVariableContainingConcatenatedString(ExpressionSyntax expression, SemanticModel semanticModel)
-    {
-        if (expression is IdentifierNameSyntax identifier)
-        {
-            // Encontrar a declaração da variável no mesmo escopo
-            var symbol = semanticModel.GetSymbolInfo(identifier).Symbol;
-            var declaration = symbol?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
-            if (declaration is VariableDeclaratorSyntax variableDeclarator)
-            {
-                // Verificar se a variável é inicializada com uma concatenação de strings
-                if (variableDeclarator.Initializer != null && IsConcatenatedString(variableDeclarator.Initializer.Value))
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-
+    
     static void AnalyzeForXSS(SyntaxNode root)
     {
         var tipo = "XSS";
         var risco = NivelRisco.Alto; // Ajuste conforme necessário
 
-        var declarations = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>();
+        // Encontrar variáveis inicializadas com Request.QueryString
+        var variaveis = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                        .Where(v => v.Initializer != null &&
+                                    v.Initializer.Value.ToString().Contains("Request.QueryString"));
 
-        foreach (var invocation in declarations)
+        // Verificar se existe pelo menos uma variável encontrada
+        if (!variaveis.Any())
         {
-            // Verificar se o método invocado é Request.QueryString
-            if (invocation.ToString().Contains("Request.QueryString"))
+            return;
+        }
+
+        // Encontrar todas as chamadas para HttpUtility.HtmlEncode
+        var codificacoes = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                           .Where(i => i.Expression.ToString().Contains("HttpUtility.HtmlEncode"));
+
+        if (!codificacoes.Any())
+        {
+            foreach (var v in variaveis)
             {
-                // Verificar se há uma invocação de Server.HtmlEncode com o valor de Request.QueryString
-                var htmlEncodeInvocations = invocation.Ancestors().OfType<InvocationExpressionSyntax>()
-                    .Where(inv => inv.ToString().Contains("Server.HtmlEncode"));
+                string codigo;
+                int index = v.Parent.ToString().IndexOfAny(mudanca);
 
-                if (!htmlEncodeInvocations.Any())
+                try
                 {
-                    // Se não houver Server.HtmlEncode para o valor de Request.QueryString, adicionar vulnerabilidade
-                   
-                    string codigo;
-                    int index = invocation.ToString().IndexOfAny(mudanca);
+                    codigo = v.Parent.ToString().Substring(0, index);
+                }
+                catch (Exception ex)
+                {
+                    codigo = v.Parent.ToString();
+                }
 
-                    try
+                var linha = v.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+                AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+            }
+        }
+        else
+        {
+            // Verificar se cada HttpUtility.HtmlEncode tem como parâmetro de entrada as variáveis encontradas
+            foreach (var v in variaveis)
+            {
+                bool isEncoded = false;
+
+                foreach (var codificacao in codificacoes)
+                {
+                    var scope = GetScope(codificacao);
+                    if (scope != null && scope.Contains(v))
                     {
-                        codigo = invocation.ToString().Substring(0, index);
+                        isEncoded = codificacao.ArgumentList.Arguments
+                                    .Any(arg => arg.ToString().Contains(v.Identifier.Text));
+
+                        if (!isEncoded)
+                        {
+                            string codigo;
+                            int index = v.Parent.ToString().IndexOfAny(mudanca);
+
+                            try
+                            {
+                                codigo = v.Parent.ToString().Substring(0, index);
+                            }
+                            catch (Exception ex)
+                            {
+                                codigo = v.Parent.ToString();
+                            }
+
+                            var linha = v.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+                            AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                        }
                     }
-
-                    catch(ArgumentOutOfRangeException)
-                    {
-                        codigo = invocation.ToString();
-                    }
-
-                    var linha = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-
-                    AdicionarVulnerabilidade(tipo, codigo, risco, linha);
                 }
             }
         }
     }
+   
+
     static void AnalyzeForCSRF(SyntaxNode root)
     {
         var tipo = "CSRF";
