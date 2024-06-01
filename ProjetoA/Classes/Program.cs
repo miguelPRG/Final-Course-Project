@@ -1,15 +1,35 @@
-﻿/*using System;
-using System.Web;
+﻿/*using System.Web.Mvc;
+using Windows.System;
+using Windows.UI.Xaml.Controls;
 
-public partial class XSSExample : System.Web.UI.Page
+public class AccountController : Controller
 {
-    string userInput = Request.QueryString["input"];
-
-    protected void Page_Load(object sender, EventArgs e) 
+    [HttpGet]
+    public ActionResult ChangePassword()
     {
-        string userInput = "asdfj";   
-        string encodedInput = HttpUtility.HtmlEncode(userInput);        
-        Response.Write("<h1>Bem-vindo, " + encodedInput + "</h1>");
+        return View();
     }
-} 
-  */
+     
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public ActionResult ChangePassword(string newPassword)
+    {
+        var user = GetUserFromSession();
+        user.Password = newPassword;
+        SaveUser(user);
+
+        ViewBag.Message = "Password changed successfully!";
+        return View();
+    }
+
+    private User GetUserFromSession()
+    {
+        return new User { Id = 1, Username = "exampleUser", Password = "oldPassword" };
+    }
+
+    private void SaveUser(User user)
+    {
+        // Simulação de salvar o usuário no banco de dados
+    }
+}
+*/

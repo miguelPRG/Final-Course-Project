@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Windows.Storage;
+using Windows.UI.Xaml.Controls.Primitives;
+using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Shapes;
 
 public class Vulnerability
@@ -36,20 +41,18 @@ public static class VulnerabilidadeAnalyzer
     static List<Vulnerability> vulnerabilities;
     static char[] mudanca = new char[] { ';', '\n', '\r' };
 
-    public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxTree tree)
+    public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
     {
         vulnerabilities = new List<Vulnerability>();
 
-        SyntaxNode root = tree.GetRoot();
-
-        var compilation = CSharpCompilation.Create("MyCompilation")
+        /*var compilation = CSharpCompilation.Create("MyCompilation")
                                             .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
-                                            .AddSyntaxTrees(tree);
-        
-        var semanticModel = compilation.GetSemanticModel(tree);
+                                            .AddSyntaxTrees(tree);*/
+
+        //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForSQLInjection(root);
+        AnalyzeForInsecureDeserialization(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -95,75 +98,71 @@ public static class VulnerabilidadeAnalyzer
         }
     }
 
-    public static void AnalyzeForSQLInjection(SyntaxNode root)
+    static void AnalyzeForSQLInjection(SyntaxNode root)
     {
         var tipo = "SQL Injection";
-        var risco = NivelRisco.Alto; // Ajuste conforme necessário
+        var risco = NivelRisco.Alto;
 
-        // Encontrar variáveis inicializadas com strings concatenadas
-        var variaveis = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                        .Where(v => v.Initializer != null &&
-                                    (v.Initializer.Value is BinaryExpressionSyntax binaryExpression && binaryExpression.IsKind(SyntaxKind.AddExpression)));
-
-        // Encontrar todas as instâncias de SqlCommand
-        var sqlCommands = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
-                          .Where(o => o.Type.ToString().Contains("SqlCommand"));
-
-        foreach (var command in sqlCommands)
+        string[] sqlReservedKeywords = new string[]
         {
-            bool isVulnerable = false;
+            "select",
+            "from",
+            "where",
+            "values",
+            "update",
+            "set",
+            "delete",
+            "create",
+            "alter",
+            "drop",
+            "join",
+            "group by",
+            "having",
+            "order by",
+            "distinct",
+        };
 
-            foreach (var arg in command.ArgumentList.Arguments)
+        var variables = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                            .Where(v => v.Initializer != null &&
+                                        v.Initializer.Value is BinaryExpressionSyntax binaryExpression &&
+                                        binaryExpression.IsKind(SyntaxKind.AddExpression));
+
+        foreach (var variable in variables)
+        {
+            var binaryExpression = (BinaryExpressionSyntax)variable.Initializer.Value;
+
+            string expressionText = binaryExpression.ToString();
+            int keywordCount = 0;
+
+            foreach (var keyword in sqlReservedKeywords)
             {
-                if (arg.Expression is BinaryExpressionSyntax binaryExpression && binaryExpression.IsKind(SyntaxKind.AddExpression))
+                if (expressionText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    isVulnerable = true;
-                }
-                else if (arg.Expression is IdentifierNameSyntax identifier)
-                {
-                    var variable = variaveis.FirstOrDefault(v => v.Identifier.Text == identifier.Identifier.Text);
-                    if (variable != null)
-                    {
-                        var scope = GetScope(command);
-                        if (scope != null && scope.Contains(variable))
-                        {
-                            isVulnerable = true;
-                        }
-                    }
+                    keywordCount++;
                 }
             }
 
-            if (isVulnerable)
+            if (keywordCount >= 2)
             {
-                string codigo;
-                int index = command.Parent.ToString().IndexOfAny(mudanca);
-
-                try
-                {
-                    codigo = command.Parent.ToString().Substring(0, index);
-                }
-                catch (Exception ex)
-                {
-                    codigo = command.Parent.ToString();
-                }
-
-                var linha = command.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                string codigo = variable.Parent.ToString();
+                var linha = variable.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
                 AdicionarVulnerabilidade(tipo, codigo, risco, linha);
-
             }
         }
     }
-    
     static void AnalyzeForXSS(SyntaxNode root)
     {
         var tipo = "XSS";
         var risco = NivelRisco.Alto; // Ajuste conforme necessário
 
-        // Encontrar variáveis inicializadas com Request.QueryString
+        // Encontrar variáveis inicializadas com Request.QueryString, Request.Form, Request.Params
         var variaveis = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                        .Where(v => v.Initializer != null &&
-                                    v.Initializer.Value.ToString().Contains("Request.QueryString"));
+                            .Where(v => v.Initializer != null &&
+                                        (v.Initializer.Value.ToString().Contains("Request.QueryString") ||
+                                         v.Initializer.Value.ToString().Contains("Request.Form") ||
+                                         v.Initializer.Value.ToString().Contains("Request.Params") ||
+                                         v.Initializer.Value.ToString().Contains(".Text")));
 
         // Verificar se existe pelo menos uma variável encontrada
         if (!variaveis.Any())
@@ -171,13 +170,28 @@ public static class VulnerabilidadeAnalyzer
             return;
         }
 
-        // Encontrar todas as chamadas para HttpUtility.HtmlEncode
+        // Encontrar todas as chamadas para HttpUtility.HtmlEncode ou Server.HtmlEncode
         var codificacoes = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                           .Where(i => i.Expression.ToString().Contains("HttpUtility.HtmlEncode"));
+                            .Where(i => i.Expression.ToString().Contains("HttpUtility.HtmlEncode") ||
+                                        i.Expression.ToString().Contains("Server.HtmlEncode"));
 
-        if (!codificacoes.Any())
+        // Verificar se cada variável encontrada é codificada antes de ser usada em uma saída HTML
+        foreach (var v in variaveis)
         {
-            foreach (var v in variaveis)
+            bool isEncoded = false;
+
+            foreach (var codificacao in codificacoes)
+            {
+                var scope = GetScope(codificacao);
+                if (scope != null && scope.Contains(v))
+                {
+                    isEncoded = codificacao.ArgumentList.Arguments
+                                .Any(arg => arg.ToString().Contains(v.Identifier.Text));
+                    if (isEncoded) break;
+                }
+            }
+
+            if (!isEncoded)
             {
                 string codigo;
                 int index = v.Parent.ToString().IndexOfAny(mudanca);
@@ -186,7 +200,7 @@ public static class VulnerabilidadeAnalyzer
                 {
                     codigo = v.Parent.ToString().Substring(0, index);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     codigo = v.Parent.ToString();
                 }
@@ -196,45 +210,7 @@ public static class VulnerabilidadeAnalyzer
                 AdicionarVulnerabilidade(tipo, codigo, risco, linha);
             }
         }
-        else
-        {
-            // Verificar se cada HttpUtility.HtmlEncode tem como parâmetro de entrada as variáveis encontradas
-            foreach (var v in variaveis)
-            {
-                bool isEncoded = false;
-
-                foreach (var codificacao in codificacoes)
-                {
-                    var scope = GetScope(codificacao);
-                    if (scope != null && scope.Contains(v))
-                    {
-                        isEncoded = codificacao.ArgumentList.Arguments
-                                    .Any(arg => arg.ToString().Contains(v.Identifier.Text));
-
-                        if (!isEncoded)
-                        {
-                            string codigo;
-                            int index = v.Parent.ToString().IndexOfAny(mudanca);
-
-                            try
-                            {
-                                codigo = v.Parent.ToString().Substring(0, index);
-                            }
-                            catch (Exception ex)
-                            {
-                                codigo = v.Parent.ToString();
-                            }
-
-                            var linha = v.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-
-                            AdicionarVulnerabilidade(tipo, codigo, risco, linha);
-                        }
-                    }
-                }
-            }
-        }
     }
-   
 
     static void AnalyzeForCSRF(SyntaxNode root)
     {
@@ -330,98 +306,5 @@ public static class VulnerabilidadeAnalyzer
     static void AnalyzForNoSQLInjection(SyntaxNode root) { }
     static void AnalyzeForInsecureEncryption(SyntaxNode root) { }
     static void AnalyzeForLDAPInjection(SyntaxNode root) { }
-
-
-
-    static bool IsUserInput(InvocationExpressionSyntax invocation)
-    {
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
-        {
-            var text = memberAccess.ToString();
-            return text.StartsWith("Request.Form") ||
-                   text.StartsWith("Request.QueryString") ||
-                   text.StartsWith("Request.Params");
-        }
-
-        return false;
-    }
-    
-
-    static NivelRisco DetermineXSSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    static bool isCSRFRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineCSRFRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    static bool isOpenRedirectRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineOpenRedirectAtack(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    static bool isHTTPSEnforcementRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineHTTPSEnforcement(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    static bool isCORSRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineCORSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    static bool isEncryptionRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineEncryptionRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    static bool isSSRFRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineSSRFRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    static bool isTLSRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    static NivelRisco DetermineTLSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
-
-    private static bool isDoSRelated(SyntaxNode node)
-    {
-        return true;
-    }
-    private static NivelRisco DetermineDoSRisk(SyntaxNode node)
-    {
-        return NivelRisco.Alto;
-    }
 
 }
