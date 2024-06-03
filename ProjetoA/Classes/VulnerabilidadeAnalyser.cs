@@ -39,7 +39,6 @@ public enum NivelRisco
 public static class VulnerabilidadeAnalyzer
 {
     static List<Vulnerability> vulnerabilities;
-    static char[] mudanca = new char[] { ';', '\n', '\r' };
 
     public static List<Vulnerability> AnalisarVulnerabilidades(SyntaxNode root)
     {
@@ -58,17 +57,39 @@ public static class VulnerabilidadeAnalyzer
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
         //vulnerabilities.AddRange(sqlVulnerabilities);
 
-        return vulnerabilities;
+        return vulnerabilities; 
     }
 
     static SyntaxNode GetScope(SyntaxNode node)
     {
         // Obter o escopo em que o nó está (método, lambda, etc.)
-        while (node != null && !(node is MethodDeclarationSyntax || node is LocalFunctionStatementSyntax || node is LambdaExpressionSyntax))
+        while (node != null && !(node is MethodDeclarationSyntax || node is LocalFunctionStatementSyntax || 
+            node is LambdaExpressionSyntax || node is WhileStatementSyntax || node is BlockSyntax))
         {
             node = node.Parent;
         }
-        return node;
+        return node; 
+    } 
+
+    static void PrepararParaAdiconarVulnerabilidade(SyntaxNode node,string tipo,NivelRisco risco)
+    {
+        char[] mudanca = new char[] { ';', '\n', '\r' };
+        int linha = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        int index = node.ToString().IndexOfAny(mudanca);
+
+        string codigo;
+
+        try
+        {
+            codigo = node.ToString().Substring(0, index);
+        }
+
+        catch (ArgumentOutOfRangeException)
+        {
+            codigo = node.ToString();
+        }
+
+        AdicionarVulnerabilidade(tipo, codigo, risco, linha);
     }
 
     static void AdicionarVulnerabilidade(string tipo, string codigo, NivelRisco risco, int linha)
@@ -193,21 +214,7 @@ public static class VulnerabilidadeAnalyzer
 
             if (!isEncoded)
             {
-                string codigo;
-                int index = v.Parent.ToString().IndexOfAny(mudanca);
-
-                try
-                {
-                    codigo = v.Parent.ToString().Substring(0, index);
-                }
-                catch (Exception)
-                {
-                    codigo = v.Parent.ToString();
-                }
-
-                var linha = v.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-
-                AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                PrepararParaAdiconarVulnerabilidade(v.Parent, tipo, risco);
             }
         }
     }
@@ -241,22 +248,7 @@ public static class VulnerabilidadeAnalyzer
 
             if(httpPost > antiForgery)
             {
-                string codigo;
-                int index = m.ToString().IndexOfAny(mudanca);
-
-                try
-                {
-                    codigo = m.ToString().Substring(0, index);
-                }
-
-                catch (ArgumentOutOfRangeException)
-                {
-                    codigo = m.ToString();
-                }
-
-                var linha = m.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-
-                AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                PrepararParaAdiconarVulnerabilidade(m, tipo, risco);
             }
         }
 
@@ -280,29 +272,57 @@ public static class VulnerabilidadeAnalyzer
 
             foreach (var i in incovations)
             {
-                int linha = i.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                int index = i.Parent.ToString().IndexOfAny(mudanca);
-
-                string codigo;
-
-                try
-                {
-                    codigo = i.Parent.ToString().Substring(0, index);
-                }
-
-                catch (ArgumentOutOfRangeException)
-                {
-                    codigo = i.Parent.ToString();
-                }
-
-                AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                PrepararParaAdiconarVulnerabilidade(i.Parent, tipo, risco);
             }
        
         }
             
     }
     
-    static void AnalyzeForInsecureRedirects(SyntaxNode root) { }
+    static void AnalyzeForInsecureRedirects(SyntaxNode root) 
+    {
+        var tipo = "Deserialização Insegura";
+        var risco = NivelRisco.Alto;
+
+        var invocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                  .Where(m => m.Expression.ToString().Contains("Redirect"));
+
+        foreach (var inv in invocations)
+        {
+            var argumentList = inv.ArgumentList.Arguments;
+            if (argumentList.Count > 0)
+            {
+                var firstArgument = argumentList[0].ToString();
+
+                // Verificar se o argumento é uma string literal
+                if (firstArgument.StartsWith("\"") && firstArgument.EndsWith("\""))
+                {
+                    PrepararParaAdiconarVulnerabilidade(inv.Parent, tipo, risco);
+                }
+                
+                else
+                {
+                    // Verificar se existe um if statement com Url.IsLocalUrl no mesmo escopo
+                    var parentScope = GetScope(inv);
+                    if (parentScope != null)
+                    {
+                        var ifStatements = parentScope.DescendantNodes().OfType<IfStatementSyntax>()
+                            .Where(ifStmt => ifStmt.Condition.ToString().Contains($"Url.IsLocalUrl({firstArgument})"));
+
+                        if (!ifStatements.Any())
+                        {
+                            PrepararParaAdiconarVulnerabilidade(inv.Parent, tipo, risco);
+                        }
+                    
+                    }
+                }
+            }
+        }
+
+        // Exibir vulnerabilidades encontradas
+
+    }
+    
     static void AnalyzForNoSQLInjection(SyntaxNode root) { }
     static void AnalyzeForInsecureEncryption(SyntaxNode root) { }
     static void AnalyzeForLDAPInjection(SyntaxNode root) { }

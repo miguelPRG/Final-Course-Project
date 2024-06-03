@@ -1,35 +1,56 @@
-﻿/*using System.Web.Mvc;
-using Windows.System;
-using Windows.UI.Xaml.Controls;
+﻿using System;
+using System.Web;
 
-public class AccountController : Controller
+public partial class Login : System.Web.UI.Page
 {
-    [HttpGet]
-    public ActionResult ChangePassword()
+    protected void Page_Load(object sender, EventArgs e)
     {
-        return View();
-    }
-     
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public ActionResult ChangePassword(string newPassword)
-    {
-        var user = GetUserFromSession();
-        user.Password = newPassword;
-        SaveUser(user);
+        if (IsPostBack)
+        {
+            string username = Request.Form["username"];
+            string password = Request.Form["password"];
 
-        ViewBag.Message = "Password changed successfully!";
-        return View();
+            if (AuthenticateUser(username, password))
+            {
+                // Redirect the user to the specified returnUrl after validation
+                string returnUrl = Request.QueryString["returnUrl"];
+                if (!string.IsNullOrEmpty(returnUrl) && IsLocalUrl(returnUrl))
+                { 
+                    Response.Redirect(returnUrl);   
+                }
+                else
+                {
+                    Response.Redirect("Default.aspx");
+                }
+            }
+            else
+            {
+                // Authentication failed
+                Response.Write("Invalid username or password."); 
+            }
+        }
     }
 
-    private User GetUserFromSession()
+    private bool AuthenticateUser(string username, string password)
     {
-        return new User { Id = 1, Username = "exampleUser", Password = "oldPassword" };
+        // Authentication logic here
+        return true; // For the sake of example, we assume authentication is successful
     }
 
-    private void SaveUser(User user)
+    private bool IsLocalUrl(string url)
     {
-        // Simulação de salvar o usuário no banco de dados
+        return url.StartsWith("/") && !url.StartsWith("//") && !url.StartsWith("/\\");
+    }
+
+    private IActionResult RedirectToLocal(string returnUrl) 
+    {
+        if (Url.IsLocalUrl(returnUrl))    
+        {  
+            return Redirect(returnUrl);         
+        }
+        else
+        {
+            return RedirectToAction(nameof(HomeController.Index), "Home");
+        }
     }
 }
-*/
