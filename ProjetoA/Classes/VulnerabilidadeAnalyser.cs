@@ -51,7 +51,7 @@ public static class VulnerabilidadeAnalyzer
         //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForInsecureDeserialization(root);
+        AnalyzeForSQLInjection(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -91,7 +91,6 @@ public static class VulnerabilidadeAnalyzer
 
         AdicionarVulnerabilidade(tipo, codigo, risco, linha);
     }
-
     static void AdicionarVulnerabilidade(string tipo, string codigo, NivelRisco risco, int linha)
     {
         object obj = new object();
@@ -126,31 +125,30 @@ public static class VulnerabilidadeAnalyzer
 
         string[] sqlReservedKeywords = new string[]
         {
-            "select",
-            "from",
-            "where",
-            "values",
-            "update",
-            "set",
-            "delete",
-            "create",
-            "alter",
-            "drop",
-            "join",
-            "group by",
-            "having",
-            "order by",
-            "distinct",
+        "select",
+        "from",
+        "where",
+        "values",
+        "update",
+        "set",
+        "delete",
+        "create",
+        "alter",
+        "drop",
+        "join",
+        "group by",
+        "having",
+        "order by",
+        "distinct",
         };
 
-        var variables = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                            .Where(v => v.Initializer != null &&
-                                        v.Initializer.Value is BinaryExpressionSyntax binaryExpression &&
+        var expressions = root.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                            .Where(v => v.Right is BinaryExpressionSyntax binaryExpression &&
                                         binaryExpression.IsKind(SyntaxKind.AddExpression));
 
-        foreach (var variable in variables)
+        foreach (var exp in expressions)
         {
-            var binaryExpression = (BinaryExpressionSyntax)variable.Initializer.Value;
+            var binaryExpression = (BinaryExpressionSyntax)exp.Right;
 
             string expressionText = binaryExpression.ToString();
             int keywordCount = 0;
@@ -165,10 +163,11 @@ public static class VulnerabilidadeAnalyzer
 
             if (keywordCount >= 2)
             {
-                string codigo = variable.Parent.ToString();
-                var linha = variable.Parent.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                //var codigo = variable.ToString();
+                //var linha = variable.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
-                AdicionarVulnerabilidade(tipo, codigo, risco, linha);
+                PrepararParaAdiconarVulnerabilidade(exp, tipo, risco);
+
             }
         }
     }
@@ -218,7 +217,6 @@ public static class VulnerabilidadeAnalyzer
             }
         }
     }
-
     static void AnalyzeForCSRF(SyntaxNode root)
     {
         var tipo = "CSRF";
@@ -278,7 +276,6 @@ public static class VulnerabilidadeAnalyzer
         }
             
     }
-    
     static void AnalyzeForInsecureRedirects(SyntaxNode root) 
     {
         var tipo = "Deserialização Insegura";
@@ -322,8 +319,47 @@ public static class VulnerabilidadeAnalyzer
         // Exibir vulnerabilidades encontradas
 
     }
-    
-    static void AnalyzForNoSQLInjection(SyntaxNode root) { }
+
+    static void AnalyzForNoSQLInjection(SyntaxNode root)
+    {
+        var tipo = "NoSQL Injection";
+        var risco = NivelRisco.Alto;
+
+        var expressions = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(e => e.Expression.ToString().Contains("Find"));
+
+        string nome;
+
+        foreach (var exp in expressions)
+        {
+            var argumentos = exp.ArgumentList.Arguments;
+
+            foreach (var arg in argumentos)
+            {
+                // Verifica se o argumento é um argumento de método
+                if (arg is ArgumentSyntax argument)
+                {
+                    // Verifica se o tipo do argumento é BsonDocument
+                    if (arg.Expression.ToString().Contains("BsonDocument"))
+                    {
+                        // Verifica se o argumento é construído com BsonDocument.Parse
+                        if (arg.Expression.ToString().Contains("BsonDocument.Parse"))
+                        {
+                            // Verifica se o argumento de BsonDocument.Parse contém uma string interpolada
+                            if (arg.Expression.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Any())
+                            {
+                                // Se sim, extrai o nome da variável que contém a string interpolada
+                                //nome = GetVariableNameFromInterpolatedString(argument);
+
+                                // Adiciona a vulnerabilidade à lista de vulnerabilidades
+                                //AddVulnerability(tipo, risco, nome, exp.GetLocation().GetLineSpan().Start);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     static void AnalyzeForInsecureEncryption(SyntaxNode root) { }
     static void AnalyzeForLDAPInjection(SyntaxNode root) { }
 

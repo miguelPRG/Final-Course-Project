@@ -1,56 +1,32 @@
 ﻿using System;
-using System.Web;
+using MongoDB.Driver;
 
-public partial class Login : System.Web.UI.Page
+namespace MongoDBInjectionExample
 {
-    protected void Page_Load(object sender, EventArgs e)
+    class Program
     {
-        if (IsPostBack)
+        static void Main(string[] args)
         {
-            string username = Request.Form["username"];
-            string password = Request.Form["password"];
+            // Conectar ao banco de dados MongoDB
+            var client = new MongoClient("mongodb://localhost:27017");
+            var database = client.GetDatabase("minhaDatabase");
+            var collection = database.GetCollection<BsonDocument>("minhaColecao");
 
-            if (AuthenticateUser(username, password))
+            // Obter entrada do usuário
+            Console.WriteLine("Digite o nome de usuário para buscar:");
+            string nomeUsuario = Console.ReadLine();
+
+            // Criar filtro de pesquisa com injeção de código
+            var filtro = BsonDocument.Parse($@"{{ nomeUsuario: {{ $regex: /{nomeUsuario}/i }} }}"); 
+
+            // Buscar documentos com base no filtro vulnerável 
+            var documentos = collection.Find(filtro).ToList();        
+             
+            // Exibir os documentos encontrados
+            foreach (var documento in documentos)
             {
-                // Redirect the user to the specified returnUrl after validation
-                string returnUrl = Request.QueryString["returnUrl"];
-                if (!string.IsNullOrEmpty(returnUrl) && IsLocalUrl(returnUrl))
-                { 
-                    Response.Redirect(returnUrl);   
-                }
-                else
-                {
-                    Response.Redirect("Default.aspx");
-                }
+                Console.WriteLine(documento.ToJson());
             }
-            else
-            {
-                // Authentication failed
-                Response.Write("Invalid username or password."); 
-            }
-        }
-    }
-
-    private bool AuthenticateUser(string username, string password)
-    {
-        // Authentication logic here
-        return true; // For the sake of example, we assume authentication is successful
-    }
-
-    private bool IsLocalUrl(string url)
-    {
-        return url.StartsWith("/") && !url.StartsWith("//") && !url.StartsWith("/\\");
-    }
-
-    private IActionResult RedirectToLocal(string returnUrl) 
-    {
-        if (Url.IsLocalUrl(returnUrl))    
-        {  
-            return Redirect(returnUrl);         
-        }
-        else
-        {
-            return RedirectToAction(nameof(HomeController.Index), "Home");
         }
     }
 }
