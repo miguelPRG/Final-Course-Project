@@ -60,16 +60,14 @@ public static class VulnerabilidadeAnalyzer
         return vulnerabilities; 
     }
 
-    static SyntaxNode GetScope(SyntaxNode node)
+    private static SyntaxNode GetScope(SyntaxNode node)
     {
-        // Obter o escopo em que o nó está (método, lambda, etc.)
-        while (node != null && !(node is MethodDeclarationSyntax || node is LocalFunctionStatementSyntax || 
-            node is LambdaExpressionSyntax || node is WhileStatementSyntax || node is BlockSyntax))
+        while (node != null && !(node is MethodDeclarationSyntax || node is ConstructorDeclarationSyntax || node is ClassDeclarationSyntax))
         {
             node = node.Parent;
         }
-        return node; 
-    } 
+        return node;
+    }
 
     static void PrepararParaAdiconarVulnerabilidade(SyntaxNode node,string tipo,NivelRisco risco)
     {
@@ -320,42 +318,44 @@ public static class VulnerabilidadeAnalyzer
 
     }
 
-    static void AnalyzForNoSQLInjection(SyntaxNode root)
+    public static void AnalyzeForNoSQLInjection(SyntaxNode root)
     {
         var tipo = "NoSQL Injection";
         var risco = NivelRisco.Alto;
 
-        var expressions = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
-            .Where(e => e.Expression.ToString().Contains("Find"));
+        var expressions = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .Where(e => e.Initializer != null &&
+                        (e.Initializer.Value.ToString().Contains("Builders") &&
+                         e.Initializer.Value.ToString().Contains(".Filter.")));
 
-        string nome;
-
-        foreach (var exp in expressions)
+        foreach (var e in expressions)
         {
-            var argumentos = exp.ArgumentList.Arguments;
+            var parentScope = GetScope(e);
 
-            foreach (var arg in argumentos)
+            var potentialInjectionSources = parentScope.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(identifier => identifier.Identifier.ValueText == e.Identifier.ValueText);
+
+            foreach (var identifier in potentialInjectionSources)
             {
-                // Verifica se o argumento é um argumento de método
-                if (arg is ArgumentSyntax argument)
-                {
-                    // Verifica se o tipo do argumento é BsonDocument
-                    if (arg.Expression.ToString().Contains("BsonDocument"))
-                    {
-                        // Verifica se o argumento é construído com BsonDocument.Parse
-                        if (arg.Expression.ToString().Contains("BsonDocument.Parse"))
-                        {
-                            // Verifica se o argumento de BsonDocument.Parse contém uma string interpolada
-                            if (arg.Expression.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Any())
-                            {
-                                // Se sim, extrai o nome da variável que contém a string interpolada
-                                //nome = GetVariableNameFromInterpolatedString(argument);
+                var methodDeclarations = parentScope.DescendantNodes().OfType<MethodDeclarationSyntax>()
+                    .Where(m => m.ParameterList.Parameters
+                        .Any(p => p.Identifier.ValueText == identifier.Identifier.ValueText));
 
-                                // Adiciona a vulnerabilidade à lista de vulnerabilidades
-                                //AddVulnerability(tipo, risco, nome, exp.GetLocation().GetLineSpan().Start);
-                            }
-                        }
-                    }
+                if (methodDeclarations.Any())
+                {
+                    PrepararParaAdiconarVulnerabilidade(e, tipo, risco);
+                }
+
+                var variableAssignments = parentScope.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                    .Where(a => a.Left.ToString() == identifier.Identifier.ValueText &&
+                                a.Right.ToString().Contains("Request.Query") ||
+                                a.Right.ToString().Contains("Request.Form") ||
+                                a.Right.ToString().Contains("Request.Body"));
+
+                if (variableAssignments.Any())
+                {
+                    PrepararParaAdiconarVulnerabilidade(e, tipo, risco);
                 }
             }
         }
