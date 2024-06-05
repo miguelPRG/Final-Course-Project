@@ -318,48 +318,73 @@ public static class VulnerabilidadeAnalyzer
 
     }
 
-    public static void AnalyzeForNoSQLInjection(SyntaxNode root)
-    {
+   static void AnalyzeForNoSQLInjection(SyntaxNode root)
+   {
         var tipo = "NoSQL Injection";
         var risco = NivelRisco.Alto;
 
-        var expressions = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-            .Where(e => e.Initializer != null &&
-                        (e.Initializer.Value.ToString().Contains("Builders") &&
-                         e.Initializer.Value.ToString().Contains(".Filter.")));
+        // Procura por invocações de método
+        var methodInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>(); 
 
-        foreach (var e in expressions)
+        foreach (var invocation in methodInvocations)
         {
-            var parentScope = GetScope(e);
+            var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
 
-            var potentialInjectionSources = parentScope.DescendantNodes()
-                .OfType<IdentifierNameSyntax>()
-                .Where(identifier => identifier.Identifier.ValueText == e.Identifier.ValueText);
-
-            foreach (var identifier in potentialInjectionSources)
+            if (memberAccess != null && memberAccess.Name.Identifier.Text == "Find")
             {
-                var methodDeclarations = parentScope.DescendantNodes().OfType<MethodDeclarationSyntax>()
-                    .Where(m => m.ParameterList.Parameters
-                        .Any(p => p.Identifier.ValueText == identifier.Identifier.ValueText));
+                var collectionName = memberAccess.Expression.ToString();
 
-                if (methodDeclarations.Any())
+                // Verifica se o argumento para Find é construído de forma insegura
+                var arguments = invocation.ArgumentList.Arguments;
+
+                foreach (var argument in arguments)
                 {
-                    PrepararParaAdiconarVulnerabilidade(e, tipo, risco);
-                }
+                    if (argument.Expression is IdentifierNameSyntax identifierName)
+                    {
+                        var parent = invocation.Parent;
 
-                var variableAssignments = parentScope.DescendantNodes().OfType<AssignmentExpressionSyntax>()
-                    .Where(a => a.Left.ToString() == identifier.Identifier.ValueText &&
-                                a.Right.ToString().Contains("Request.Query") ||
-                                a.Right.ToString().Contains("Request.Form") ||
-                                a.Right.ToString().Contains("Request.Body"));
+                        while(!parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                             .Any(v => v.Identifier.Text == argument.Expression.ToString()))
+                        {
 
-                if (variableAssignments.Any())
-                {
-                    PrepararParaAdiconarVulnerabilidade(e, tipo, risco);
+                        }
+
+                        if (variableDeclarator != null && variableDeclarator.Initializer != null)
+                        {
+                            var valueText = variableDeclarator.Initializer.Value.ToString();
+
+                            if (!valueText.Contains("Builders<BsonDocument>.Filter") &&
+                                !valueText.Contains("Builders<JsonDocument>.Filter"))
+                            {
+                                vulnerabilidades.Add(new Vulnerabilidade
+                                {
+                                    Tipo = tipo,
+                                    Risco = risco,
+                                    Detalhes = $"Vulnerabilidade encontrada na coleção {collectionName} com argumento {identifierName.Identifier.Text}."
+                                });
+                            }
+                        }
+                    }
+                    else if (argument.Expression is ObjectCreationExpressionSyntax objectCreation)
+                    {
+                        var type = objectCreation.Type.ToString();
+                        if (type != "Builders<BsonDocument>.Filter" && type != "Builders<JsonDocument>.Filter")
+                        {
+                            vulnerabilidades.Add(new Vulnerabilidade
+                            {
+                                Tipo = tipo,
+                                Risco = risco,
+                                Detalhes = $"Vulnerabilidade encontrada na coleção {collectionName} com argumento inseguro."
+                            });
+                        }
+                    }
                 }
             }
         }
+
+        return vulnerabilidades;
     }
+
     static void AnalyzeForInsecureEncryption(SyntaxNode root) { }
     static void AnalyzeForLDAPInjection(SyntaxNode root) { }
 
