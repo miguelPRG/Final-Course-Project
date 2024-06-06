@@ -13,6 +13,7 @@ using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Shapes;
 using Windows.UI.Xaml.Media.Animation;
+using System.Xml.Linq;
 
 public class Vulnerability
 {
@@ -62,14 +63,6 @@ public static class VulnerabilidadeAnalyzer
         return vulnerabilities; 
     }
 
-    private static SyntaxNode GetScope(SyntaxNode node)
-    {
-        while (node != null && !(node is MethodDeclarationSyntax || node is ConstructorDeclarationSyntax || node is ClassDeclarationSyntax))
-        {
-            node = node.Parent;
-        }
-        return node;
-    }
 
     static void PrepararParaAdiconarVulnerabilidade(SyntaxNode node,string tipo,NivelRisco risco)
     {
@@ -371,38 +364,51 @@ public static class VulnerabilidadeAnalyzer
             // Nome do objeto que chama aquele método
             int index = method.Expression.ToString().IndexOf(".");
             string nome = method.Expression.ToString().Substring(0, index);
-            
-            dynamic variavel = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+
+            var variavel = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
                 .Where(v => v.Identifier.ToString() == nome);
 
-            if(variavel== null)
+            if (!variavel.Any())
             {
                 return;
             }
 
-            if(variavel.Count() > 1)
-            {
-                var parent = GetScope(method);
+            SyntaxNode parent = null; 
 
-                variavel = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+
+            if (variavel.Count() > 1)
+            {
+                parent = GetScopeLevel(method);
+
+                var local = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
                            .FirstOrDefault(v => v.Identifier.ToString() == nome);
+
+                if (local != null)
+                {
+                    variavel = new[] { local };
+                }
+                
+                else
+                {
+                    variavel = new[] { variavel.First() };
+                }
             }
 
             else
             {
-               variavel = variavel.FirstOrDefault();
+                variavel = new[] { variavel.First() };
             }
 
             bool continuar = false;
-            
-            if (variavel/*.As<dynamic>()*/.Initializer.ToString().Contains("GetCollection<BsonDocument>") ?? false)
+
+            if (variavel.First().Initializer?.Value.ToString().Contains("GetCollection<BsonDocument>") == true)
             {
-                // Se o data type for IMongoCollection<BsonDocument>, faz algo...
+                // Se o data type for IMongoCollection<BsonDocument>
                 continuar = true;
             }
-            else if (variavel/*.As<dynamic>()*/.Initializer?.Value.ToString().Contains("GetCollection<JsonDocument>") ?? false)
+            else if (variavel.First().Initializer?.Value.ToString().Contains("GetCollection<JsonDocument>") == true)
             {
-                // Se o data type for IMongoCollection<JsonDocument>, faz algo...
+                // Se o data type for IMongoCollection<JsonDocument>.
                 continuar = true;
             }
 
@@ -411,56 +417,64 @@ public static class VulnerabilidadeAnalyzer
                 return;
             }
 
-            bool temosFiltro = false;
+            var argumentos = method.ArgumentList.Arguments;
 
-            var argumentos = method.ArgumentList.Arguments;  
+            bool isVulnerale = false;
 
             foreach (var arg in argumentos)
             {
                 // Se o argumento contiver a seguinte expressão: Builders<BsonDocument>.Filter ou Builders<JsonDocument>.Filter
-                // Ou se o argumento for identifcador de nome para uma variavel que tenha esse valor, chama o método PrepararParaAdicionarVulnerabilidade
-                if (arg.Expression.ToString().Contains("Builders<BsonDocument>.Filter") ||
-                   arg.Expression.ToString().Contains("Builders<JsonDocument>.Filter"))
+                // Ou se o argumento for identificador de nome para uma variável que tenha esse valor, chama o método PrepararParaAdicionarVulnerabilidade
+                if (arg.Expression.ToString().Contains("Builders<BsonDocument>.Filter") || 
+                    arg.Expression.ToString().Contains("Builders<JsonDocument>.Filter"))
                 {
-                      temosFiltro = true;
+                    continue;
                 }
-           
+                
                 else if (arg.Expression is IdentifierNameSyntax identifierName)
                 {
                     // Procura a definição da variável a partir deste nó para cima
-
                     variavel = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                               .Where(v => v.Identifier.ToString() == identifierName.ToString());
+                               .Where(v => v.Identifier.ToString() == identifierName.Identifier.Text);
 
                     if (variavel.Count() > 1)
                     {
+                        if (parent == null)
+                        {
+                            parent = GetScopeLevel(method);
+                        }
 
-                        var parent = GetScope(variavel);
+                        var local = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                                   .FirstOrDefault(v => v.Identifier.ToString() == identifierName.Identifier.Text);
 
-                        variavel = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                                   .FirstOrDefault();
+                        if (local != null)
+                        {
+                            variavel = new[] { local };
+                        }
+                        
+                        else
+                        {
+                            variavel = new[] { variavel.First() };
+                        }
                     }
-
+                    
                     else
                     {
-                        variavel = variavel.FirstOrDefault();
+                        variavel = new[] { variavel.First() };
                     }
 
-                    if (variavel.Initializer.Value.ToString().Contains("Builders<BsonDocument>.Filter") ?? false ||
-                        variavel.Initializer.Value.ToString().Contains("Builders<JsonDocument>.Filter") ?? false)
+                    if (!variavel.First().Initializer.Value.ToString().Contains("Builders<BsonDocument>.Filter") &&
+                        !variavel.First().Initializer.Value.ToString().Contains("Builders<JsonDocument>.Filter"))
                     {
-                       
+                        isVulnerale = true;
                     }
-
-                    else
-                    {
-                        PrepararParaAdiconarVulnerabilidade(method, tipo, risco);
-                    }
-
                 }
-
             }
 
+            if (isVulnerale)
+            {
+                PrepararParaAdiconarVulnerabilidade(method.Parent, tipo, risco);
+            }
         }
     }
 
