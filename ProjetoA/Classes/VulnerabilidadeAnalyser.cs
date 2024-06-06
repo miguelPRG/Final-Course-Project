@@ -37,6 +37,7 @@ public enum NivelRisco
     Baixo
 }
 
+
 public static class VulnerabilidadeAnalyzer
 {
     static List<Vulnerability> vulnerabilities;
@@ -52,7 +53,7 @@ public static class VulnerabilidadeAnalyzer
         //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForSQLInjection(root);
+        AnalyzeForNoSQLInjection(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -116,6 +117,19 @@ public static class VulnerabilidadeAnalyzer
             }
         }
     }
+    static SyntaxNode GetScopeLevel(SyntaxNode node)
+    {
+        while (node != null)
+        {
+            if (node is MethodDeclarationSyntax || node is ClassDeclarationSyntax || node is BlockSyntax)
+            {
+                return node;
+            }
+            node = node.Parent;
+        }
+        return null;
+    }
+
 
     static void AnalyzeForSQLInjection(SyntaxNode root)
     {
@@ -342,87 +356,111 @@ public static class VulnerabilidadeAnalyzer
 
     }
 
-    public static void AnalyzeForNoSQLInjection(SyntaxNode root)
+    static void AnalyzeForNoSQLInjection(SyntaxNode root)
     {
         var tipo = "NoSQL Injection";
         var risco = NivelRisco.Alto;
 
         // Procura por invocações de método
         var methodInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                             .Where(m => m.Expression.ToString().Contains(".Find") &&
-                                    m.ArgumentList.Arguments.Count() > 0);
+                                .Where(m => m.Expression.ToString().Contains(".Find") &&
+                                m.ArgumentList.Arguments.Count() > 0);
 
         foreach (var method in methodInvocations)
         {
             // Nome do objeto que chama aquele método
             int index = method.Expression.ToString().IndexOf(".");
             string nome = method.Expression.ToString().Substring(0, index);
-            var parent = method.Parent;
-            dynamic variavel = null;
+            
+            dynamic variavel = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                .Where(v => v.Identifier.ToString() == nome);
 
-            // Procura a definição da variável a partir deste nó para cima
-            while (parent != null)
+            if(variavel== null)
             {
-                variavel = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                    .FirstOrDefault(v => v.Identifier.ToString() == nome);
-
-                if (variavel != null)
-                {
-                    // Verifica se a variável tem o data type igual a IMongoCollection<BsonDocument> ou IMongoCollection<JsonDocument>
-                    if (variavel.As<dynamic>().Initializer?.Value.ToString().Contains("GetCollection<BsonDocument>") ?? false)
-                    {
-                        // Se o data type for IMongoCollection<BsonDocument>, faz algo...
-                        break;
-                    }
-                    else if (variavel.As<dynamic>().Initializer?.Value.ToString().Contains("GetCollection<JsonDocument>") ?? false)
-                    {
-                        // Se o data type for IMongoCollection<JsonDocument>, faz algo...
-                        break;
-                    }
-                }
-
-                parent = parent.Parent;
+                return;
             }
 
-            if (variavel != null)
+            if(variavel.Count() > 1)
             {
-                var argumentos = method.ArgumentList.Arguments;
+                var parent = GetScope(method);
 
-                foreach (var arg in argumentos)
+                variavel = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                           .FirstOrDefault(v => v.Identifier.ToString() == nome);
+            }
+
+            else
+            {
+               variavel = variavel.FirstOrDefault();
+            }
+
+            bool continuar = false;
+            
+            if (variavel/*.As<dynamic>()*/.Initializer.ToString().Contains("GetCollection<BsonDocument>") ?? false)
+            {
+                // Se o data type for IMongoCollection<BsonDocument>, faz algo...
+                continuar = true;
+            }
+            else if (variavel/*.As<dynamic>()*/.Initializer?.Value.ToString().Contains("GetCollection<JsonDocument>") ?? false)
+            {
+                // Se o data type for IMongoCollection<JsonDocument>, faz algo...
+                continuar = true;
+            }
+
+            if (!continuar)
+            {
+                return;
+            }
+
+            bool temosFiltro = false;
+
+            var argumentos = method.ArgumentList.Arguments;  
+
+            foreach (var arg in argumentos)
+            {
+                // Se o argumento contiver a seguinte expressão: Builders<BsonDocument>.Filter ou Builders<JsonDocument>.Filter
+                // Ou se o argumento for identifcador de nome para uma variavel que tenha esse valor, chama o método PrepararParaAdicionarVulnerabilidade
+                if (arg.Expression.ToString().Contains("Builders<BsonDocument>.Filter") ||
+                   arg.Expression.ToString().Contains("Builders<JsonDocument>.Filter"))
                 {
-                    // Se o argumento contiver a seguinte expressão: Builders<BsonDocument>.Filter ou Builders<JsonDocument>.Filter
-                    // Ou se o argumento for identifcador de nome para uma variavel que tenha esse valor, chama o método PrepararParaAdicionarVulnerabilidade
-                    if (arg.Expression.ToString().Contains("Builders<BsonDocument>.Filter") ||
-                        arg.Expression.ToString().Contains("Builders<JsonDocument>.Filter"))
+                      temosFiltro = true;
+                }
+           
+                else if (arg.Expression is IdentifierNameSyntax identifierName)
+                {
+                    // Procura a definição da variável a partir deste nó para cima
+
+                    variavel = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                               .Where(v => v.Identifier.ToString() == identifierName.ToString());
+
+                    if (variavel.Count() > 1)
+                    {
+
+                        var parent = GetScope(variavel);
+
+                        variavel = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                                   .FirstOrDefault();
+                    }
+
+                    else
+                    {
+                        variavel = variavel.FirstOrDefault();
+                    }
+
+                    if (variavel.Initializer.Value.ToString().Contains("Builders<BsonDocument>.Filter") ?? false ||
+                        variavel.Initializer.Value.ToString().Contains("Builders<JsonDocument>.Filter") ?? false)
+                    {
+                       
+                    }
+
+                    else
                     {
                         PrepararParaAdiconarVulnerabilidade(method, tipo, risco);
                     }
-                    else if (arg.Expression is IdentifierNameSyntax identifierName)
-                    {
-                        // Procura a definição da variável a partir deste nó para cima
-                        parent = method.Parent;
 
-                        while (parent != null)
-                        {
-                            variavel = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                                .FirstOrDefault(v => v.Identifier.ToString() == identifierName.Identifier.ToString());
-
-                            if (variavel != null)
-                            {
-                                // Verifica se a variável tem o valor esperado para a vulnerabilidade e chama o método adequado
-                                if (variavel.As<dynamic>().Initializer?.Value.ToString().Contains("Builders<BsonDocument>.Filter") ?? false ||
-                                    variavel.As<dynamic>().Initializer?.Value.ToString().Contains("Builders<JsonDocument>.Filter") ?? false)
-                                {
-                                    PrepararParaAdiconarVulnerabilidade(method, tipo, risco);
-                                    break;
-                                }
-                            }
-
-                            parent = parent.Parent;
-                        }
-                    }
                 }
+
             }
+
         }
     }
 

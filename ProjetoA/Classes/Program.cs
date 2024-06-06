@@ -7,7 +7,7 @@ class Program
     static void Main(string[] args)
     {
         var client = new MongoClient("mongodb://localhost:27017");
-        var database = client.GetDatabase("exampleDB");
+        var database = client.GetDatabase("exampleDB"); 
         var collection = database.GetCollection<BsonDocument>("users");  
 
         Console.Write("Username: ");
@@ -28,8 +28,13 @@ class Program
             Console.WriteLine("Login successful!");
         }
         else
-        {
+        { 
             Console.WriteLine("Invalid username or password.");
         }
+    }
+
+    static void DoSomeShit(string n)
+    {
+
     }
 }
