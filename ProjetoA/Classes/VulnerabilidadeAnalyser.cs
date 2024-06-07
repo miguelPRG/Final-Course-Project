@@ -54,7 +54,7 @@ public static class VulnerabilidadeAnalyzer
         //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForSQLInjection(root);
+        AnalyzeForXSS(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -166,34 +166,35 @@ public static class VulnerabilidadeAnalyzer
         var risco = NivelRisco.Alto; // Ajuste conforme necessário
 
         // Encontrar variáveis inicializadas com Request.QueryString, Request.Form, Request.Params
-        var variaveis = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                            .Where(v => v.Initializer != null &&
-                                        (v.Initializer.Value.ToString().Contains("Request.QueryString") ||
-                                         v.Initializer.Value.ToString().Contains("Request.Form") ||
-                                         v.Initializer.Value.ToString().Contains("Request.Params") ||
-                                         v.Initializer.Value.ToString().Contains(".Text")));
+        var variaveis = root.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                            .Where(v => v.Right != null &&
+                                        (v.Right.ToString().Contains("Request.QueryString") ||
+                                         v.Right.ToString().Contains("Request.Form") ||
+                                         v.Right.ToString().Contains("Request.Params") ||
+                                         v.Right.ToString().Contains(".Text")) &&
+                                         !v.Right.ToString().Contains("HttpUtility.HtmlEncode"))
+                            .Select(v => v.Left.ToString());
+
+        var metodos = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
+                          .Where(m => m.AttributeLists.ToString().Contains("[HttpPost]"));
 
         // Verificar se existe pelo menos uma variável encontrada
-        if (!variaveis.Any())
+        if (!variaveis.Any() && !metodos.Any())
         {
             return;
         }
 
-        IEnumerable<InvocationExpressionSyntax> codificacoes;
-
-        // Verificar se cada variável encontrada é codificada antes de ser usada em uma saída HTML
-        foreach (var v in variaveis)
+        foreach (var m in metodos)
         {
-            var scope = GetScopeLevel(v);
+            var parametros = m.ParameterList.Parameters
+                                .Select(p => p.Identifier.ToString());
 
-            codificacoes = scope.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                           .Where(i => (i.Expression.ToString().Contains("HttpUtility.HtmlEncode") ||
-                                            i.Expression.ToString().Contains("Server.HtmlEncode")) &&
-                                            i.ArgumentList.Arguments.ToString().Contains(v.Identifier.Text));
+            var vul = m.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                       .Where(i => variaveis.Contains(i.Right.ToString()));
 
-            if(codificacoes.Count() <= 0)
+            if (vul.Any())
             {
-                PrepararParaAdiconarVulnerabilidade(v.Parent, tipo, risco);
+                PrepararParaAdiconarVulnerabilidade(m, tipo, risco);
             }
         }
     }
