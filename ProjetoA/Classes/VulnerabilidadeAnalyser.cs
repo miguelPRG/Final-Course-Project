@@ -54,7 +54,7 @@ public static class VulnerabilidadeAnalyzer
         //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForNoSQLInjection(root);
+        AnalyzeForSQLInjection(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -63,10 +63,9 @@ public static class VulnerabilidadeAnalyzer
         return vulnerabilities; 
     }
 
-
     static void PrepararParaAdiconarVulnerabilidade(SyntaxNode node,string tipo,NivelRisco risco)
     {
-        char[] mudanca = new char[] { ';', '\n', '\r' };
+        char[] mudanca = new char[] { '\n', '\r' };
         int linha = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         int index = node.ToString().IndexOfAny(mudanca);
 
@@ -89,7 +88,7 @@ public static class VulnerabilidadeAnalyzer
         object obj = new object();
 
         var index = vulnerabilities.IndexOf(
-            vulnerabilities.FirstOrDefault(v => v.Codigo == codigo && v.Tipo == tipo));
+            vulnerabilities.FirstOrDefault(v => (v.Codigo == codigo || v.Linhas.Contains(linha)) && v.Tipo == tipo));
                        
 
         lock (obj)
@@ -112,14 +111,14 @@ public static class VulnerabilidadeAnalyzer
     }
     static SyntaxNode GetScopeLevel(SyntaxNode node)
     {
-        while (node != null)
-        {
-            if (node is MethodDeclarationSyntax || node is ClassDeclarationSyntax || node is BlockSyntax)
-            {
-                return node;
-            }
+       while (node != null)
+       {
+          if (node is MethodDeclarationSyntax || node is ClassDeclarationSyntax || node is BlockSyntax)
+          {
+              return node;
+          }
             node = node.Parent;
-        }
+       }
         return null;
     }
 
@@ -129,51 +128,35 @@ public static class VulnerabilidadeAnalyzer
         var tipo = "SQL Injection";
         var risco = NivelRisco.Alto;
 
-        string[] sqlReservedKeywords = new string[]
+        // Lista de palavras-chave SQL comuns para verificação adicional
+        string[] sqlKeywords = new string[]
         {
-        "select",
-        "from",
-        "where",
-        "values",
-        "update",
-        "set",
-        "delete",
-        "create",
-        "alter",
-        "drop",
-        "join",
-        "group by",
-        "having",
-        "order by",
-        "distinct",
+            "select", "from", "where", "values", "update", "set", "delete",
+            "create", "alter", "drop", "join", "group by", "having",
+            "order by", "distinct"
         };
 
-        var expressions = root.DescendantNodes().OfType<AssignmentExpressionSyntax>()
-                            .Where(v => v.Right is BinaryExpressionSyntax binaryExpression &&
-                                        binaryExpression.IsKind(SyntaxKind.AddExpression));
+        // Procurar por literais de string que são parte de expressões de concatenação
+        var expressions = root.DescendantNodes()
+                        .OfType<BinaryExpressionSyntax>()
+                        .Where(node => node.IsKind(SyntaxKind.AddExpression))
+                        .Where(node => (node.Left is LiteralExpressionSyntax left && left.Token.Value is string) ||
+                                       (node.Right is LiteralExpressionSyntax right && right.Token.Value is string));
+
+
 
         foreach (var exp in expressions)
         {
-            var binaryExpression = (BinaryExpressionSyntax)exp.Right;
-
-            string expressionText = binaryExpression.ToString();
-            int keywordCount = 0;
-
-            foreach (var keyword in sqlReservedKeywords)
+            if (exp.Parent is BinaryExpressionSyntax binaryExpression)
             {
-                if (expressionText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+                string expressionText = binaryExpression.ToString();
+                int keywordCount = sqlKeywords.Count(keyword => expressionText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                if (keywordCount >= 2)
                 {
-                    keywordCount++;
+                    // Detecção de possível vulnerabilidade
+                    PrepararParaAdiconarVulnerabilidade(exp, tipo, risco);
                 }
-            }
-
-            if (keywordCount >= 2)
-            {
-                //var codigo = variable.ToString();
-                //var linha = variable.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-
-                PrepararParaAdiconarVulnerabilidade(exp, tipo, risco);
-
             }
         }
     }
@@ -196,84 +179,25 @@ public static class VulnerabilidadeAnalyzer
             return;
         }
 
-        // Encontrar todas as chamadas para HttpUtility.HtmlEncode ou Server.HtmlEncode
-        var codificacoes = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                            .Where(i => i.Expression.ToString().Contains("HttpUtility.HtmlEncode") ||
-                                        i.Expression.ToString().Contains("Server.HtmlEncode"));
+        IEnumerable<InvocationExpressionSyntax> codificacoes;
 
         // Verificar se cada variável encontrada é codificada antes de ser usada em uma saída HTML
         foreach (var v in variaveis)
         {
-            bool isEncoded = false;
+            var scope = GetScopeLevel(v);
 
-            foreach (var codificacao in codificacoes)
-            {
-                //var scope = GetScope(codificacao);
+            codificacoes = scope.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                           .Where(i => (i.Expression.ToString().Contains("HttpUtility.HtmlEncode") ||
+                                            i.Expression.ToString().Contains("Server.HtmlEncode")) &&
+                                            i.ArgumentList.Arguments.ToString().Contains(v.Identifier.Text));
 
-                var parent = codificacao.Parent;
-
-                while (parent != null)
-                {
-                    if (parent.Contains(v))
-                    {
-                        isEncoded = codificacao.ArgumentList.Arguments
-                                .Any(arg => arg.ToString().Contains(v.Identifier.Text));
-                        if (isEncoded)
-                        {
-
-                            break;
-                        }
-                    }
-                }
-
-                if (parent!=null)
-                {
-                    break;
-                }
-
-            }
-
-            if (!isEncoded)
+            if(codificacoes.Count() <= 0)
             {
                 PrepararParaAdiconarVulnerabilidade(v.Parent, tipo, risco);
             }
         }
     }
-    static void AnalyzeForCSRF(SyntaxNode root)
-    {
-        var tipo = "CSRF";
-        var risco = NivelRisco.Alto;
 
-        var methods = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
-
-        foreach(var m in methods)
-        {
-            var listaAtributos = m.AttributeLists;
-
-            int httpPost = 0;
-            int antiForgery = 0;
-
-            foreach (var a in listaAtributos)
-            {
-                if(a.ToString() == "[HttpPost]")
-                {
-                    httpPost++;
-                }
-
-                else if(a.ToString() == "[ValidateAntiForgeryToken]")
-                {
-                    antiForgery++;
-                }
-            }
-
-            if(httpPost > antiForgery)
-            {
-                PrepararParaAdiconarVulnerabilidade(m, tipo, risco);
-            }
-        }
-
-
-    }
     static void AnalyzeForInsecureDeserialization(SyntaxNode root) 
     {
         var tipo = "Deserialização Insegura";
@@ -287,7 +211,9 @@ public static class VulnerabilidadeAnalyzer
 
         foreach (var v in variaveis)
         {
-            incovations = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            var scope = GetScopeLevel(v);
+
+            incovations = scope.DescendantNodes().OfType<InvocationExpressionSyntax>()
                 .Where(i => i.Expression.ToString().Contains(v.Identifier + ".Deserialize"));
 
             foreach (var i in incovations)
@@ -324,23 +250,15 @@ public static class VulnerabilidadeAnalyzer
                     // Verificar se existe um if statement com Url.IsLocalUrl no mesmo escopo
                     //var parentScope = GetScope(inv);
 
-                    var parentScope = inv.Parent;
+                    var parentScope = GetScopeLevel(inv);
 
-                    while (parentScope != null)
+                    if (parentScope.DescendantNodes().OfType<IfStatementSyntax>()
+                        .Any(ifStmt => ifStmt.Condition.ToString()
+                         .Contains($"Url.IsLocalUrl({firstArgument})")))
                     {
-                        if (parentScope.DescendantNodes().OfType<IfStatementSyntax>()
-                            .Any(ifStmt => ifStmt.Condition.ToString()
-                            .Contains($"Url.IsLocalUrl({firstArgument})")))
-                        {
-                            PrepararParaAdiconarVulnerabilidade(inv.Parent, tipo, risco);
-
-                            break;
-                        }
-
-                        parentScope = parentScope.Parent;
+                         PrepararParaAdiconarVulnerabilidade(inv.Parent, tipo, risco);
                     }
-
-                 
+            
                 }
             }
         }
@@ -425,10 +343,10 @@ public static class VulnerabilidadeAnalyzer
             {
                 // Se o argumento contiver a seguinte expressão: Builders<BsonDocument>.Filter ou Builders<JsonDocument>.Filter
                 // Ou se o argumento for identificador de nome para uma variável que tenha esse valor, chama o método PrepararParaAdicionarVulnerabilidade
-                if (arg.Expression.ToString().Contains("Builders<BsonDocument>.Filter") || 
-                    arg.Expression.ToString().Contains("Builders<JsonDocument>.Filter"))
+                if (!arg.Expression.ToString().Contains("Builders<BsonDocument>.Filter") && 
+                    !arg.Expression.ToString().Contains("Builders<JsonDocument>.Filter"))
                 {
-                    continue;
+                    isVulnerale = true;
                 }
                 
                 else if (arg.Expression is IdentifierNameSyntax identifierName)

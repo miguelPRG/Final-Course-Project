@@ -1,41 +1,43 @@
-﻿/*using MongoDB.Bson;
-using MongoDB.Driver;
-using System;
+﻿/*using System;
+using System.Data.SqlClient;
+using System.Web.UI;
+using Windows.UI.Xaml.Controls;
 
-class Program
+public partial class Login : Page
 {
-    static void Main(string[] args)
+    protected void Page_Load(object sender, EventArgs e)
     {
-        var client = new MongoClient("mongodb://localhost:27017");
-        var database = client.GetDatabase("exampleDB"); 
-        var collection = database.GetCollection<BsonDocument>("users");  
-
-        Console.Write("Username: ");
-        var username = Console.ReadLine();
-
-        Console.Write("Password: ");
-        var password = Console.ReadLine();
-
-        var filter = Builders<BsonDocument>.Filter.And(   
-            Builders<BsonDocument>.Filter.Eq("username", username), 
-            Builders<BsonDocument>.Filter.Eq("password", password)
-        ); 
-          
-        var user = collection.Find(filter).FirstOrDefault() ;           
-          
-        if (user != null)
-        {
-            Console.WriteLine("Login successful!");
-        }
-        else
-        { 
-            Console.WriteLine("Invalid username or password.");
-        }
     }
 
-    static void DoSomeShit(string n)
+    protected void btnLogin_Click(object sender, EventArgs e)
     {
+        string username = txtUsername.Text;
+        string password = txtPassword.Text; 
 
+        // Conexão ao banco de dados
+        string connectionString = "your_connection_string_here";
+        using (SqlConnection connection = new SqlConnection(connectionString))
+        {
+            // Consulta SQL vulnerável   
+            string query = "SELECT * FROM Users WHERE Username = '" + username  + "' AND Password = '" + password + "'";
+             
+            SqlCommand command = new SqlCommand(query, connection);  
+            connection.Open();
+            SqlDataReader reader = command.ExecuteReader();
+
+            if (reader.HasRows)
+            {
+                // Login bem-sucedido
+                lblMessage.Text = "Login successful!";
+            }
+            else
+            {
+                // Falha no login
+                lblMessage.Text = "Login failed. Invalid username or password.";
+            }
+
+            reader.Close();
+        }
     }
 }
 */
