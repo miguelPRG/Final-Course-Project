@@ -41,11 +41,13 @@ namespace ProjetoA.Classes
         /*Linhas onde forem encontradas descobertas importantes na análise do código. Estas linhas estarão destacadas no
         código apresentado no relatório*/
 
-        static ConcurrentDictionary<int, int> linhasImportantes = new ConcurrentDictionary<int, int>();
+        static ConcurrentDictionary<int, int> linhasImportantes;
 
         public static async Task<string> GerarRelatorioHTML(string code)
         {
-            var htmlBuilder = new StringBuilder(); 
+            var htmlBuilder = new StringBuilder();
+
+            linhasImportantes = new ConcurrentDictionary<int, int>();
 
             // Início do HTML
             htmlBuilder.AppendLine("<!DOCTYPE html>");

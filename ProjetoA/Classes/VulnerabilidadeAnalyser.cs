@@ -54,7 +54,7 @@ public static class VulnerabilidadeAnalyzer
         //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForXSS(root);
+        AnalyzeForBrokenAuthentication(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -143,8 +143,6 @@ public static class VulnerabilidadeAnalyzer
                         .Where(node => (node.Left is LiteralExpressionSyntax left && left.Token.Value is string) ||
                                        (node.Right is LiteralExpressionSyntax right && right.Token.Value is string));
 
-
-
         foreach (var exp in expressions)
         {
             if (exp.Parent is BinaryExpressionSyntax binaryExpression)
@@ -159,6 +157,25 @@ public static class VulnerabilidadeAnalyzer
                 }
             }
         }
+
+        var stringsManhosas = root.DescendantNodes()
+                                 .OfType<InterpolatedStringExpressionSyntax>();
+
+        foreach (var str in stringsManhosas)
+        {
+           /* var stringsManhosas = root.DescendantNodes()
+                                  .OfType<InterpolatedStringExpressionSyntax>()
+                                  .Where(s => s.Contents.ToString().Contains());*/
+
+            int keywordCount = sqlKeywords.Count(k => str.ToString().IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if(keywordCount >= 2)
+            {
+                PrepararParaAdiconarVulnerabilidade(str, tipo, risco);
+            }
+
+        }
+
     }
     static void AnalyzeForXSS(SyntaxNode root)
     {
@@ -168,12 +185,10 @@ public static class VulnerabilidadeAnalyzer
         // Encontrar variáveis inicializadas com Request.QueryString, Request.Form, Request.Params
         var variaveis = root.DescendantNodes().OfType<AssignmentExpressionSyntax>()
                             .Where(v => v.Right != null &&
-                                        (v.Right.ToString().Contains("Request.QueryString") ||
-                                         v.Right.ToString().Contains("Request.Form") ||
-                                         v.Right.ToString().Contains("Request.Params") ||
-                                         v.Right.ToString().Contains(".Text")) &&
-                                         !v.Right.ToString().Contains("HttpUtility.HtmlEncode"))
-                            .Select(v => v.Left.ToString());
+                                       (v.Right.ToString().Contains("Request.QueryString") ||
+                                        v.Right.ToString().Contains("Request.Form") ||
+                                        v.Right.ToString().Contains("Request.Params") ||
+                                        v.Right.ToString().Contains(".Text")));
 
         var metodos = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
                           .Where(m => m.AttributeLists.ToString().Contains("[HttpPost]"));
@@ -184,21 +199,29 @@ public static class VulnerabilidadeAnalyzer
             return;
         }
 
+        foreach(var v in variaveis)
+        {
+            PrepararParaAdiconarVulnerabilidade(v.Parent, tipo, risco);
+        }
+
         foreach (var m in metodos)
         {
             var parametros = m.ParameterList.Parameters
-                                .Select(p => p.Identifier.ToString());
+                                .Where(p => p.ToString().Contains("string"));
 
-            var vul = m.DescendantNodes().OfType<AssignmentExpressionSyntax>()
-                       .Where(i => variaveis.Contains(i.Right.ToString()));
-
-            if (vul.Any())
+            foreach(var p in parametros)
             {
-                PrepararParaAdiconarVulnerabilidade(m, tipo, risco);
+                var vulnerabilidades = m.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                           .Where(v => v.Right.ToString() == p.Identifier.ToString());
+                
+                foreach(var v in vulnerabilidades)
+                {
+                    PrepararParaAdiconarVulnerabilidade(v.Parent, tipo, risco);
+                }
             }
+          
         }
     }
-
     static void AnalyzeForInsecureDeserialization(SyntaxNode root) 
     {
         var tipo = "Deserialização Insegura";
@@ -225,47 +248,20 @@ public static class VulnerabilidadeAnalyzer
         }
             
     }
-    static void AnalyzeForInsecureRedirects(SyntaxNode root) 
+ 
+    static void AnalyzeForBrokenAuthentication(SyntaxNode root)
     {
         var tipo = "Deserialização Insegura";
         var risco = NivelRisco.Alto;
 
-        var invocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                  .Where(m => m.Expression.ToString().Contains("Redirect"));
+        var classes = root.DescendantNodes().OfType<ClassDeclarationSyntax>()
+                          .Where(c => c.AttributeLists.ToString().Contains("[ApiController]") &&
+                                      !c.AttributeLists.ToString().Contains("[Authorize]"));
 
-        foreach (var inv in invocations)
+        foreach(var cl in classes)
         {
-            var argumentList = inv.ArgumentList.Arguments;
-            if (argumentList.Count > 0)
-            {
-                var firstArgument = argumentList[0].ToString();
-
-                // Verificar se o argumento é uma string literal
-                if (firstArgument.StartsWith("\"") && firstArgument.EndsWith("\""))
-                {
-                    PrepararParaAdiconarVulnerabilidade(inv.Parent, tipo, risco);
-                }
-                
-                else
-                {
-                    // Verificar se existe um if statement com Url.IsLocalUrl no mesmo escopo
-                    //var parentScope = GetScope(inv);
-
-                    var parentScope = GetScopeLevel(inv);
-
-                    if (parentScope.DescendantNodes().OfType<IfStatementSyntax>()
-                        .Any(ifStmt => ifStmt.Condition.ToString()
-                         .Contains($"Url.IsLocalUrl({firstArgument})")))
-                    {
-                         PrepararParaAdiconarVulnerabilidade(inv.Parent, tipo, risco);
-                    }
-            
-                }
-            }
+            PrepararParaAdiconarVulnerabilidade(cl, tipo, risco);
         }
-
-        // Exibir vulnerabilidades encontradas
-
     }
 
     static void AnalyzeForNoSQLInjection(SyntaxNode root)

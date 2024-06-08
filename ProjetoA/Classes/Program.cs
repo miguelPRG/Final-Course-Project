@@ -1,16 +1,25 @@
-﻿using System;
+﻿/*using System;
+using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Mvc;
-using Windows.UI.Xaml.Controls;
 
-namespace VulnerableApp.Controllers
+namespace VulnerableApp.Controllers 
 {
-    public class HomeController : Controller
+    [ApiController]
+    [Route("[controller]")] 
+    public class UserController : ControllerBase 
     {
-        [HttpPost]
-        public IActionResult Index(string userInput)
+        [HttpGet]
+        public IActionResult Get()
         {
-            ViewBag.UserInput = userInput;   
-            return View();
+            // Fetching all user data
+            var users = FetchAllUsers();
+            return Ok(users);
+        }
+
+        private object FetchAllUsers()
+        {
+            // Simulated user data fetch
+            return new[] { new { Id = 1, Name = "John Doe" } };
         }
     }
-}
+}*/
