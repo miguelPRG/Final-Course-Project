@@ -73,7 +73,7 @@ namespace ProjetoA.Classes
                 stopwatch.Stop();
 
                 htmlBuilder.AppendLine("<h2>Não foi possivel efetuar uma análise profunda do código, pois este apresenta erros de sintaxe!</h2>");
-                htmlBuilder.AppendLine($"<p>Tempo Total de Análise: {stopwatch.ElapsedMilliseconds}ms</p>");
+                htmlBuilder.AppendLine($"<h3>Tempo Total de Análise: {stopwatch.ElapsedMilliseconds}ms</h3>");
                 htmlBuilder.Append("</body></html>");
                 return htmlBuilder.ToString();
             }

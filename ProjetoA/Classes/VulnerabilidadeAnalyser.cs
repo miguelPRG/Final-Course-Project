@@ -15,6 +15,8 @@ using Windows.UI.Xaml.Shapes;
 using Windows.UI.Xaml.Media.Animation;
 using System.Xml.Linq;
 
+//Site para procurrar referências: https://docs.fluidattacks.com/
+
 public class Vulnerability
 {
     public string Tipo { get; set; }
@@ -54,7 +56,7 @@ public static class VulnerabilidadeAnalyzer
         //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeForBrokenAuthentication(root);
+        AnalyzeLDAPInjection(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -121,7 +123,26 @@ public static class VulnerabilidadeAnalyzer
        }
         return null;
     }
-
+    static bool IsStringConcatenated(ExpressionSyntax expression)
+    {
+        if (expression is BinaryExpressionSyntax binaryExpression)
+        {
+            if (binaryExpression.IsKind(SyntaxKind.AddExpression))
+            {
+                if (binaryExpression.Left is LiteralExpressionSyntax leftLiteral && leftLiteral.IsKind(SyntaxKind.StringLiteralExpression))
+                    return true;
+                if (binaryExpression.Right is LiteralExpressionSyntax rightLiteral && rightLiteral.IsKind(SyntaxKind.StringLiteralExpression))
+                    return true;
+                if (IsStringConcatenated(binaryExpression.Left) || IsStringConcatenated(binaryExpression.Right))
+                    return true;
+            }
+        }
+        else if (expression is InterpolatedStringExpressionSyntax i)
+        {
+            return true;
+        }
+        return false;
+    }
 
     static void AnalyzeForSQLInjection(SyntaxNode root)
     {
@@ -222,6 +243,20 @@ public static class VulnerabilidadeAnalyzer
           
         }
     }
+    static void AnalyzeForCSRF(SyntaxNode root)
+    {
+        var tipo = "Deserialização Insegura";
+        var risco = NivelRisco.Alto;
+
+        var metodos = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
+                          .Where(m => m.AttributeLists.ToString().Contains("[HttpPost]") &&
+                                      m.AttributeLists.ToString().Contains("[ValidateAntiForgeryToken]"));
+
+       foreach(var m in metodos)
+       {
+            PrepararParaAdiconarVulnerabilidade(m, tipo, risco);
+       }
+    }
     static void AnalyzeForInsecureDeserialization(SyntaxNode root) 
     {
         var tipo = "Deserialização Insegura";
@@ -248,7 +283,50 @@ public static class VulnerabilidadeAnalyzer
         }
             
     }
- 
+
+    static void AnalyzeLDAPInjection(SyntaxNode root)
+    {
+        var tipo = "LDAP Injection";
+        var risco = NivelRisco.Alto;
+
+        var objects = root.DescendantNodes()
+                            .OfType<ObjectCreationExpressionSyntax>()
+                            .Where(v => v.Type.ToString() == "SearchRequest");
+
+        foreach (var obj in objects)
+        {
+            var arguments = obj.ArgumentList.Arguments;
+
+            foreach (var arg in arguments)
+            {
+                if (IsStringConcatenated(arg.Expression))
+                {
+                    PrepararParaAdiconarVulnerabilidade(arg, tipo, risco);
+                }
+                else if (arg.Expression is IdentifierNameSyntax identifier)
+                {
+                    var variableName = identifier.Identifier.Text;
+                    var scopeLevel = GetScopeLevel(arg);
+
+                    var variableDeclarations = scopeLevel.DescendantNodes()
+                                                   .OfType<VariableDeclaratorSyntax>()
+                                                   .Where(v => v.Identifier.Text == variableName);
+
+                    foreach (var variableDeclaration in variableDeclarations)
+                    {
+                        var initializer = variableDeclaration.Initializer?.Value;
+                        if (initializer != null && IsStringConcatenated(initializer))
+                        {
+                            PrepararParaAdiconarVulnerabilidade(arg, tipo, risco);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+
     static void AnalyzeForBrokenAuthentication(SyntaxNode root)
     {
         var tipo = "Deserialização Insegura";
@@ -263,6 +341,7 @@ public static class VulnerabilidadeAnalyzer
             PrepararParaAdiconarVulnerabilidade(cl, tipo, risco);
         }
     }
+
 
     static void AnalyzeForNoSQLInjection(SyntaxNode root)
     {
@@ -394,6 +473,6 @@ public static class VulnerabilidadeAnalyzer
     }
 
     static void AnalyzeForInsecureEncryption(SyntaxNode root) { }
-    static void AnalyzeForLDAPInjection(SyntaxNode root) { }
+   
 
 }

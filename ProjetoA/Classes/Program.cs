@@ -1,25 +1,30 @@
-﻿/*using System;
-using System.Runtime.InteropServices;
-using Microsoft.AspNetCore.Mvc;
+﻿/*using System.Net;
 
-namespace VulnerableApp.Controllers 
+public class LdapController : Controller
 {
-    [ApiController]
-    [Route("[controller]")] 
-    public class UserController : ControllerBase 
+    private readonly LdapConnection _connection;
+
+    public LdapController(LdapConnection connection)
     {
-        [HttpGet]
-        public IActionResult Get()
+        _connection = connection;
+    }
+
+    [HttpPost]
+    public IActionResult Authenticate(string username, string password)
+    { 
+        var searchFilter = $"(&(objectClass=user)(sAMAccountName={username}))";  
+                          
+        var searchRequest = new SearchRequest("dc=example,dc=com", searchFilter, SearchScope.Subtree);
+        var searchResponse = (SearchResponse)_connection.SendRequest(searchRequest);
+
+        if (searchResponse.Entries.Count > 0)  
         {
-            // Fetching all user data
-            var users = FetchAllUsers();
-            return Ok(users);
+            var user = searchResponse.Entries[0];
+            var networkCredential = new NetworkCredential(user.DistinguishedName, password);
+            _connection.Bind(networkCredential);
+            return Ok();
         }
 
-        private object FetchAllUsers()
-        {
-            // Simulated user data fetch
-            return new[] { new { Id = 1, Name = "John Doe" } };
-        }
+        return Unauthorized();
     }
 }*/
