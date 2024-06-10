@@ -56,7 +56,7 @@ public static class VulnerabilidadeAnalyzer
         //var semanticModel = compilation.GetSemanticModel(tree);
 
         // Analisar vulnerabilidades de XSS
-        AnalyzeLDAPInjection(root);
+        AnalyzeForSensitiveInformationSending(root);
 
         // Analisar vulnerabilidades de SQL Injection
         //var sqlVulnerabilities = AnalyzeSQLInjection(root);
@@ -158,17 +158,21 @@ public static class VulnerabilidadeAnalyzer
         };
 
         // Procurar por literais de string que são parte de expressões de concatenação
-        var expressions = root.DescendantNodes()
+        /*var expressions = root.DescendantNodes()
                         .OfType<BinaryExpressionSyntax>()
                         .Where(node => node.IsKind(SyntaxKind.AddExpression))
                         .Where(node => (node.Left is LiteralExpressionSyntax left && left.Token.Value is string) ||
-                                       (node.Right is LiteralExpressionSyntax right && right.Token.Value is string));
+                                       (node.Right is LiteralExpressionSyntax right && right.Token.Value is string));*/
 
+        var expressions = root.DescendantNodes()
+                              .OfType<ExpressionSyntax>()
+                              .Where(node => IsStringConcatenated(node));
+        
         foreach (var exp in expressions)
         {
-            if (exp.Parent is BinaryExpressionSyntax binaryExpression)
-            {
-                string expressionText = binaryExpression.ToString();
+            //if (exp.Parent is BinaryExpressionSyntax binaryExpression)
+            //{
+                string expressionText = exp.ToString();
                 int keywordCount = sqlKeywords.Count(keyword => expressionText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0);
 
                 if (keywordCount >= 2)
@@ -176,7 +180,7 @@ public static class VulnerabilidadeAnalyzer
                     // Detecção de possível vulnerabilidade
                     PrepararParaAdiconarVulnerabilidade(exp, tipo, risco);
                 }
-            }
+            //}
         }
 
         var stringsManhosas = root.DescendantNodes()
@@ -283,7 +287,6 @@ public static class VulnerabilidadeAnalyzer
         }
             
     }
-
     static void AnalyzeLDAPInjection(SyntaxNode root)
     {
         var tipo = "LDAP Injection";
@@ -317,162 +320,50 @@ public static class VulnerabilidadeAnalyzer
                         var initializer = variableDeclaration.Initializer?.Value;
                         if (initializer != null && IsStringConcatenated(initializer))
                         {
-                            PrepararParaAdiconarVulnerabilidade(arg, tipo, risco);
+                            PrepararParaAdiconarVulnerabilidade(initializer, tipo, risco);
                         }
                     }
                 }
             }
         }
     }
-
-
-
-    static void AnalyzeForBrokenAuthentication(SyntaxNode root)
+    static void AnalyzeForInsecureEncryption(SyntaxNode root) 
     {
-        var tipo = "Deserialização Insegura";
+        var tipo = "Criptografia Insegura";
         var risco = NivelRisco.Alto;
 
-        var classes = root.DescendantNodes().OfType<ClassDeclarationSyntax>()
-                          .Where(c => c.AttributeLists.ToString().Contains("[ApiController]") &&
-                                      !c.AttributeLists.ToString().Contains("[Authorize]"));
-
-        foreach(var cl in classes)
+        var cripto = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
+                         .Where(o => o.ToString().Contains("DES") ||
+                                     o.ToString().Contains("RC4") ||
+                                     o.ToString().Contains("MD5"));
+                            
+        foreach(var c in cripto)
         {
-            PrepararParaAdiconarVulnerabilidade(cl, tipo, risco);
+            PrepararParaAdiconarVulnerabilidade(c, tipo, risco);
         }
+
+
     }
-
-
-    static void AnalyzeForNoSQLInjection(SyntaxNode root)
+    static void AnalyzeForSensitiveInformationSending(SyntaxNode root)
     {
-        var tipo = "NoSQL Injection";
+        var tipo = "Envio de Informações Sensíveis";
         var risco = NivelRisco.Alto;
 
-        // Procura por invocações de método
-        var methodInvocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                                .Where(m => m.Expression.ToString().Contains(".Find") &&
-                                m.ArgumentList.Arguments.Count() > 0);
+        var metodos = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
+                          .Where(m => m.AttributeLists.ToString().Contains("[HttpPost]"));
 
-        foreach (var method in methodInvocations)
+        foreach(var m in metodos)
         {
-            // Nome do objeto que chama aquele método
-            int index = method.Expression.ToString().IndexOf(".");
-            string nome = method.Expression.ToString().Substring(0, index);
 
-            var variavel = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                .Where(v => v.Identifier.ToString() == nome);
+            var retorno = m.DescendantNodes().OfType<ReturnStatementSyntax>()
+                           .Where(r => r.Expression.ToString().ToLower().Contains("username") ||
+                                       r.Expression.ToString().ToLower().Contains("password"));
 
-            if (!variavel.Any())
+            foreach(var r in retorno)
             {
-                return;
-            }
-
-            SyntaxNode parent = null; 
-
-
-            if (variavel.Count() > 1)
-            {
-                parent = GetScopeLevel(method);
-
-                var local = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                           .FirstOrDefault(v => v.Identifier.ToString() == nome);
-
-                if (local != null)
-                {
-                    variavel = new[] { local };
-                }
-                
-                else
-                {
-                    variavel = new[] { variavel.First() };
-                }
-            }
-
-            else
-            {
-                variavel = new[] { variavel.First() };
-            }
-
-            bool continuar = false;
-
-            if (variavel.First().Initializer?.Value.ToString().Contains("GetCollection<BsonDocument>") == true)
-            {
-                // Se o data type for IMongoCollection<BsonDocument>
-                continuar = true;
-            }
-            else if (variavel.First().Initializer?.Value.ToString().Contains("GetCollection<JsonDocument>") == true)
-            {
-                // Se o data type for IMongoCollection<JsonDocument>.
-                continuar = true;
-            }
-
-            if (!continuar)
-            {
-                return;
-            }
-
-            var argumentos = method.ArgumentList.Arguments;
-
-            bool isVulnerale = false;
-
-            foreach (var arg in argumentos)
-            {
-                // Se o argumento contiver a seguinte expressão: Builders<BsonDocument>.Filter ou Builders<JsonDocument>.Filter
-                // Ou se o argumento for identificador de nome para uma variável que tenha esse valor, chama o método PrepararParaAdicionarVulnerabilidade
-                if (!arg.Expression.ToString().Contains("Builders<BsonDocument>.Filter") && 
-                    !arg.Expression.ToString().Contains("Builders<JsonDocument>.Filter"))
-                {
-                    isVulnerale = true;
-                }
-                
-                else if (arg.Expression is IdentifierNameSyntax identifierName)
-                {
-                    // Procura a definição da variável a partir deste nó para cima
-                    variavel = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                               .Where(v => v.Identifier.ToString() == identifierName.Identifier.Text);
-
-                    if (variavel.Count() > 1)
-                    {
-                        if (parent == null)
-                        {
-                            parent = GetScopeLevel(method);
-                        }
-
-                        var local = parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                                   .FirstOrDefault(v => v.Identifier.ToString() == identifierName.Identifier.Text);
-
-                        if (local != null)
-                        {
-                            variavel = new[] { local };
-                        }
-                        
-                        else
-                        {
-                            variavel = new[] { variavel.First() };
-                        }
-                    }
-                    
-                    else
-                    {
-                        variavel = new[] { variavel.First() };
-                    }
-
-                    if (!variavel.First().Initializer.Value.ToString().Contains("Builders<BsonDocument>.Filter") &&
-                        !variavel.First().Initializer.Value.ToString().Contains("Builders<JsonDocument>.Filter"))
-                    {
-                        isVulnerale = true;
-                    }
-                }
-            }
-
-            if (isVulnerale)
-            {
-                PrepararParaAdiconarVulnerabilidade(method.Parent, tipo, risco);
+                PrepararParaAdiconarVulnerabilidade(r, tipo, risco);
             }
         }
     }
-
-    static void AnalyzeForInsecureEncryption(SyntaxNode root) { }
-   
 
 }

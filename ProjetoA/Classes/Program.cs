@@ -1,30 +1,24 @@
-﻿/*using System.Net;
+﻿/*using Windows.System;
 
-public class LdapController : Controller
+public class UserController : Controller
 {
-    private readonly LdapConnection _connection;
+    [HttpPost]
+    public IActionResult Login(string username, string password)
+    {  
+        // Authenticate user
+        var user = AuthenticateUser(username, password);
 
-    public LdapController(LdapConnection connection)
-    {
-        _connection = connection;
+        if (user == null)
+        {
+            return Unauthorized();
+        } 
+          
+        // Sending sensitive user information insecurely
+        return Ok(new { Username = user.Username, Password = user.Password });
     }
 
-    [HttpPost]
-    public IActionResult Authenticate(string username, string password)
-    { 
-        var searchFilter = $"(&(objectClass=user)(sAMAccountName={username}))";  
-                          
-        var searchRequest = new SearchRequest("dc=example,dc=com", searchFilter, SearchScope.Subtree);
-        var searchResponse = (SearchResponse)_connection.SendRequest(searchRequest);
-
-        if (searchResponse.Entries.Count > 0)  
-        {
-            var user = searchResponse.Entries[0];
-            var networkCredential = new NetworkCredential(user.DistinguishedName, password);
-            _connection.Bind(networkCredential);
-            return Ok();
-        }
-
-        return Unauthorized();
+    private User AuthenticateUser(string username, string password)
+    {
+        // Logic to authenticate user
     }
 }*/
