@@ -1,7 +1,15 @@
-﻿/*using Windows.System;
+﻿using Windows.System;
+using Windows.UI;
 
 public class UserController : Controller
 {
+    public IActionResult GetUser(string userId)
+    {
+        string sqlQuery = "SELECT * FROM Users WHERE UserId = " + userId;
+        var user = _context.Users.FromSqlRaw(sqlQuery).ToList();
+        return View(user);
+    }
+
     [HttpPost]
     public IActionResult Login(string username, string password)
     {  
@@ -21,4 +29,4 @@ public class UserController : Controller
     {
         // Logic to authenticate user
     }
-}*/
+}

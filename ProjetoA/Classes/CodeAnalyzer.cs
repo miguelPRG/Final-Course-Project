@@ -78,6 +78,8 @@ namespace ProjetoA.Classes
                 return htmlBuilder.ToString();
             }
 
+            SyntaxNode root = tree.GetRoot();
+
             //Processamos o código inserido pelo utilizador como um dicionário e removemos os comentários
             string[] linhasSeparadas = code.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             var linhas = GuardarEmDicionario(linhasSeparadas);
@@ -94,7 +96,7 @@ namespace ProjetoA.Classes
             htmlBuilder.AppendLine($"</ul></div>");
 
             //Este é o método principal que analisa o código inteiro
-            StringBuilder analises = await AnalisarCodigo(linhas,tree);
+            StringBuilder analises = await AnalisarCodigo(root);
             stopwatch.Stop();
 
             htmlBuilder.Append(analises);
@@ -242,24 +244,23 @@ namespace ProjetoA.Classes
             return linha;
         }
 
-        static async Task<StringBuilder> AnalisarCodigo(Dictionary<string, List<int>> lines,SyntaxTree tree)
+        static async Task<StringBuilder> AnalisarCodigo(SyntaxNode root)
         {
             // Inicia as tarefas em paralelo
-            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(tree);
-            //Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
-            //StringBuilder taskAnalisarDependencias = IdentificarPraticasDesempenho(tree);
-            Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(tree);
-            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(tree.GetRoot());
+            Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(root);
+            Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(root);
+            Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(root);
+            Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(root);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,/*taskAnalisarDependencias,*/taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
 
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
             resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
-            //resultadoFinal.Append(taskAnalisarDependencias);
+            resultadoFinal.Append(taskAnalisarDependencias);
             resultadoFinal.Append(taskAnalisarOverloading.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
@@ -271,14 +272,14 @@ namespace ProjetoA.Classes
             return  await Task.FromResult(resultadoFinal);
         }
         
-        static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxTree tree)
+        static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxNode root)
         {
             StringBuilder htmlBuilder = new StringBuilder();
 
             htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
             htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades</h2>");
 
-            var listaVulnerabilidades = VulnerabilidadeAnalyzer.AnalisarVulnerabilidades(tree.GetRoot());
+            var listaVulnerabilidades = await VulnerabilidadeAnalyzer.AnalisarVulnerabilidades(root);
 
             if (listaVulnerabilidades.Count() <= 0)
             {
@@ -472,7 +473,7 @@ namespace ProjetoA.Classes
 
             return await Task.FromResult(result);
         }*/
-        static async Task<StringBuilder> VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
+        /*static async Task<StringBuilder> VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
         {
             var patternName = pattern.Key;
             var patternValue = pattern.Value;
@@ -538,42 +539,15 @@ namespace ProjetoA.Classes
             }
         
         }
-        
+        */
 
-        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxTree tree)
-        {
-            StringBuilder htmlBuilder = new StringBuilder();
-
-            htmlBuilder.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
-            htmlBuilder.AppendLine($"<h2>Análise de Padrões de Mau Desempenho</h2>");
-
-            var desempenho = new DesempenhoAnalyzer();
-
-            StringBuilder tabela = await desempenho.AnalyzeCodeAsync(tree, linhasImportantes);
-
-            if(tabela.ToString() == null)
-            {
-                htmlBuilder.Append("<h3>Não foi encontrado qualquer tipo de padrão de mau desempenho!</h3>");
-            }
-
-            else
-            {
-                htmlBuilder.Append(tabela);
-            }
-
-            htmlBuilder.AppendLine("</div>");
-
-        
-            return  await Task.FromResult<StringBuilder>(htmlBuilder);
-        }*/
-
-        static async Task<StringBuilder> AnaliseOverloading(SyntaxTree tree)
+        static async Task<StringBuilder> AnaliseOverloading(SyntaxNode root)
         {
             // Create a dictionary to store the existing methods with the same name
             Dictionary<string, List<int>> existingMethods = new Dictionary<string, List<int>>();
 
             // Find all the methods in the syntax tree
-            IEnumerable<MethodDeclarationSyntax> methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+            IEnumerable<MethodDeclarationSyntax> methods = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
 
             // Iterate through the methods and find those with overloading
             foreach (MethodDeclarationSyntax method in methods)
@@ -656,6 +630,33 @@ namespace ProjetoA.Classes
             // Return the HTML report
             return await Task.FromResult(result);
         }
+        static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxNode root)
+        {
+            StringBuilder htmlBuilder = new StringBuilder();
+
+            htmlBuilder.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
+            htmlBuilder.AppendLine($"<h2>Análise de Padrões de Mau Desempenho</h2>");
+
+            var desempenho = new DesempenhoAnalyzer();
+
+            StringBuilder tabela = await desempenho.AnalyzeCodeAsync(root, linhasImportantes);
+
+            if(tabela.ToString() == null)
+            {
+                htmlBuilder.Append("<h3>Não foi encontrado qualquer tipo de padrão de mau desempenho!</h3>");
+            }
+
+            else
+            {
+                htmlBuilder.Append(tabela);
+            }
+
+            htmlBuilder.AppendLine("</div>");
+
+        
+            return  await Task.FromResult<StringBuilder>(htmlBuilder);
+        }
+
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
