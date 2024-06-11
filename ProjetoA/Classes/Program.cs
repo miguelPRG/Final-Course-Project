@@ -1,5 +1,6 @@
-﻿using Windows.System;
+﻿/*using Windows.System;
 using Windows.UI;
+using Windows.UI.Xaml.Controls;
 
 public class UserController : Controller
 {
@@ -10,17 +11,27 @@ public class UserController : Controller
         return View(user);
     }
 
+    public class HomeController : Controller
+    {
+        [HttpPost]
+        public IActionResult Index(string userInput)
+        {
+            ViewBag.UserInput = userInput;
+            return View();
+        }
+    }
+
     [HttpPost]
     public IActionResult Login(string username, string password)
-    {  
+    {
         // Authenticate user
         var user = AuthenticateUser(username, password);
 
         if (user == null)
         {
             return Unauthorized();
-        } 
-          
+        }
+
         // Sending sensitive user information insecurely
         return Ok(new { Username = user.Username, Password = user.Password });
     }
@@ -29,4 +40,4 @@ public class UserController : Controller
     {
         // Logic to authenticate user
     }
-}
+}*/

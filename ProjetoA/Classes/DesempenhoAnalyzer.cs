@@ -23,11 +23,9 @@ public class DesempenhoAnalyzer
     {
         AnaliseDesempenho[] analisesDesempenho =
         {
-            AnalyzeUnnecessaryVariableCreation,
             AnalyzeInefficientDataStructures,
             AnalyzeLackOfInputValidation,
             AnalyzeExcessiveUseOfExceptions,
-            AnalyzeInefficientStringConcatenation,
             AnalyzeNotDisposingOfResources,
             //AnalyzeNotUsingAsynchronousProgramming,
         };

@@ -88,9 +88,9 @@ namespace ProjetoA.Classes
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
                // "<li><a onclick=\"mostrarSecao('analise-dependencias')\">Análise de Dependências</a></li>\r\n   " +
-                "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +
+               /* "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +*/
                 "<li><a onclick=\"mostrarSecao('overloading')\">Análise de OverLoading</a></li>\r\n    " +
-                "<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +
+                /*"<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +*/
                 "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
                 "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</ul></div>");
@@ -248,19 +248,17 @@ namespace ProjetoA.Classes
         {
             // Inicia as tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(root);
-            Task<StringBuilder> taskAnalisarDependencias = IdentificarPraticasDesempenho(root);
             Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(root);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(root);
 
             // Espera até que todas as tarefas estejam concluídas
-            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarDependencias,taskAnalisarOverloading,taskComplexidadeCiclomatica);
+            await Task.WhenAll(taskAnalisarVulnerabilidades,taskAnalisarOverloading,taskComplexidadeCiclomatica);
 
             // Concatena as strings HTML
             StringBuilder resultadoFinal = new StringBuilder();
 
             // Adiciona o resultado das tarefas de análise de vulnerabilidades e dependências
             resultadoFinal.Append(taskAnalisarVulnerabilidades.Result);
-            resultadoFinal.Append(taskAnalisarDependencias);
             resultadoFinal.Append(taskAnalisarOverloading.Result);
 
             // Adiciona a complexidade ciclomática ao resultado
@@ -334,212 +332,6 @@ namespace ProjetoA.Classes
             return htmlBuilder;
 
         }
-
-        /*static async Task<StringBuilder> AnalisarVulnerabilidades(Dictionary<string, List<int>> code)
-        {
-            StringBuilder htmlBuilder = new StringBuilder();
-            htmlBuilder.AppendLine("<div id=\"analise-vulnerabilidade\" style=\"display: none;\">");
-            htmlBuilder.AppendLine($"<h2>Análise de Vulnerabilidades:</h2>");
-
-            var vulnerabilidadeVisitor = new VulnerabilidadeVisitor();
-            await vulnerabilidadeVisitor.Visit(code);
-
-            if(vulnerabilidadeVisitor.VulnerabilidadesEncontradas.Count()==0)
-            {
-                htmlBuilder.AppendLine("<h3>Não foi encontrada nenhuma vulnerabilidade de segurança!</h3>");
-                htmlBuilder.AppendLine("</div>");
-                return await Task.FromResult(htmlBuilder);
-            }
-
-            //Ordenamos as vulnerabilidades por tipo
-            vulnerabilidadeVisitor.VulnerabilidadesEncontradas.Sort((x,y) => string.Compare(x.Vulnerabilidade.Tipo, y.Vulnerabilidade.Tipo));
-            
-            string nomeVulnerabilidade = "";
-
-            // Construir tabela HTML
-            //htmlBuilder.AppendLine("<table>");
-            //htmlBuilder.AppendLine("<tr><th>Nome da Vulnerabilidade</th><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
-
-            foreach(var vul in vulnerabilidadeVisitor.VulnerabilidadesEncontradas)
-            {
-                if(vul.Vulnerabilidade.Tipo != nomeVulnerabilidade)//Vulnerabilidade Nova, Tabela Nova
-                {
-
-                    htmlBuilder.AppendLine($"<h3>Vulnerabilidades de {vul.Vulnerabilidade.Tipo}</h3>");
-                    htmlBuilder.AppendLine("<table>");
-                    htmlBuilder.AppendLine($"<tr><th>Código</th><th>Linhas</th><th>Nível de Risco</th></tr>");
-                    nomeVulnerabilidade = vul.Vulnerabilidade.Tipo;
-                }
-
-                htmlBuilder.AppendLine("<tr>");
-                htmlBuilder.AppendLine($"<td>{vul.Vulnerabilidade.Codigo}</td>");
-                htmlBuilder.AppendLine($"<td>");
-
-
-                for (int i = 0; i < vul.Linhas.Count(); i++)
-                {
-                    htmlBuilder.Append($"<a href=\"#linha-numero{vul.Linhas[i]}\" onclick=selecionar({vul.Linhas[i]})>{vul.Linhas[i]}</a>");
-
-                    if (!linhasImportantes.ContainsKey(vul.Linhas[i]))
-                    {
-                        
-                         
-                        linhasImportantes[vul.Linhas[i]] = (int)vul.Vulnerabilidade.Risco;
-                    }
-
-                    if (i + 1 < vul.Linhas.Count)
-                    {
-                        htmlBuilder.Append(',');
-                    }
-                }
-
-                htmlBuilder.Append("</td>");
-
-                switch (vul.Vulnerabilidade.Risco)
-                {
-                    case NivelRisco.Baixo: htmlBuilder.AppendLine("<td class=\"baixo\">Baixo</td>"); break;
-                    case NivelRisco.Medio: htmlBuilder.AppendLine("<td class=\"medio\">Médio</td>"); break;
-                    case NivelRisco.Alto: htmlBuilder.AppendLine("<td class=\"alto\">Alto</td>"); break;
-                }
-
-                htmlBuilder.AppendLine("</tr>");
-            }
-
-            htmlBuilder.AppendLine("</table>");
-            htmlBuilder.AppendLine($"<h3>Taxa de Precisão Média de todas as Análises de Vulnerabilidades: {vulnerabilidadeVisitor.getPrecision()}%</h3>");
-            htmlBuilder.AppendLine("</div>");
-
-            return await Task.FromResult(htmlBuilder);
-
-        }*/
-        
-        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(Dictionary<string, List<int>> codeDictionary)
-        {
-            var result = new StringBuilder();
-            result.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
-            result.AppendLine("<h2>Identificação de Práticas de Mau Desempenho:</h2>");
-
-            var tabela = new StringBuilder();
-            tabela.AppendLine("<table>");
-            tabela.AppendLine("<tr><th>Nome do Padrão de Mau Desempenho</th><th>Linhas do Código</th></tr>");
-
-            var patterns = new Dictionary<string, string>()
-            {
-                { "Possível iteração desnecessária sobre uma coleção", @"\bforeach\s*\(.*\)" },
-                { "Concatenação de strings em loop", @"\b(?:string|StringBuilder)\s*\+\=\s*\""" },
-                { "Casting possivelmente desnecessário", @"\b(?:Convert|(?<!\.ToString))\.To[A-Za-z]+\(" },
-                { "Possível uso inadequado de StringBuilder", @"\b(?:new\s*System\.Text\.StringBuilder\s*\(\s*\)|StringBuilder\s*=\s*new\s*StringBuilder\s*\(\s*\))" },
-                { "Possível bloqueio inadequado de recursos compartilhados", @"\block\s*\(.*\)" },
-                { "Iteração sobre coleção sem uso do índice", @"\bfor\s*\(.*\bLength\b.*\)" },
-                { "Utilização excessiva de expressões regulares", @"\b(?:Regex|RegexOptions)\." },
-                { "Possível uso de métodos ou operações de alto custo dentro de loops", @"\b(?:Array|List|ICollection)\.\w+\(" },
-            };
-
-            var tasks = new List<Task<StringBuilder>>();
-
-            foreach (var padrao in patterns)
-            {
-                tasks.Add(VerificarPadrao(codeDictionary, padrao));
-            }
-
-            var results = await Task.WhenAll(tasks);
-
-            bool hasPatterns = false;
-
-            foreach (var resultBuilder in results)
-            {
-                if (resultBuilder != null && !hasPatterns)
-                {
-                    hasPatterns = true;
-                }
-
-                tabela.Append(resultBuilder);
-            }
-
-            // Aguarda todas as tarefas serem concluídas
-
-            if (!hasPatterns)
-            {
-                result.AppendLine("<h3>Não foi encontrado nenhum padrão de mau desempenho!</h3>");
-            }
-
-            else
-            {
-                tabela.AppendLine("</table>"); // Adicionando a tag de fechamento da tabela
-                result.Append(tabela); // Adiciona a tabela completa ao resultado
-            }
-
-            result.AppendLine("</div>");
-
-            return await Task.FromResult(result);
-        }*/
-        /*static async Task<StringBuilder> VerificarPadrao(Dictionary<string, List<int>> codeDictionary, KeyValuePair<string, string> pattern)
-        {
-            var patternName = pattern.Key;
-            var patternValue = pattern.Value;
-
-            bool isEmpty = true;
-
-            StringBuilder htmlBuilder = new StringBuilder();
-            List<int> lineList = new List<int>();  
-
-            htmlBuilder.AppendLine("<tr>");
-            htmlBuilder.AppendLine($"<td>{patternName}</td>");
-            htmlBuilder.AppendLine("<td class=\"desempenho\">");
-
-            foreach (var line in codeDictionary)//O(n)
-            {
-                var code = line.Key;
-                var lineValues = line.Value;
-
-                var match = Regex.Match(code, patternValue);
-
-                if (match.Success)
-                {
-                    if (isEmpty)
-                    {
-                        isEmpty = false;
-                    }
-
-                    foreach(var i in lineValues)
-                    {
-                        lineList.Add(i);
-                    }
-                }
-
-            }
-
-            if(!isEmpty)
-            {
-                lineList.Sort();
-                
-                for(int i= 0; i<lineList.Count();i++)
-                {
-                    htmlBuilder.Append($"<a href=\"#linha-numero{lineList[i]}\" onclick=selecionar({lineList[i]})>{lineList[i]}</a>");
-
-                    if (!linhasImportantes.ContainsKey(lineList[i]))
-                    {
-                        linhasImportantes[lineList[i]] = 3;
-                    }
-
-                    if (i + 1 < lineList.Count())
-                    {
-                        htmlBuilder.Append(',');
-                    }
-                }
-
-                htmlBuilder.AppendLine("</td></tr>");
-
-                return await Task.FromResult(htmlBuilder);
-            }
-            
-            else
-            {
-                return null;
-            }
-        
-        }
-        */
 
         static async Task<StringBuilder> AnaliseOverloading(SyntaxNode root)
         {
@@ -630,7 +422,7 @@ namespace ProjetoA.Classes
             // Return the HTML report
             return await Task.FromResult(result);
         }
-        static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxNode root)
+        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxNode root)
         {
             StringBuilder htmlBuilder = new StringBuilder();
 
@@ -656,7 +448,7 @@ namespace ProjetoA.Classes
         
             return  await Task.FromResult<StringBuilder>(htmlBuilder);
         }
-
+        */
 
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
