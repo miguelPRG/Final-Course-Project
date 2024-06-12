@@ -82,7 +82,6 @@ namespace ProjetoA.Classes
 
             //Processamos o código inserido pelo utilizador como um dicionário e removemos os comentários
             string[] linhasSeparadas = code.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-            var linhas = GuardarEmDicionario(linhasSeparadas);
 
             //Preparamos o Menu de Navegação no Relatório
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
@@ -145,7 +144,7 @@ namespace ProjetoA.Classes
 
             return false; // Não há erros de sintaxe
         }
-
+        
         static Dictionary<string, List<int>> GuardarEmDicionario(string[] linhasSeparadas)
         {
             Dictionary<string, List<int>> dicionario = new Dictionary<string, List<int>>();
@@ -243,6 +242,8 @@ namespace ProjetoA.Classes
 
             return linha;
         }
+
+        
 
         static async Task<StringBuilder> AnalisarCodigo(SyntaxNode root)
         {
