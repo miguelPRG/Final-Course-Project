@@ -22,7 +22,7 @@
 
             <StackPanel x:Name="Opcoes" Orientation="Horizontal" HorizontalAlignment="Center" Visibility="Visible">
                 <Button Content="Analisar Pasta Externa" Height="50" Width="350" MinWidth="150" Background="#FFD61717" FontSize="25" Click="EscolherPasta_Click"/>
-                <Button Content="Inserir Código C#" Width="350" MinWidth="150" Height="50" Background="#FF00FF11" FontSize="25" Click="MostrarConteudo_Click"/>
+                <Button Content="Inserir Código C#" Width="350" MinWidth="150" Height="50" Background="#FF315F12" FontSize="25" Click="MostrarConteudo_Click"/>
             </StackPanel>
 
             <StackPanel x:Name="TextoInserir" Orientation="Vertical" Visibility="Collapsed">

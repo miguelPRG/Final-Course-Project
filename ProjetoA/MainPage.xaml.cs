@@ -86,6 +86,7 @@ namespace ProjetoA
 
                     if (saveFolder != null)
                     {
+                    SolicitarNomePasta:
                         // Solicita o nome da nova pasta
                         var inputTextBox = new TextBox
                         {
@@ -121,15 +122,29 @@ namespace ProjetoA
 
                                 await Task.WhenAll(tasks);
                             }
+                            else
+                            {
+                                // Se o nome da pasta for inválido, volta para solicitar o nome novamente
+                                goto SolicitarNomePasta;
+                            }
                         }
                     }
                 }
                 else
                 {
-                    Console.WriteLine("Nenhum arquivo .cs encontrado na pasta selecionada.");
+                    // Exibe um dialogo informando que não foram encontrados arquivos .cs
+                    ContentDialog noFilesDialog = new ContentDialog
+                    {
+                        Title = "Nenhum arquivo encontrado",
+                        Content = "Nenhum arquivo .cs foi encontrado na pasta selecionada.",
+                        CloseButtonText = "OK"
+                    };
+
+                    await noFilesDialog.ShowAsync();
                 }
             }
         }
+
 
         private async Task<List<StorageFile>> ObterArquivosCsRecursivamente(StorageFolder pasta)
         {
