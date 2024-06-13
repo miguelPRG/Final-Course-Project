@@ -138,6 +138,32 @@ public static class VulnerabilidadeAnalyzer
                 var escopo = GetScopeLevel(a.Right).DescendantNodes().OfType<VariableDeclaratorSyntax>()
                           .Where(es => es.Initializer.ToString().Contains("Encode"));
 
+                if (!escopo.Any())
+                {
+                    var analyzedNodes = new HashSet<SyntaxNode>();
+
+
+                    var parent = a.Right.Parent;
+
+                    while (parent != null)
+                    {
+                        if (!analyzedNodes.Contains(parent))
+                        {
+                            escopo = GetScopeLevel(parent).DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                              .Where(es => es.Initializer.ToString().Contains("Encode"));
+
+                            analyzedNodes.Add(parent);
+
+                            if (escopo.Any())
+                            {
+                                break;
+                            }
+                        }
+
+                        parent = parent.Parent;
+                    }
+                }
+
                 if (!escopo.Any() && !a.Right.DescendantNodes().OfType<VariableDeclaratorSyntax>().Any(es => es.Initializer.ToString().Contains("Encode")))
                 {
                     PrepararParaAdicionarVulnerabilidade(a, tipo, risco);
@@ -175,6 +201,32 @@ public static class VulnerabilidadeAnalyzer
 
             if (!invocacoes.Any())
             {
+                var analyzedNodes = new HashSet<SyntaxNode>();
+
+
+                var parent = v.Parent;
+
+                while (parent != null)
+                {
+                    if (!analyzedNodes.Contains(parent))
+                    {
+                        invocacoes = parent.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                                  .Where(i => i.Expression.ToString().Contains(v.Identifier.Text + ".Deserialize"));
+
+                        analyzedNodes.Add(parent);
+
+                        if (invocacoes.Any())
+                        {
+                            break;
+                        }
+                    }
+
+                    parent = parent.Parent;
+                }
+            }
+
+            if(invocacoes.Any())
+            {
                 PrepararParaAdicionarVulnerabilidade(v, tipo, risco);
             }
         }
@@ -195,6 +247,12 @@ public static class VulnerabilidadeAnalyzer
                 if (IsStringConcatenated(arg.Expression))
                 {
                     PrepararParaAdicionarVulnerabilidade(arg, tipo, risco);
+                }
+
+                else if (arg.Expression is IdentifierNameSyntax identifier)
+                {
+                    var scope = GetScopeLevel(arg);
+                    /**/
                 }
             }
         }
