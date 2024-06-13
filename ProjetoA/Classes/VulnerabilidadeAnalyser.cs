@@ -6,8 +6,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-//Site para procurrar referências: https://docs.fluidattacks.com/
-
 public class Vulnerability
 {
     public string Tipo { get; set; }
@@ -33,15 +31,15 @@ public enum NivelRisco
 
 public static class VulnerabilidadeAnalyzer
 {
-    private static List<Vulnerability> vulnerabilities;
+    private static List<Vulnerability> vulnerabilities = new List<Vulnerability>();
 
-    delegate void Analise(SyntaxNode root);
+    private delegate void Analise(SyntaxNode root);
 
-    public async static Task<List<Vulnerability>> AnalisarVulnerabilidades(SyntaxNode root)
+    public static async Task<List<Vulnerability>> AnalisarVulnerabilidades(SyntaxNode root)
     {
-        vulnerabilities = new List<Vulnerability>();
+        vulnerabilities.Clear();
 
-        Analise[] analises = new Analise[]
+        var analises = new Analise[]
         {
             AnalyzeForSQLInjection,
             AnalyzeForXSS,
@@ -53,27 +51,15 @@ public static class VulnerabilidadeAnalyzer
         };
 
         var tasks = analises.Select(a => Task.Run(() => a(root))).ToArray();
-        Task.WaitAll(tasks);
+        await Task.WhenAll(tasks);
 
-        return await Task.FromResult(vulnerabilities);
+        return vulnerabilities;
     }
 
     private static void PrepararParaAdicionarVulnerabilidade(SyntaxNode node, string tipo, NivelRisco risco)
     {
-        char[] mudanca = new char[] { '\n', '\r' };
-        int linha = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-        int index = node.ToString().IndexOfAny(mudanca);
-
-        string codigo;
-
-        try
-        {
-            codigo = node.ToString().Substring(0, index);
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            codigo = node.ToString();
-        }
+        var linha = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        var codigo = node.ToString().Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? node.ToString();
 
         AdicionarVulnerabilidade(tipo, codigo, risco, linha);
     }
@@ -86,89 +72,49 @@ public static class VulnerabilidadeAnalyzer
         {
             if (index > -1)
             {
-                // Adicionar a nova linha à lista de linhas da vulnerabilidade existente
                 vulnerabilities[index].Linhas.Add(linha);
             }
             else
             {
-                // Adicionar nova vulnerabilidade
-                var lineNumbers = new HashSet<int> { linha };
-                vulnerabilities.Add(new Vulnerability(tipo, codigo, risco, lineNumbers));
+                vulnerabilities.Add(new Vulnerability(tipo, codigo, risco, new HashSet<int> { linha }));
             }
         }
     }
 
     private static SyntaxNode GetScopeLevel(SyntaxNode node)
     {
-        while (node != null)
+        while (node != null && !(node is MethodDeclarationSyntax || node is ClassDeclarationSyntax || node is BlockSyntax))
         {
-            if (node is MethodDeclarationSyntax || node is ClassDeclarationSyntax || node is BlockSyntax)
-            {
-                return node;
-            }
             node = node.Parent;
         }
-        return null;
+        return node;
     }
 
     private static bool IsStringConcatenated(ExpressionSyntax expression)
     {
-        if (expression is BinaryExpressionSyntax binaryExpression)
+        if (expression is BinaryExpressionSyntax binaryExpression && binaryExpression.IsKind(SyntaxKind.AddExpression))
         {
-            if (binaryExpression.IsKind(SyntaxKind.AddExpression))
-            {
-                if (binaryExpression.Left is LiteralExpressionSyntax leftLiteral && leftLiteral.IsKind(SyntaxKind.StringLiteralExpression))
-                    return true;
-                if (binaryExpression.Right is LiteralExpressionSyntax rightLiteral && rightLiteral.IsKind(SyntaxKind.StringLiteralExpression))
-                    return true;
-                if (IsStringConcatenated(binaryExpression.Left) || IsStringConcatenated(binaryExpression.Right))
-                    return true;
-            }
+            return IsStringLiteral(binaryExpression.Left) || IsStringLiteral(binaryExpression.Right) || IsStringConcatenated(binaryExpression.Left) || IsStringConcatenated(binaryExpression.Right);
         }
-        else if (expression is InterpolatedStringExpressionSyntax)
-        {
-            return true;
-        }
-        return false;
+        return expression is InterpolatedStringExpressionSyntax;
     }
+
+    private static bool IsStringLiteral(ExpressionSyntax expression) => expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression);
 
     private static void AnalyzeForSQLInjection(SyntaxNode root)
     {
         var tipo = "SQL Injection";
         var risco = NivelRisco.Alto;
 
-        string[] sqlKeywords = new string[]
-        {
-            "select", "from", "where", "values", "update", "set", "delete",
-            "create", "alter", "drop", "join", "group by", "having",
-            "order by", "distinct"
-        };
+        var sqlKeywords = new[] { "select", "from", "where", "values", "update", "set", "delete", "create", "alter", "drop", "join", "group by", "having", "order by", "distinct" };
 
-        var expressions = root.DescendantNodes()
-                              .OfType<ExpressionSyntax>()
-                              .Where(node => IsStringConcatenated(node));
+        var expressions = root.DescendantNodes().OfType<ExpressionSyntax>().Where(IsStringConcatenated);
 
         foreach (var exp in expressions)
         {
-            string expressionText = exp.ToString();
-            int keywordCount = sqlKeywords.Count(keyword => expressionText.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0);
-
-            if (keywordCount >= 2)
+            if (sqlKeywords.Count(keyword => exp.ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) >= 2)
             {
                 PrepararParaAdicionarVulnerabilidade(exp, tipo, risco);
-            }
-        }
-
-        var interpolatedStrings = root.DescendantNodes()
-                                      .OfType<InterpolatedStringExpressionSyntax>();
-
-        foreach (var str in interpolatedStrings)
-        {
-            int keywordCount = sqlKeywords.Count(keyword => str.ToString().IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0);
-
-            if (keywordCount >= 2)
-            {
-                PrepararParaAdicionarVulnerabilidade(str, tipo, risco);
             }
         }
     }
@@ -178,66 +124,26 @@ public static class VulnerabilidadeAnalyzer
         var risco = NivelRisco.Alto;
 
         var atribuicoes = root.DescendantNodes().OfType<AssignmentExpressionSyntax>()
-                            .Where(v =>(v.ToString().Contains("Request.QueryString",StringComparison.CurrentCultureIgnoreCase) ||
-                                        v.ToString().Contains("Request.Form", StringComparison.CurrentCultureIgnoreCase) ||
-                                        v.ToString().Contains("Request.Params", StringComparison.CurrentCultureIgnoreCase) ||
-                                        v.ToString().Contains(".Text", StringComparison.CurrentCultureIgnoreCase) ||
-                                        v.ToString().Contains("ViewBag", StringComparison.CurrentCultureIgnoreCase) ||
-                                        v.ToString().Contains("ViewData", StringComparison.CurrentCultureIgnoreCase)));
+            .Where(v => v.ToString().IndexOf("Request.QueryString", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        v.ToString().IndexOf("Request.Form", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        v.ToString().IndexOf("Request.Params", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        v.ToString().IndexOf(".Text", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        v.ToString().IndexOf("ViewBag", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        v.ToString().IndexOf("ViewData", StringComparison.OrdinalIgnoreCase) >= 0);
 
         foreach (var a in atribuicoes)
         {
-            if (a.Right.ToString().Contains(".Encode"))
+            if (!a.Right.ToString().Contains("Encode"))
             {
-                continue;
-            }
-
-            else
-            {
-                List<IdentifierNameSyntax> identificadores = new List<IdentifierNameSyntax>();
-
-                if (a.Right is BinaryExpressionSyntax expression)
-                {
-                    identificadores = expression.DescendantNodes().OfType<IdentifierNameSyntax>().ToList();
-                }
-                
-                else if (a.Right is IdentifierNameSyntax identifier)
-                {
-                    identificadores.Add(identifier);
-                }
-
-                foreach(var e in identificadores)
-                {
-                   var escopo =GetScopeLevel(e).DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                var escopo = GetScopeLevel(a.Right).DescendantNodes().OfType<VariableDeclaratorSyntax>()
                           .Where(es => es.Initializer.ToString().Contains("Encode"));
 
-                    if (escopo.Count() <= 0)
-                    {
-                        var parent = e.Parent;
-
-                        while(parent != null)
-                        {
-                            if(parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                                     .Any(es => es.Initializer.ToString().Contains("Encode")))
-                            {
-                                break;
-                            }
-                        
-                            parent = parent.Parent;
-                        }
-
-                        if (parent == null)
-                        {
-                            PrepararParaAdicionarVulnerabilidade(a, tipo, risco);
-                        }
-                    }
+                if (!escopo.Any() && !a.Right.DescendantNodes().OfType<VariableDeclaratorSyntax>().Any(es => es.Initializer.ToString().Contains("Encode")))
+                {
+                    PrepararParaAdicionarVulnerabilidade(a, tipo, risco);
                 }
             }
-            
         }
-        
-        
-
     }
     private static void AnalyzeForCSRF(SyntaxNode root)
     {
@@ -264,13 +170,12 @@ public static class VulnerabilidadeAnalyzer
         foreach (var v in variaveis)
         {
             var scope = GetScopeLevel(v);
-
             var invocacoes = scope.DescendantNodes().OfType<InvocationExpressionSyntax>()
                                   .Where(i => i.Expression.ToString().Contains(v.Identifier.Text + ".Deserialize"));
 
-            foreach (var i in invocacoes)
+            if (!invocacoes.Any())
             {
-                PrepararParaAdicionarVulnerabilidade(i.Parent, tipo, risco);
+                PrepararParaAdicionarVulnerabilidade(v, tipo, risco);
             }
         }
     }
@@ -281,35 +186,15 @@ public static class VulnerabilidadeAnalyzer
 
         var objects = root.DescendantNodes()
                           .OfType<ObjectCreationExpressionSyntax>()
-                          .Where(v => v.Type.ToString() == "SearchRequest");
+                          .Where(v => v.Type.ToString().Contains("Search"));
 
         foreach (var obj in objects)
         {
-            var arguments = obj.ArgumentList.Arguments;
-
-            foreach (var arg in arguments)
+            foreach (var arg in obj.ArgumentList.Arguments)
             {
                 if (IsStringConcatenated(arg.Expression))
                 {
                     PrepararParaAdicionarVulnerabilidade(arg, tipo, risco);
-                }
-                else if (arg.Expression is IdentifierNameSyntax identifier)
-                {
-                    var variableName = identifier.Identifier.Text;
-                    var scopeLevel = GetScopeLevel(arg);
-
-                    var variableDeclarations = scopeLevel.DescendantNodes()
-                                                         .OfType<VariableDeclaratorSyntax>()
-                                                         .Where(v => v.Identifier.Text == variableName);
-
-                    foreach (var variableDeclaration in variableDeclarations)
-                    {
-                        var initializer = variableDeclaration.Initializer?.Value;
-                        if (initializer != null && IsStringConcatenated(initializer))
-                        {
-                            PrepararParaAdicionarVulnerabilidade(initializer, tipo, risco);
-                        }
-                    }
                 }
             }
         }
@@ -319,16 +204,25 @@ public static class VulnerabilidadeAnalyzer
         var tipo = "Criptografia Insegura";
         var risco = NivelRisco.Alto;
 
-        var cripto = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                         .Where(o => o.Initializer.ToString().Contains("DES") ||
-                                     o.Initializer.ToString().Contains("RC4") ||
-                                     o.Initializer.ToString().Contains("MD5"));
-
-        foreach (var c in cripto)
+        try
         {
-            PrepararParaAdicionarVulnerabilidade(c, tipo, risco);
+            var cripto = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                        .Where(o => o.Initializer.ToString().Contains("DES") ||
+                                    o.Initializer.ToString().Contains("RC4") ||
+                                    o.Initializer.ToString().Contains("MD5"));
+
+            foreach (var c in cripto)
+            {
+                PrepararParaAdicionarVulnerabilidade(c, tipo, risco);
+            }
+        }
+
+        catch (NullReferenceException)
+        {
+            return;
         }
     }
+
     private static void AnalyzeForSensitiveInformationSending(SyntaxNode root)
     {
         var tipo = "Envio de Informações Sensíveis";
