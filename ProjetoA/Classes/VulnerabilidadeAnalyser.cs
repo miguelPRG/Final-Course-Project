@@ -47,7 +47,8 @@ public static class VulnerabilidadeAnalyzer
             AnalyzeForInsecureDeserialization,
             AnalyzeLDAPInjection,
             AnalyzeForInsecureEncryption,
-            AnalyzeForSensitiveInformationSending
+            AnalyzeForInsecureRandomGeneration,
+            AnalyzeForInsecureGenerationCookies
         };
 
         var tasks = analises.Select(a => Task.Run(() => a(root))).ToArray();
@@ -123,6 +124,7 @@ public static class VulnerabilidadeAnalyzer
         var tipo = "XSS";
         var risco = NivelRisco.Alto;
 
+        // Obtém todas as atribuições que potencialmente utilizam dados de entrada do usuário
         var atribuicoes = root.DescendantNodes().OfType<AssignmentExpressionSyntax>()
             .Where(v => v.ToString().IndexOf("Request.QueryString", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         v.ToString().IndexOf("Request.Form", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -131,39 +133,38 @@ public static class VulnerabilidadeAnalyzer
                         v.ToString().IndexOf("ViewBag", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         v.ToString().IndexOf("ViewData", StringComparison.OrdinalIgnoreCase) >= 0);
 
+        // Para cada atribuição encontrada
         foreach (var a in atribuicoes)
         {
+            // Se o lado direito da atribuição não contém "Encode"
             if (!a.Right.ToString().Contains("Encode"))
             {
-                var escopo = GetScopeLevel(a.Right).DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                          .Where(es => es.Initializer.ToString().Contains("Encode"));
+                // Busca no escopo do nó
+                var escopo = GetScopeLevel(a.Right).DescendantNodes()
+                                    .OfType<VariableDeclaratorSyntax>()
+                                    .Where(es => es.Initializer.ToString().Contains("Encode"));
 
                 if (!escopo.Any())
                 {
-                    var analyzedNodes = new HashSet<SyntaxNode>();
-
-
                     var parent = a.Right.Parent;
 
-                    while (parent != null)
+                    // Verifica os nós ancestrais
+                    while (parent != null && !(parent is ClassDeclarationSyntax))
                     {
-                        if (!analyzedNodes.Contains(parent))
-                        {
-                            escopo = GetScopeLevel(parent).DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                              .Where(es => es.Initializer.ToString().Contains("Encode"));
-
-                            analyzedNodes.Add(parent);
-
-                            if (escopo.Any())
-                            {
-                                break;
-                            }
-                        }
-
                         parent = parent.Parent;
+
+                    }
+
+                    if (parent != null)
+                    {
+                        escopo = parent.DescendantNodes()
+                                    .OfType<VariableDeclaratorSyntax>()
+                                    .Where(es => es.Initializer.ToString().Contains("Encode"));
                     }
                 }
 
+
+                // Se não encontrou nenhum uso de "Encode" no escopo ou nos ancestrais
                 if (!escopo.Any() && !a.Right.DescendantNodes().OfType<VariableDeclaratorSyntax>().Any(es => es.Initializer.ToString().Contains("Encode")))
                 {
                     PrepararParaAdicionarVulnerabilidade(a, tipo, risco);
@@ -190,42 +191,35 @@ public static class VulnerabilidadeAnalyzer
         var tipo = "Deserialização Insegura";
         var risco = NivelRisco.Alto;
 
+        // Obtém todas as variáveis que utilizam BinaryFormatter
         var variaveis = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
                             .Where(i => i.Initializer != null && i.Initializer.Value.ToString().Contains("BinaryFormatter"));
 
+        // Para cada variável encontrada
         foreach (var v in variaveis)
         {
             var scope = GetScopeLevel(v);
             var invocacoes = scope.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                                  .Where(i => i.Expression.ToString().Contains(v.Identifier.Text + ".Deserialize"));
+                                     .Where(i => i.Expression.ToString().Contains(v.Identifier.Text + ".Deserialize"));
 
             if (!invocacoes.Any())
             {
-                var analyzedNodes = new HashSet<SyntaxNode>();
-
-
                 var parent = v.Parent;
 
-                while (parent != null)
+                // Verifica os nós ancestrais
+                while (parent != null && !(parent is ClassDeclarationSyntax))
                 {
-                    if (!analyzedNodes.Contains(parent))
-                    {
-                        invocacoes = parent.DescendantNodes().OfType<InvocationExpressionSyntax>()
-                                  .Where(i => i.Expression.ToString().Contains(v.Identifier.Text + ".Deserialize"));
-
-                        analyzedNodes.Add(parent);
-
-                        if (invocacoes.Any())
-                        {
-                            break;
-                        }
-                    }
-
                     parent = parent.Parent;
+                }
+
+                if (parent != null)
+                {
+                    invocacoes = parent.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                                      .Where(i => i.Expression.ToString().Contains(v.Identifier.Text + ".Deserialize"));
                 }
             }
 
-            if(invocacoes.Any())
+            if (invocacoes.Any())
             {
                 PrepararParaAdicionarVulnerabilidade(v, tipo, risco);
             }
@@ -236,10 +230,15 @@ public static class VulnerabilidadeAnalyzer
         var tipo = "LDAP Injection";
         var risco = NivelRisco.Alto;
 
+        // Conjunto para rastrear nós verificados
+        var verificados = new HashSet<SyntaxNode>();
+
+        // Obtém todos os objetos que potencialmente utilizam dados de entrada do usuário para LDAP
         var objects = root.DescendantNodes()
                           .OfType<ObjectCreationExpressionSyntax>()
                           .Where(v => v.Type.ToString().Contains("Search"));
 
+        // Para cada objeto encontrado
         foreach (var obj in objects)
         {
             foreach (var arg in obj.ArgumentList.Arguments)
@@ -248,11 +247,39 @@ public static class VulnerabilidadeAnalyzer
                 {
                     PrepararParaAdicionarVulnerabilidade(arg, tipo, risco);
                 }
-
                 else if (arg.Expression is IdentifierNameSyntax identifier)
                 {
                     var scope = GetScopeLevel(arg);
-                    /**/
+
+                    var variaveis = scope.DescendantNodes()
+                                         .OfType<VariableDeclaratorSyntax>()
+                                         .Where(v => v.Identifier.ToString() == identifier.Identifier.ToString() &&
+                                                     IsStringConcatenated(v.Initializer.Value));
+
+                    if (!variaveis.Any())
+                    {
+                        var parent = arg.Parent;
+
+                        // Verifica os nós ancestrais
+                        while (parent != null && !(parent is ClassDeclarationSyntax))
+                        {
+                            parent = parent.Parent;
+                        }
+
+                        if (parent != null)
+                        {
+                            variaveis = parent.DescendantNodes()
+                                         .OfType<VariableDeclaratorSyntax>()
+                                         .Where(v => v.Identifier.ToString() == identifier.Identifier.ToString() &&
+                                                     IsStringConcatenated(v.Initializer.Value));
+                        }
+
+                    }
+
+                    if (variaveis.Any())
+                    {
+                        PrepararParaAdicionarVulnerabilidade(obj, tipo, risco);
+                    }
                 }
             }
         }
@@ -262,43 +289,111 @@ public static class VulnerabilidadeAnalyzer
         var tipo = "Criptografia Insegura";
         var risco = NivelRisco.Alto;
 
-        try
-        {
-            var cripto = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
-                        .Where(o => o.Initializer.ToString().Contains("DES") ||
-                                    o.Initializer.ToString().Contains("RC4") ||
-                                    o.Initializer.ToString().Contains("MD5"));
+        var cripto = root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                         .Where(o => o.Initializer != null && (
+                             o.Initializer.ToString().Contains("DES") ||
+                             o.Initializer.ToString().Contains("DSA") ||
+                             o.Initializer.ToString().Contains("SHA1") ||
+                             o.Initializer.ToString().Contains("RC4") ||
+                             o.Initializer.ToString().Contains("MD5") ||
+                             o.Initializer.ToString().Contains("TripleDESCryptoServiceProvider") ||
+                             o.Initializer.ToString().Contains("Blowfish") ||
+                             o.Initializer.ToString().Contains("AesCryptoServiceProvider")));
 
-            foreach (var c in cripto)
+        if (!cripto.Any())
+        {
+            return;
+        }
+
+        List<Task> tasks = new List<Task>();
+
+        foreach (var c in cripto)
+        {
+            if (c.Initializer.ToString().Contains("AesCryptoServiceProvider"))
+            {
+                AnalyzeAesCryptoServiceProvider(c, tipo, risco);
+            }
+            else
             {
                 PrepararParaAdicionarVulnerabilidade(c, tipo, risco);
             }
         }
-
-        catch (NullReferenceException)
-        {
-            return;
-        }
     }
-
-    private static void AnalyzeForSensitiveInformationSending(SyntaxNode root)
+    private static void AnalyzeAesCryptoServiceProvider(VariableDeclaratorSyntax c, string tipo, NivelRisco risco)
     {
-        var tipo = "Envio de Informações Sensíveis";
-        var risco = NivelRisco.Alto;
+        var scope = GetScopeLevel(c);
 
-        var metodos = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
-                          .Where(m => m.AttributeLists.ToString().Contains("[HttpPost]"));
+        var atribuicoes = scope.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                               .Where(v =>
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".Mode") && v.Right.ToString().Contains("CipherMode.CBC")) ||
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".Padding") && v.Right.ToString().Contains("PaddingMode.PKCS7")) ||
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".KeySize") && int.Parse(v.Right.ToString()) < 256) ||
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".BlockSize") && int.Parse(v.Right.ToString()) < 256)
+                               );
 
-        foreach (var m in metodos)
+        if (!atribuicoes.Any())
         {
-            var retorno = m.DescendantNodes().OfType<ReturnStatementSyntax>()
-                           .Where(r => r.Expression.ToString().ToLower().Contains("username") ||
-                                       r.Expression.ToString().ToLower().Contains("password"));
+            var parent = c.Parent;
 
-            foreach (var r in retorno)
+            while (parent != null && !(parent is ClassDeclarationSyntax))
             {
-                PrepararParaAdicionarVulnerabilidade(r, tipo, risco);
+                parent = parent.Parent;
+            }
+
+            if (parent != null)
+            {
+                atribuicoes = parent.DescendantNodes().OfType<AssignmentExpressionSyntax>()
+                               .Where(v =>
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".Mode") && v.Right.ToString().Contains("CipherMode.CBC")) ||
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".Padding") && v.Right.ToString().Contains("PaddingMode.PKCS7")) ||
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".KeySize") && int.Parse(v.Right.ToString()) < 256) ||
+                                   (v.Left.ToString().Contains(c.Identifier.ToString() + ".BlockSize") && int.Parse(v.Right.ToString()) < 256)
+                               );
             }
         }
+
+        foreach (var a in atribuicoes)
+        {
+            PrepararParaAdicionarVulnerabilidade(a, tipo, risco);
+        }
+    }
+    private static void AnalyzeForInsecureRandomGeneration(SyntaxNode root)
+    {
+        var tipo = "Geração Aleatória Insegura";
+        var risco = NivelRisco.Alto;
+
+        var random = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
+                         .Where(o => o.Type.ToString() == "Random");
+
+        foreach (var r in random)
+        {
+            PrepararParaAdicionarVulnerabilidade(r.Parent.Parent, tipo, risco);
+        }
+    }
+    private static void AnalyzeForInsecureGenerationCookies(SyntaxNode root)
+    {
+        var tipo = "Geração Insegura de Cookies";
+        var risco = NivelRisco.Alto;
+
+        var objetos = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>()
+                                 .Where(o => o.Type.ToString() == "CookiePolicyOptions");
+
+        foreach(var obj in objetos)
+        {
+            var seguro = obj.DescendantNodes().OfType<InitializerExpressionSyntax>()
+            .Any(i =>
+                   i.Expressions.ToString()
+                   .Contains("MinimumSameSitePolicy = SameSiteMode.Strict") &&
+                   i.Expressions.ToString()
+                   .Contains("HttpOnly = Microsoft.AspNetCore.CookiePolicy.HttpOnlyPolicy.Always") &&
+                   i.Expressions.ToString()
+                   .Contains("Secure = CookieSecurePolicy.Always"));
+
+            if (!seguro)
+            {
+                PrepararParaAdicionarVulnerabilidade(obj, tipo, risco);
+            }
+        }
+
     }
 }
