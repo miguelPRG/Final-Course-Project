@@ -1,9 +1,6 @@
-﻿using DinkToPdf;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -11,7 +8,6 @@ using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
 using ProjetoA.Classes;
 
 namespace ProjetoA
@@ -222,7 +218,6 @@ namespace ProjetoA
                 };
 
                 savePicker.FileTypeChoices.Add("Documento HTML", new List<string> { ".html" });
-                savePicker.FileTypeChoices.Add("Documento PDF", new List<string> { ".pdf" });
 
                 try
                 {

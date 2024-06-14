@@ -31,6 +31,8 @@ public enum NivelRisco
 
 public static class VulnerabilidadeAnalyzer
 {
+    //Fontes para análise: https://docs.fluidattacks.com/criteria/fixes/csharp
+
     private static List<Vulnerability> vulnerabilities = new List<Vulnerability>();
 
     private delegate void Analise(SyntaxNode root);

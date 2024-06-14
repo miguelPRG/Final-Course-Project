@@ -5,23 +5,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System;
-using System.Text.RegularExpressions;
-using System.Threading;
 using System.Net;
-using Windows.UI.Xaml.Shapes;
-using System.IO;
-using ProjetoA.Classes;
 using System.Diagnostics;
-using Windows.UI.Xaml.Documents;
-using Windows.Globalization.DateTimeFormatting;
-using Windows.UI.Xaml;
 using System.Threading.Tasks;
-using System.Collections;
-using Windows.Devices.Power;
-using System.Reflection;
 using System.Collections.Concurrent;
-using Microsoft.CodeAnalysis.Text;
-using Microsoft.CodeAnalysis.Diagnostics;
 
 
 /*A FAZER: 
@@ -86,10 +73,7 @@ namespace ProjetoA.Classes
             //Preparamos o Menu de Navegação no Relatório
             htmlBuilder.AppendLine("<h2>Índice</h2>\r\n<div class=\"indice\">\r\n<ul>\r\n    " +
                 "<li><a onclick=\"mostrarSecao('analise-vulnerabilidade')\">Análise de Vulnerabilidade</a></li>\r\n    " +
-               // "<li><a onclick=\"mostrarSecao('analise-dependencias')\">Análise de Dependências</a></li>\r\n   " +
-               /* "<li><a onclick=\"mostrarSecao('mau-desempenho')\">Identificação de Práticas de Mau Desempenho</a></li>\r\n   " +*/
                 "<li><a onclick=\"mostrarSecao('overloading')\">Análise de OverLoading</a></li>\r\n    " +
-                /*"<li><a onclick=\"mostrarSecao('concorrencia')\">Análise de Concorrência</a></li>\r\n    " +*/
                 "<li><a onclick=\"mostrarSecao('complexidade-ciclomatica')\">Complexidade Ciclomática</a></li>\r\n   " +
                 "<li><a onclick=\"mostrarSecao('tempo')\">Tempo Total de Análise</a></li>");
             htmlBuilder.AppendLine($"</ul></div>");
@@ -144,106 +128,6 @@ namespace ProjetoA.Classes
 
             return false; // Não há erros de sintaxe
         }
-        
-        static Dictionary<string, List<int>> GuardarEmDicionario(string[] linhasSeparadas)
-        {
-            Dictionary<string, List<int>> dicionario = new Dictionary<string, List<int>>();
-
-            int numeroLinha = 1;
-            bool isMultiLine = false;
-
-            foreach (string linha in linhasSeparadas)
-            {
-                string linhaSemComentarios = RemoverComentarios(linha, ref isMultiLine);
-
-                if (!string.IsNullOrWhiteSpace(linhaSemComentarios))
-                {
-                    if (!dicionario.ContainsKey(linhaSemComentarios))
-                    {
-                        dicionario[linhaSemComentarios] = new List<int>();
-                    }
-
-                    dicionario[linhaSemComentarios].Add(numeroLinha);
-                }
-
-                numeroLinha++;
-            }
-
-            return dicionario;
-        }
-        static string RemoverComentarios(string linha, ref bool isMultiline)
-        {
-            if (string.IsNullOrEmpty(linha))
-            {
-                return null;
-            }
-
-            linha = linha.Trim();
-            int fimComentario;
-
-            if (isMultiline)
-            {
-                fimComentario = linha.IndexOf("*/");
-
-                if (fimComentario != -1)
-                {
-                    isMultiline = false;
-                    linha = linha.Substring(0, fimComentario);
-                }
-
-                else
-                {
-                    return null;
-                }
-            }
-
-            bool dentroString = false;
-            char charAnterior = '\0';
-
-            for (int i = 0; i < linha.Length; i++)
-            {
-                if (linha[i] == '"' && charAnterior != '\\')
-                {
-                    dentroString = !dentroString;
-                }
-
-                if (!dentroString)
-                {
-                    int inicioComentario;
-
-                    // Verificar se a linha contém um comentário de uma única linha
-                    if (linha[i] == '/' && i + 1 < linha.Length && linha[i + 1] == '/')
-                    {
-                        linha = linha.Substring(0, i);
-                        break;
-                    }
-
-                    else if (linha[i] == '/' && i + 1 < linha.Length && linha[i + 1] == '*')
-                    {
-                        inicioComentario = i;
-                        fimComentario = linha.IndexOf("*/", inicioComentario);
-
-                        if (fimComentario != -1)
-                        {
-                            linha = linha.Remove(inicioComentario, fimComentario - inicioComentario + 2);
-                            i = inicioComentario - 1;
-                        }
-                        else
-                        {
-                            isMultiline = true;
-                            linha = linha.Substring(0, inicioComentario);
-                            break;
-                        }
-                    }
-                }
-
-                charAnterior = linha[i];
-            }
-
-            return linha;
-        }
-
-        
 
         static async Task<StringBuilder> AnalisarCodigo(SyntaxNode root)
         {
@@ -270,7 +154,6 @@ namespace ProjetoA.Classes
             // Retorna o resultado final
             return  await Task.FromResult(resultadoFinal);
         }
-        
         static async Task<StringBuilder> AnalisarVulnerabilidades(SyntaxNode root)
         {
             StringBuilder htmlBuilder = new StringBuilder();
@@ -333,7 +216,6 @@ namespace ProjetoA.Classes
             return htmlBuilder;
 
         }
-
         static async Task<StringBuilder> AnaliseOverloading(SyntaxNode root)
         {
             // Create a dictionary to store the existing methods with the same name
@@ -423,34 +305,7 @@ namespace ProjetoA.Classes
             // Return the HTML report
             return await Task.FromResult(result);
         }
-        /*static async Task<StringBuilder> IdentificarPraticasDesempenho(SyntaxNode root)
-        {
-            StringBuilder htmlBuilder = new StringBuilder();
-
-            htmlBuilder.AppendLine("<div id=\"mau-desempenho\" style=\"display: none;\">");
-            htmlBuilder.AppendLine($"<h2>Análise de Padrões de Mau Desempenho</h2>");
-
-            var desempenho = new DesempenhoAnalyzer();
-
-            StringBuilder tabela = await desempenho.AnalyzeCodeAsync(root, linhasImportantes);
-
-            if(tabela.ToString() == null)
-            {
-                htmlBuilder.Append("<h3>Não foi encontrado qualquer tipo de padrão de mau desempenho!</h3>");
-            }
-
-            else
-            {
-                htmlBuilder.Append(tabela);
-            }
-
-            htmlBuilder.AppendLine("</div>");
-
-        
-            return  await Task.FromResult<StringBuilder>(htmlBuilder);
-        }
-        */
-
+       
         static void ExibirCodigo(string[] linhasDeCodigo, StringBuilder htmlBuilder)
         {
             htmlBuilder.AppendLine("<div class=\"codigo-container\">"); // Adiciona uma div de contêiner
