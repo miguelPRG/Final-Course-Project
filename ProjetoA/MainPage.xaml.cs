@@ -53,7 +53,6 @@ namespace ProjetoA
 
         private async void EscolherPasta_Click(object sender, RoutedEventArgs e)
         {
-            // Seletor de pasta para escolher a pasta a ser analisada
             FolderPicker folderPicker = new FolderPicker
             {
                 ViewMode = PickerViewMode.Thumbnail,
@@ -65,12 +64,10 @@ namespace ProjetoA
 
             if (pasta != null)
             {
-                // Obtém todos os arquivos .cs na pasta e subpastas
                 List<StorageFile> arquivosCsList = await ObterArquivosCsRecursivamente(pasta);
 
                 if (arquivosCsList.Any())
                 {
-                    // Seletor de pasta para escolher a pasta onde os relatórios serão salvos
                     FolderPicker saveFolderPicker = new FolderPicker
                     {
                         ViewMode = PickerViewMode.Thumbnail,
@@ -82,53 +79,68 @@ namespace ProjetoA
 
                     if (saveFolder != null)
                     {
-                    SolicitarNomePasta:
-                        // Solicita o nome da nova pasta
-                        var inputTextBox = new TextBox
-                        {
-                            AcceptsReturn = false,
-                            Height = 32
-                        };
+                        bool nomeValido = false;
+                        string nomeNovaPasta = null;
 
-                        ContentDialog dialog = new ContentDialog
+                        while (!nomeValido)
                         {
-                            Content = inputTextBox,
-                            Title = "Nome da Nova Pasta",
-                            IsSecondaryButtonEnabled = true,
-                            PrimaryButtonText = "Salvar",
-                            SecondaryButtonText = "Cancelar"
-                        };
-
-                        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                        {
-                            string nomeNovaPasta = inputTextBox.Text;
-
-                            if (!string.IsNullOrWhiteSpace(nomeNovaPasta))
+                            var inputTextBox = new TextBox
                             {
-                                // Cria a nova pasta no destino escolhido
-                                StorageFolder novaPasta = await saveFolder.CreateFolderAsync(nomeNovaPasta, CreationCollisionOption.GenerateUniqueName);
+                                AcceptsReturn = false,
+                                Height = 32
+                            };
 
-                                // Processa os arquivos em paralelo
-                                var tasks = arquivosCsList.Select(async arquivo =>
+                            ContentDialog dialog = new ContentDialog
+                            {
+                                Content = inputTextBox,
+                                Title = "Nome da Nova Pasta",
+                                IsSecondaryButtonEnabled = true,
+                                PrimaryButtonText = "Salvar",
+                                SecondaryButtonText = "Cancelar"
+                            };
+
+                            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                            {
+                                nomeNovaPasta = inputTextBox.Text;
+
+                                if (!string.IsNullOrWhiteSpace(nomeNovaPasta))
                                 {
-                                    string codigoCSharp = await FileIO.ReadTextAsync(arquivo);
-                                    string relatorioHTML = await CodeAnalyzer.GerarRelatorioHTML(codigoCSharp.Trim());
-                                    await SalvarRelatorioHTML(novaPasta, relatorioHTML, arquivo.DisplayName);
-                                }).ToList();
+                                    nomeValido = true;
+                                }
+                                else
+                                {
+                                    ContentDialog invalidNameDialog = new ContentDialog
+                                    {
+                                        Title = "Nome Inválido",
+                                        Content = "O nome da pasta não pode ser vazio. Por favor, insira um nome válido.",
+                                        CloseButtonText = "OK"
+                                    };
 
-                                await Task.WhenAll(tasks);
+                                    await invalidNameDialog.ShowAsync();
+                                }
                             }
                             else
                             {
-                                // Se o nome da pasta for inválido, volta para solicitar o nome novamente
-                                goto SolicitarNomePasta;
+                                return;
                             }
                         }
+
+                        StorageFolder novaPasta = await saveFolder.CreateFolderAsync(nomeNovaPasta, CreationCollisionOption.GenerateUniqueName);
+
+                        // Lista para armazenar as tarefas de processamento
+                        List<Task> tasks = new List<Task>();
+
+                        // Processa cada arquivo em paralelo
+                        foreach (var arq in arquivosCsList)
+                        {
+                           await ProcessarArquivoAsync(novaPasta, arq);
+                        }
+                    
+                        
                     }
                 }
                 else
                 {
-                    // Exibe um dialogo informando que não foram encontrados arquivos .cs
                     ContentDialog noFilesDialog = new ContentDialog
                     {
                         Title = "Nenhum arquivo encontrado",
@@ -139,6 +151,14 @@ namespace ProjetoA
                     await noFilesDialog.ShowAsync();
                 }
             }
+        }
+
+        private async Task ProcessarArquivoAsync(StorageFolder novaPasta, StorageFile arq)
+        {
+            string codigoCSharp = await FileIO.ReadTextAsync(arq);
+            string relatorioHTML = await CodeAnalyzer.GerarRelatorioHTML(codigoCSharp.Trim());
+            await SalvarRelatorioHTML(novaPasta, relatorioHTML, arq.DisplayName);
+            
         }
 
 
