@@ -43,14 +43,14 @@ public static class VulnerabilidadeAnalyzer
 
         var analises = new Analise[]
         {
-            AnalyzeForSQLInjection,
-            AnalyzeForXSS,
-            AnalyzeForCSRF,
-            AnalyzeForInsecureDeserialization,
-            AnalyzeLDAPInjection,
-            AnalyzeForInsecureEncryption,
-            AnalyzeForInsecureRandomGeneration,
-            AnalyzeForInsecureGenerationCookies
+           AnalyzeForSQLInjection,
+           AnalyzeForXSS,
+           AnalyzeForCSRF,
+           AnalyzeForInsecureDeserialization,
+           AnalyzeLDAPInjection,
+           AnalyzeForInsecureEncryption,
+           AnalyzeForInsecureRandomGeneration,
+           AnalyzeForInsecureGenerationCookies
         };
 
         var tasks = analises.Select(a => Task.Run(() => a(root))).ToArray();
@@ -139,12 +139,12 @@ public static class VulnerabilidadeAnalyzer
         foreach (var a in atribuicoes)
         {
             // Se o lado direito da atribuição não contém "Encode"
-            if (!a.Right.ToString().Contains("Encode"))
+            if (!a.Right.ToString().Contains(".Encode"))
             {
                 // Busca no escopo do nó
                 var escopo = GetScopeLevel(a.Right).DescendantNodes()
                                     .OfType<VariableDeclaratorSyntax>()
-                                    .Where(es => es.Initializer.ToString().Contains("Encode"));
+                                    .Where(es => es.Initializer.ToString().Contains(".Encode"));
 
                 if (!escopo.Any())
                 {
@@ -157,17 +157,26 @@ public static class VulnerabilidadeAnalyzer
 
                     }
 
-                    if (parent != null)
+                    if (parent != null && parent.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                        .Any(es => es.Initializer != null))
                     {
-                        escopo = parent.DescendantNodes()
-                                    .OfType<VariableDeclaratorSyntax>()
-                                    .Where(es => es.Initializer.ToString().Contains("Encode"));
+                        try
+                        {
+                            escopo = parent.DescendantNodes()
+                                   .OfType<VariableDeclaratorSyntax>()
+                                   .Where(es => es.Initializer!=null &&es.Initializer.ToString().Contains(".Encode"));
+                        }
+
+                        catch (NullReferenceException)
+                        {
+                            continue;
+                        }    
                     }
                 }
 
 
                 // Se não encontrou nenhum uso de "Encode" no escopo ou nos ancestrais
-                if (!escopo.Any() && !a.Right.DescendantNodes().OfType<VariableDeclaratorSyntax>().Any(es => es.Initializer.ToString().Contains("Encode")))
+                if (!escopo.Any() && !a.Right.DescendantNodes().OfType<VariableDeclaratorSyntax>().Any(es => es.Initializer.ToString().Contains(".Encode")))
                 {
                     PrepararParaAdicionarVulnerabilidade(a, tipo, risco);
                 }
@@ -180,8 +189,8 @@ public static class VulnerabilidadeAnalyzer
         var risco = NivelRisco.Alto;
 
         var metodos = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
-                          .Where(m => m.AttributeLists.ToString().Contains("[HttpPost]") &&
-                                      !m.AttributeLists.ToString().Contains("[ValidateAntiForgeryToken]"));
+                          .Where(m => m.AttributeLists.ToString().Contains("HttpPost]") &&
+                                      !m.AttributeLists.ToString().Contains("ValidateAntiForgeryToken]"));
 
         foreach (var m in metodos)
         {
