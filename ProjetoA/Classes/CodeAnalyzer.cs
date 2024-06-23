@@ -216,7 +216,7 @@ namespace ProjetoA.Classes
             return htmlBuilder;
 
         }
-        static async Task<StringBuilder> AnaliseOverloading(SyntaxNode root)
+        static async Task<StringBuilder> AnalisarOverloading(SyntaxNode root)
         {
             // Create a dictionary to store the existing methods with the same name
             Dictionary<string, List<int>> existingMethods = new Dictionary<string, List<int>>();
