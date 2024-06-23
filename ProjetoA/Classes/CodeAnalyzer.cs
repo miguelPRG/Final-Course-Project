@@ -133,7 +133,7 @@ namespace ProjetoA.Classes
         {
             // Inicia as tarefas em paralelo
             Task<StringBuilder> taskAnalisarVulnerabilidades = AnalisarVulnerabilidades(root);
-            Task<StringBuilder> taskAnalisarOverloading = AnaliseOverloading(root);
+            Task<StringBuilder> taskAnalisarOverloading = AnalisarOverloading(root);
             Task<int> taskComplexidadeCiclomatica = ComplexidadeCiclomatica.CalcularComplexidadeCiclomatica(root);
 
             // Espera até que todas as tarefas estejam concluídas
