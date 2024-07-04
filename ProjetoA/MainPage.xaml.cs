@@ -9,6 +9,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
 using ProjetoA.Classes;
+using System.IO;
 
 namespace ProjetoA
 {
@@ -51,106 +52,164 @@ namespace ProjetoA
             }
         }
 
+
+        private bool IsSubdirectory(string baseDir, string subDir)
+        {
+            var baseDirInfo = new DirectoryInfo(baseDir);
+            var subDirInfo = new DirectoryInfo(subDir);
+
+            while (subDirInfo.Parent != null)
+            {
+                if (subDirInfo.Parent.FullName == baseDirInfo.FullName)
+                {
+                    return true;
+                }
+                subDirInfo = subDirInfo.Parent;
+            }
+            return false;
+        }
+
         private async void EscolherPasta_Click(object sender, RoutedEventArgs e)
         {
-            FolderPicker folderPicker = new FolderPicker
+            try
             {
-                ViewMode = PickerViewMode.Thumbnail,
-                SuggestedStartLocation = PickerLocationId.DocumentsLibrary
-            };
-            folderPicker.FileTypeFilter.Add("*");
-
-            StorageFolder pasta = await folderPicker.PickSingleFolderAsync();
-
-            if (pasta != null)
-            {
-                List<StorageFile> arquivosCsList = await ObterArquivosCsRecursivamente(pasta);
-
-                if (arquivosCsList.Any())
+                FolderPicker folderPicker = new FolderPicker
                 {
-                    FolderPicker saveFolderPicker = new FolderPicker
+                    ViewMode = PickerViewMode.Thumbnail,
+                    SuggestedStartLocation = PickerLocationId.DocumentsLibrary
+                };
+                folderPicker.FileTypeFilter.Add("*");
+
+                StorageFolder pasta = await folderPicker.PickSingleFolderAsync();
+
+
+                if (pasta != null)
+                {
+
+                    string userFolderPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile); // Obtém o caminho do diretório do usuário
+                    string selectedFolderPath = pasta.Path;
+
+
+                    if(!IsSubdirectory(userFolderPath, selectedFolderPath))
                     {
-                        ViewMode = PickerViewMode.Thumbnail,
-                        SuggestedStartLocation = PickerLocationId.DocumentsLibrary
-                    };
-                    saveFolderPicker.FileTypeFilter.Add("*");
+                        throw new UnauthorizedAccessException();
+                    }
 
-                    StorageFolder saveFolder = await saveFolderPicker.PickSingleFolderAsync();
+                    List<StorageFile> arquivosCsList = await ObterArquivosCsRecursivamente(pasta);
 
-                    if (saveFolder != null)
+                    if (arquivosCsList.Any())
                     {
-                        bool nomeValido = false;
-                        string nomeNovaPasta = null;
-
-                        while (!nomeValido)
+                        ContentDialog saveDialog = new ContentDialog
                         {
-                            var inputTextBox = new TextBox
-                            {
-                                AcceptsReturn = false,
-                                Height = 32
-                            };
+                            Title = "Ficheiros C# encontrados!",
+                            Content = "Selecione um destino para guardar os relatórios",
+                            CloseButtonText = "Selecionar",
+                        };
 
-                            ContentDialog dialog = new ContentDialog
-                            {
-                                Content = inputTextBox,
-                                Title = "Nome da Nova Pasta",
-                                IsSecondaryButtonEnabled = true,
-                                PrimaryButtonText = "Salvar",
-                                SecondaryButtonText = "Cancelar"
-                            };
+                        await saveDialog.ShowAsync();
 
-                            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                            {
-                                nomeNovaPasta = inputTextBox.Text;
+                        FolderPicker saveFolderPicker = new FolderPicker
+                        {
+                            ViewMode = PickerViewMode.Thumbnail,
+                            SuggestedStartLocation = PickerLocationId.DocumentsLibrary
+                        };
+                        saveFolderPicker.FileTypeFilter.Add("*");
 
-                                if (!string.IsNullOrWhiteSpace(nomeNovaPasta))
+                        StorageFolder saveFolder = await saveFolderPicker.PickSingleFolderAsync();
+
+                        if (saveFolder != null)
+                        {
+                            if (!IsSubdirectory(userFolderPath, saveFolder.Path))
+                            {
+                                throw new UnauthorizedAccessException();
+                            }
+
+                            bool nomeValido = false;
+                            string nomeNovaPasta = null;
+
+                            while (!nomeValido)
+                            {
+                                var inputTextBox = new TextBox
                                 {
-                                    nomeValido = true;
+                                    AcceptsReturn = false,
+                                    Height = 32
+                                };
+
+                                ContentDialog dialog = new ContentDialog
+                                {
+                                    Content = inputTextBox,
+                                    Title = "Nome da Nova Pasta",
+                                    IsSecondaryButtonEnabled = true,
+                                    PrimaryButtonText = "Salvar",
+                                    SecondaryButtonText = "Cancelar"
+                                };
+
+                                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                                {
+                                    nomeNovaPasta = inputTextBox.Text;
+
+                                    if (!string.IsNullOrWhiteSpace(nomeNovaPasta))
+                                    {
+                                        nomeValido = true;
+                                    }
+                                    else
+                                    {
+                                        ContentDialog invalidNameDialog = new ContentDialog
+                                        {
+                                            Title = "Nome Inválido",
+                                            Content = "O nome da pasta não pode ser vazio. Por favor, insira um nome válido.",
+                                            CloseButtonText = "OK"
+                                        };
+
+                                        await invalidNameDialog.ShowAsync();
+                                    }
                                 }
                                 else
                                 {
-                                    ContentDialog invalidNameDialog = new ContentDialog
-                                    {
-                                        Title = "Nome Inválido",
-                                        Content = "O nome da pasta não pode ser vazio. Por favor, insira um nome válido.",
-                                        CloseButtonText = "OK"
-                                    };
-
-                                    await invalidNameDialog.ShowAsync();
+                                    return;
                                 }
                             }
-                            else
+
+                            StorageFolder novaPasta = await saveFolder.CreateFolderAsync(nomeNovaPasta, CreationCollisionOption.GenerateUniqueName);
+
+                            // Lista para armazenar as tarefas de processamento
+                            List<Task> tasks = new List<Task>();
+
+                            // Processa cada arquivo em paralelo
+                            foreach (var arq in arquivosCsList)
                             {
-                                return;
+                                await ProcessarArquivoAsync(novaPasta, arq);
                             }
+
+
                         }
-
-                        StorageFolder novaPasta = await saveFolder.CreateFolderAsync(nomeNovaPasta, CreationCollisionOption.GenerateUniqueName);
-
-                        // Lista para armazenar as tarefas de processamento
-                        List<Task> tasks = new List<Task>();
-
-                        // Processa cada arquivo em paralelo
-                        foreach (var arq in arquivosCsList)
+                    }
+                    else
+                    {
+                        ContentDialog noFilesDialog = new ContentDialog
                         {
-                           await ProcessarArquivoAsync(novaPasta, arq);
-                        }
-                    
-                        
+                            Title = "Nenhum arquivo encontrado",
+                            Content = "Nenhum arquivo .cs foi encontrado na pasta selecionada.",
+                            CloseButtonText = "OK"
+                        };
+
+                        await noFilesDialog.ShowAsync();
                     }
                 }
-                else
-                {
-                    ContentDialog noFilesDialog = new ContentDialog
-                    {
-                        Title = "Nenhum arquivo encontrado",
-                        Content = "Nenhum arquivo .cs foi encontrado na pasta selecionada.",
-                        CloseButtonText = "OK"
-                    };
-
-                    await noFilesDialog.ShowAsync();
-                }
             }
+
+            catch (UnauthorizedAccessException ex)
+            {
+                ContentDialog noFilesDialog = new ContentDialog
+                {
+                    Title = "Acesso não Autorizado",
+                    Content = "Acesso não Autorizado, Por Favor Tente de Novo.",
+                    CloseButtonText = "OK"
+                };
+
+                await noFilesDialog.ShowAsync();
+            }
+           
         }
 
         private async Task ProcessarArquivoAsync(StorageFolder novaPasta, StorageFile arq)
@@ -229,49 +288,53 @@ namespace ProjetoA
             };
 
             ContentDialogResult result = await saveDialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+
+            try
             {
-                FileSavePicker savePicker = new FileSavePicker
+                if (result == ContentDialogResult.Primary)
                 {
-                    SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-                    SuggestedFileName = "Relatorio",
-                };
+                    FileSavePicker savePicker = new FileSavePicker
+                    {
+                        SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+                        SuggestedFileName = "Relatorio",
+                    };
 
-                savePicker.FileTypeChoices.Add("Documento HTML", new List<string> { ".html" });
+                    savePicker.FileTypeChoices.Add("Documento HTML", new List<string> { ".html" });
 
-                try
-                {
                     StorageFile file = await savePicker.PickSaveFileAsync();
 
                     if (file != null)
                     {
-                        await tempHtmlFile.MoveAndReplaceAsync(file);
-                        isRecordSaved = true;
+                       await tempHtmlFile.MoveAndReplaceAsync(file);
+                       isRecordSaved = true;
                     }
+     
                     else
                     {
-                        await tempHtmlFile.DeleteAsync();
-                        isRecordSaved = false;
+                       await tempHtmlFile.DeleteAsync();
+                       isRecordSaved = false;
                     }
+                   
                 }
-                catch (UnauthorizedAccessException ex1)
+                else
                 {
-                    Console.WriteLine("Erro de acesso não autorizado: " + ex1.Message);
-                    await tempHtmlFile.DeleteAsync();
-                    isRecordSaved = false;
-                }
-                catch (Exception ex2)
-                {
-                    Console.WriteLine("Erro desconhecido: " + ex2.Message);
                     await tempHtmlFile.DeleteAsync();
                     isRecordSaved = false;
                 }
             }
-            else
+
+            catch (UnauthorizedAccessException ex)
             {
-                await tempHtmlFile.DeleteAsync();
-                isRecordSaved = false;
+                ContentDialog noFilesDialog = new ContentDialog
+                {
+                    Title = "Acesso não Autorizado",
+                    Content = "Acesso não Autorizado, Por Favor Tente de Novo.",
+                    CloseButtonText = "OK"
+                };
+
+                await noFilesDialog.ShowAsync();
             }
+
         }
     }
 }
