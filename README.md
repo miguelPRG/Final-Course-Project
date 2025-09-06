@@ -17,7 +17,7 @@ Este projeto consiste numa aplicação desktop para Windows desenvolvida em C# (
 
 ## Requisitos
 
-* Windows 10 ou superior
+* Windows 10 ou superior com o Modo de Programador ativado
 * .NET 6+ Runtime
 * Visual Studio 2022 (ou superior) para compilar o código-fonte
 * UWP instalado
