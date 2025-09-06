@@ -27,3 +27,5 @@ Este projeto consiste numa aplicação desktop para Windows desenvolvida em C# (
 1. Clone o repositório:
 ```bash
 git clone https://github.com/seu-usuario/projeto-final-csharp.git](https://github.com/miguelPRG/ProjetoFinalCurso
+```
+2. É imperativamente necessário a instalação da framework UWP pelo `Visual Studio Installer` para que o projeto funcione corretamente.
