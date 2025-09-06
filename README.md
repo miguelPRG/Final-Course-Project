@@ -26,4 +26,4 @@ Este projeto consiste numa aplicação desktop para Windows desenvolvida em C# (
 
 1. Clone o repositório:
 ```bash
-git clone [https://github.com/seu-usuario/projeto-final-csharp.git](https://github.com/miguelPRG/ProjetoFinalCurso]
+git clone https://github.com/seu-usuario/projeto-final-csharp.git](https://github.com/miguelPRG/ProjetoFinalCurso
