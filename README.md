@@ -1,5 +1,8 @@
 # Projeto Final de Curso – Analisador de Vulnerabilidades em C# (.NET UWP)
 
+![Uploading image.png…]()
+
+
 ## Descrição
 
 Este projeto consiste numa aplicação desktop para Windows desenvolvida em C# (.NET UWP) que tem como objetivo **analisar vulnerabilidades conhecidas em código C#**. A aplicação identifica padrões de código potencialmente inseguros, ajudando programadores a melhorar a segurança das suas aplicações.
