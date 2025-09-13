@@ -1,6 +1,6 @@
 # Projeto Final de Curso – Analisador de Vulnerabilidades em C# (.NET UWP)
 
-![Uploading image.png…]()
+![Tela principal do analisador](./image.png)
 
 
 ## Descrição
