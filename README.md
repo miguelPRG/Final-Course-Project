@@ -1,57 +1,57 @@
-# Projeto Final de Curso – Analisador de Vulnerabilidades em C# (.NET UWP)
+# Final Course Project – Vulnerability Analyzer in C# (.NET UWP)
 
-![Tela principal do analisador](./imagem.png)
+![Main screen of the analyzer](./imagem.png)
 
 
-## Descrição
+## Description
 
-Este projeto consiste numa aplicação desktop para Windows desenvolvida em C# (.NET UWP) que tem como objetivo **analisar vulnerabilidades conhecidas em código C#**. A aplicação identifica padrões de código potencialmente inseguros, ajudando programadores a melhorar a segurança das suas aplicações.
-
----
-
-## Funcionalidades
-
-* Scan automático de ficheiros e pastas contendo código C#.
-* Deteção de vulnerabilidades conhecidas (ex.: SQL Injection, XSS, uso de métodos obsoletos ou inseguros).
-* Geração de relatórios detalhados sobre os problemas encontrados.
-* Interface gráfica intuitiva e amigável baseada em UWP.
+This project is a desktop application for Windows developed in C# (.NET UWP) aimed at **analyzing known vulnerabilities in C# code**. The application identifies potentially insecure code patterns, helping developers improve the security of their applications.
 
 ---
 
-## Requisitos
+## Features
 
-* Windows 10 ou superior com o Modo de Programador ativado
+* Automatic scanning of files and folders containing C# code.
+* Detection of known vulnerabilities (e.g., SQL Injection, XSS, use of obsolete or insecure methods).
+* Generation of detailed reports about the issues found.
+* Intuitive and user-friendly graphical interface based on UWP.
+
+---
+
+## Requirements
+
+* Windows 10 or higher with Developer Mode enabled
 * .NET 6+ Runtime
-* Visual Studio 2022 (ou superior) para compilar o código-fonte
-* UWP instalado
-* Permissões de leitura nos diretórios a analisar
+* Visual Studio 2022 (or higher) to compile the source code
+* UWP installed
+* Read permissions for the directories to be analyzed
 
 ---
 
-## Instalação
+## Installation
 
-1. Clone o repositório:
+1. Clone the repository:
 
 ```bash
 git clone [https://github.com/seu-usuario/projeto-final-csharp.git](https://github.com/miguelPRG/ProjetoFinalCurso)
 ```
 
-2. Abra a solução `.sln` no Visual Studio.
+2. Open the `.sln` solution in Visual Studio.
 
-3. Compile e execute a aplicação.
-
----
-
-## Uso
-
-1. Execute a aplicação.
-2. Selecione a pasta ou ficheiro C# que deseja analisar.
-3. Clique em "Analisar".
-4. Consulte o relatório gerado com detalhes sobre as vulnerabilidades encontradas.
+3. Build and run the application.
 
 ---
 
-## Tecnologias Utilizadas
+## Usage
+
+1. Run the application.
+2. Select the folder or C# file you want to analyze.
+3. Click "Analyze".
+4. Check the generated report for details about the vulnerabilities found.
+
+---
+
+## Technologies Used
 
 * C#
 * .NET (UWP)
@@ -59,12 +59,12 @@ git clone [https://github.com/seu-usuario/projeto-final-csharp.git](https://gith
 
 ---
 
-## Contribuição
+## Contribution
 
-Contribuições são bem-vindas! Para sugerir melhorias ou reportar bugs, abra uma *issue* ou faça um *pull request*.
+Contributions are welcome! To suggest improvements or report bugs, open an *issue* or submit a *pull request*.
 
 ---
 
-## Licença
+## License
 
-Este projeto está licenciado sob a [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
